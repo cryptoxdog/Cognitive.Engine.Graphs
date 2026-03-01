@@ -8,7 +8,7 @@ Target Coverage: 90%+
 """
 
 import pytest
-from engine.compliance.audit import AuditLogger
+from engine.compliance.audit import AuditLogger, AuditAction, AuditSeverity, DEFAULT_RETENTION
 
 
 @pytest.mark.compliance
@@ -16,35 +16,111 @@ from engine.compliance.audit import AuditLogger
 class TestAuditLogging:
     """Test audit log generation."""
 
-    def test_match_request_logged(self):
-        """Match requests are logged with query details."""
-        logger = AuditLogger(enabled=True, log_match_requests=True)
+    def test_log_access(self) -> None:
+        """Access events are logged with correct structure."""
+        logger = AuditLogger()
 
-        query = {"borrowerid": "BRW_001", "creditscore": 720}
+        entry = logger.log_access(
+            actor="test_user",
+            tenant="plasticos",
+            resource="Facility:42",
+            resource_type="Facility",
+            trace_id="trace-123",
+        )
 
-        log_entry = logger.log_match_request(domain="mortgage-brokerage", query=query, user="test_user")
+        assert entry.action == AuditAction.ACCESS
+        assert entry.actor == "test_user"
+        assert entry.tenant == "plasticos"
+        assert entry.resource == "Facility:42"
+        assert entry.outcome == "success"
 
-        assert log_entry["event_type"] == "match_request"
-        assert log_entry["domain"] == "mortgage-brokerage"
-        assert log_entry["user"] == "test_user"
-        assert "query" in log_entry
+    def test_log_mutation(self) -> None:
+        """Mutation events are logged with payload hash."""
+        logger = AuditLogger()
 
-    def test_match_results_logged(self):
-        """Match results are logged with candidate IDs."""
-        logger = AuditLogger(enabled=True, log_match_results=True)
+        entry = logger.log_mutation(
+            actor="sync_service",
+            tenant="plasticos",
+            resource="MaterialProfile:7",
+            detail="Batch sync 150 entities",
+            payload_hash="abc123hash",
+            compliance_tags=["GDPR", "SOC2"],
+        )
 
-        results = [{"productid": "PROD_001", "score": 0.95}, {"productid": "PROD_002", "score": 0.87}]
+        assert entry.action == AuditAction.MUTATION
+        assert entry.detail == "Batch sync 150 entities"
+        assert entry.payload_hash == "abc123hash"
+        assert "GDPR" in entry.compliance_tags
 
-        log_entry = logger.log_match_results(domain="mortgage-brokerage", results=results, user="test_user")
+    def test_log_query(self) -> None:
+        """Query events are logged."""
+        logger = AuditLogger()
 
-        assert log_entry["event_type"] == "match_results"
-        assert log_entry["result_count"] == 2
-        assert "PROD_001" in str(log_entry)
+        entry = logger.log_query(
+            actor="api",
+            tenant="mortgage",
+            detail="match_strict 14 gates",
+            trace_id="trace-456",
+        )
 
-    def test_retention_enforcement(self):
-        """Audit logs enforce retention policy."""
-        logger = AuditLogger(enabled=True, retention_days=90)
+        assert entry.action == AuditAction.QUERY
+        assert entry.severity == AuditSeverity.INFO
 
-        # Logs older than 90 days should be purged
-        # (Integration test would verify actual deletion)
-        assert logger.retention_days == 90
+    def test_log_pii_erasure(self) -> None:
+        """PII erasure events are logged with CRITICAL severity."""
+        logger = AuditLogger()
+
+        entry = logger.log_pii_erasure(
+            actor="gdpr_service",
+            tenant="healthcare",
+            data_subject_id="user-123",
+            detail="Right-to-erasure request processed",
+        )
+
+        assert entry.action == AuditAction.PII_ERASURE
+        assert entry.severity == AuditSeverity.CRITICAL
+        assert entry.data_subject_id == "user-123"
+        assert "GDPR" in entry.compliance_tags
+
+    def test_pii_access_warning_severity(self) -> None:
+        """Access with PII fields triggers WARNING severity."""
+        logger = AuditLogger()
+
+        entry = logger.log_access(
+            actor="analyst",
+            tenant="healthcare",
+            resource="Patient:99",
+            pii_fields_accessed=["ssn", "dob"],
+        )
+
+        assert entry.severity == AuditSeverity.WARNING
+        assert "ssn" in entry.pii_fields_accessed
+
+    def test_retention_policy_lookup(self) -> None:
+        """Retention policies return correct days."""
+        logger = AuditLogger(retention_policies=DEFAULT_RETENTION)
+
+        # SOC2 = 2555 days (7 years)
+        assert logger.get_retention_days(["SOC2"]) == 2555
+
+        # HIPAA = 2190 days (6 years)
+        assert logger.get_retention_days(["HIPAA"]) == 2190
+
+        # Multiple tags = longest retention wins
+        assert logger.get_retention_days(["GDPR", "SOC2"]) == 2555
+
+        # No tags = default 365
+        assert logger.get_retention_days([]) == 365
+
+    def test_buffer_and_flush(self) -> None:
+        """Audit entries buffer and flush correctly."""
+        logger = AuditLogger(buffer_size=3)
+
+        logger.log_access(actor="u1", tenant="t1", resource="r1")
+        logger.log_access(actor="u2", tenant="t1", resource="r2")
+
+        assert logger.buffer_count == 2
+
+        entries = logger.flush()
+        assert len(entries) == 2
+        assert logger.buffer_count == 0

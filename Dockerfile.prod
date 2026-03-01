@@ -1,0 +1,37 @@
+# ============================================================================
+# L9 Engine — Multi-stage Production Dockerfile
+# ============================================================================
+
+FROM python:3.11-slim AS builder
+
+WORKDIR /build
+
+# Install build deps
+RUN pip install --no-cache-dir poetry &&     poetry config virtualenvs.create false
+
+COPY pyproject.toml poetry.lock* ./
+RUN poetry install --no-dev --no-interaction --no-ansi 2>/dev/null ||     pip install --no-cache-dir fastapi uvicorn neo4j pydantic pyyaml apscheduler redis
+
+COPY . .
+
+# --- Production ---
+FROM python:3.11-slim
+
+ARG L9_PROJECT=l9-engine
+ARG L9_ENV=prod
+
+WORKDIR /app
+
+# Copy installed packages + app code
+COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
+COPY --from=builder /usr/local/bin /usr/local/bin
+COPY --from=builder /build/engine ./engine
+COPY --from=builder /build/domains ./domains
+
+ENV L9_PROJECT=$L9_PROJECT     L9_ENV=$L9_ENV     API_PORT=8000     API_WORKERS=4     LOG_LEVEL=INFO     PYTHONUNBUFFERED=1
+
+EXPOSE 8000
+
+HEALTHCHECK --interval=30s --timeout=5s --retries=3   CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/v1/health')"
+
+CMD ["uvicorn", "engine.api.app:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "4"]

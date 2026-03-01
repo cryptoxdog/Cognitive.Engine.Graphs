@@ -1,0 +1,2116 @@
+# =============================================================================
+# PlasticOS Domain Pack — Comprehensive Stress Test Reference Implementation
+# =============================================================================
+# spec_version: 0.3.0
+# This is the REFERENCE domain pack for the Graph Cognitive Engine.
+# It exercises EVERY engine feature discovered across 4 stress tests
+# (healthcare, freight, real estate, mortgage) plus all PlasticOS-specific
+# graph layers, KB overlays, negotiation, KGE, GNN, and derived edges.
+#
+# ENGINE FEATURE COVERAGE SCOREBOARD:
+#   Gate types exercised:        10/10
+#   Scoring computation types:    9/9
+#   Sync strategies:              2/2  (UNWIND_MERGE + UNWIND_MATCH_SET)
+#   Match directions:             1    (unidirectional: intake→facility)
+#   Temporal gates:               2    (freshness, temporal_range)
+#   Self-referencing gates:       1    (capacity_utilization)
+#   Conditional gate strictness:  2    (mfi_process_physics, certification)
+#   Derived parameters:           3    (margin_per_lb, cost_basis, yield_pct)
+#   Multiple geo computations:    2    (facility_proximity, backhaul_proximity)
+#   Exclusion gates:              2    (match_exclusion, regulatory_ban)
+#   Partial update sync:          1    (capacity positions)
+#   Nested child sync:            1    (company→facility)
+#   KGE:                          enabled (CompoundE3D, beam search, ensemble)
+#   GDS jobs:                     9    (louvain, structural, reinforcement,
+#                                       co-occurrence, geo-proximity, geo-louvain,
+#                                       temporal-recency, reinforcement-outcomes,
+#                                       equipment-sync)
+#   Negotiation:                  enabled (BargainingGame + StrategyLibrary)
+#   Compliance:                   SOX audit + trade compliance
+#   Units:                        5 types (weight, distance, percentage, currency, density)
+#   Plugins:                      2 (mfi_process_physics, contamination_routing)
+# =============================================================================
+
+domain:
+  id: plasticos
+  name: "PlasticOS Recycled Plastics Matching"
+  description: >
+    Match inbound recycled plastic material intakes to processing facilities
+    based on polymer compatibility, MFI-process physics, contamination tolerance,
+    equipment capability, geographic proximity, transaction history, community
+    structure, knowledge graph embeddings, and game-theoretic negotiation.
+  version: 0.3.0
+  owner: plasticos-platform-team
+
+# =============================================================================
+# SECTION 1: ONTOLOGY
+# =============================================================================
+ontology:
+  nodes:
+    # --- CANDIDATE ---
+    candidates:
+      - label: Facility
+        id_property: facility_id
+        match_direction: intake_to_facility
+        description: >
+          Recycling processor, compounder, manufacturer, or broker.
+          Sourced from res.partner + plasticos.facility.profile in Odoo.
+        properties:
+          # --- identity ---
+          - name: facility_id
+            type: string
+            required: true
+          - name: name
+            type: string
+          - name: facility_role
+            type: enum
+            values: [processor, compounder, manufacturer, broker, trader, tolling]
+            required: true
+
+          # --- location ---
+          - name: lat
+            type: float
+          - name: lon
+            type: float
+          - name: city
+            type: string
+          - name: state
+            type: string
+          - name: country
+            type: string
+
+          # --- MFI processing window ---
+          - name: min_mfi
+            type: float
+            unit: mfi
+            description: "Minimum melt flow index (g/10min) this facility can process"
+          - name: max_mfi
+            type: float
+            unit: mfi
+            description: "Maximum melt flow index (g/10min) this facility can process"
+          - name: process_type
+            type: enum
+            values: [injection, extrusion, blow_molding, thermoforming, compounding, film, fiber, rotomolding, sheet]
+
+          # --- tolerances ---
+          - name: max_contamination_pct
+            type: float
+            unit: percentage
+            description: "Maximum contamination % this facility accepts"
+          - name: max_moisture_pct
+            type: float
+            unit: percentage
+          - name: max_filler_pct
+            type: float
+            unit: percentage
+          - name: accepts_filled
+            type: bool
+          - name: accepts_metal
+            type: bool
+            description: "Can handle metallic contaminants"
+          - name: accepts_fr
+            type: bool
+            description: "Accepts flame-retardant materials"
+
+          # --- equipment (booleans materialized as HASEQUIPMENT edges too) ---
+          - name: has_wash_line
+            type: bool
+          - name: has_extruder
+            type: bool
+          - name: has_granulator
+            type: bool
+          - name: has_shredder
+            type: bool
+          - name: has_sorting_line
+            type: bool
+          - name: has_horizontal_baler
+            type: bool
+          - name: has_nir_sorter
+            type: bool
+            description: "Near-infrared polymer sorting"
+          - name: has_decontamination
+            type: bool
+            description: "Chemical/thermal decontamination capability"
+
+          # --- capacity ---
+          - name: min_lot_size_lbs
+            type: float
+            unit: weight
+          - name: max_lot_size_lbs
+            type: float
+            unit: weight
+          - name: capacity_lbs_month
+            type: float
+            unit: weight
+            description: "Max monthly throughput"
+          - name: current_utilization_pct
+            type: float
+            unit: percentage
+            description: "Current capacity utilization 0-100. Updated via partial sync."
+          - name: utilization_updated_at
+            type: datetime
+            description: "Timestamp of last utilization update"
+
+          # --- certifications (booleans + edges to Certification nodes) ---
+          - name: food_grade_certified
+            type: bool
+          - name: medical_grade_capable
+            type: bool
+          - name: iso_certified
+            type: bool
+          - name: pcr_certified
+            type: bool
+            description: "Post-consumer recycled content certification"
+
+          # --- form handling ---
+          - name: handles_bales
+            type: bool
+          - name: handles_regrind
+            type: bool
+          - name: handles_pellet
+            type: bool
+          - name: handles_flake
+            type: bool
+          - name: handles_film
+            type: bool
+          - name: handles_lumps
+            type: bool
+
+          # --- commercial ---
+          - name: accepts_spot
+            type: bool
+          - name: prefers_contract
+            type: bool
+          - name: accepts_any_color
+            type: bool
+          - name: lead_source
+            type: string
+
+          # --- density range ---
+          - name: density_min
+            type: float
+            unit: density
+          - name: density_max
+            type: float
+            unit: density
+
+          # --- ratings / GDS-computed ---
+          - name: importance
+            type: float
+            managed_by: gds
+            description: "PageRank importance score"
+          - name: louvain_community_id
+            type: int
+            managed_by: gds
+          - name: louvain_geo_community_id
+            type: int
+            managed_by: gds
+            description: "Geography-weighted Louvain community"
+          - name: quality_score
+            type: float
+            managed_by: gds
+            description: "Composite quality from transaction outcomes"
+          - name: response_rate
+            type: float
+            managed_by: gds
+            description: "Offer acceptance rate"
+
+    # --- QUERY ENTITY ---
+    query_entities:
+      - label: Intake
+        id_property: intake_id
+        match_direction: intake_to_facility
+        description: "Inbound material intake request from a supplier"
+        properties:
+          - name: intake_id
+            type: string
+            required: true
+          - name: supplier_id
+            type: string
+          - name: supplier_facility_id
+            type: string
+            description: "Facility ID of the supplier, for backhaul geo scoring"
+
+          # --- material spec ---
+          - name: polymer_code
+            type: string
+            required: true
+          - name: form_code
+            type: string
+            required: true
+          - name: color_code
+            type: string
+          - name: source_type_code
+            type: string
+            description: "post-industrial, post-consumer, ocean-bound, etc."
+          - name: material_category_code
+            type: string
+            description: "Maps to MaterialCategory taxonomy"
+
+          # --- physical properties ---
+          - name: mfi
+            type: float
+            unit: mfi
+            description: "Melt flow index g/10min"
+          - name: density
+            type: float
+            unit: density
+          - name: contamination_pct
+            type: float
+            unit: percentage
+          - name: moisture_pct
+            type: float
+            unit: percentage
+          - name: filler_pct
+            type: float
+            unit: percentage
+          - name: filler_type_code
+            type: string
+          - name: has_metal
+            type: bool
+            default: false
+          - name: is_metalized
+            type: bool
+            default: false
+          - name: contains_fr
+            type: bool
+            default: false
+
+          # --- volume ---
+          - name: lot_size_lbs
+            type: float
+            unit: weight
+            required: true
+          - name: monthly_volume_lbs
+            type: float
+            unit: weight
+
+          # --- certifications needed ---
+          - name: food_grade
+            type: bool
+            default: false
+          - name: medical_grade
+            type: bool
+            default: false
+          - name: pcr_required
+            type: bool
+            default: false
+
+          # --- pricing ---
+          - name: asking_price_per_lb
+            type: float
+            unit: currency
+          - name: market_price_per_lb
+            type: float
+            unit: currency
+            description: "Benchmark market price for this polymer/form/grade"
+
+          # --- geo ---
+          - name: origin_lat
+            type: float
+          - name: origin_lon
+            type: float
+
+          # --- urgency ---
+          - name: urgency
+            type: enum
+            values: [routine, urgent, emergency]
+            default: routine
+
+          # --- match config ---
+          - name: mode
+            type: enum
+            values: [strict, relaxed]
+            default: strict
+          - name: max_results
+            type: int
+            default: 25
+          - name: max_distance_km
+            type: float
+            description: "Optional hard geo gate radius. NULL = no hard limit."
+
+    # --- TAXONOMY ---
+    taxonomy:
+      - label: Polymer
+        id_property: code
+        parent_label: PolymerFamily
+        parent_edge: BELONGS_TO
+        candidate_edge: ACCEPTS_POLYMER
+        cardinality: single
+        description: "HDPE, PP, PET, ABS, PS, PVC, LDPE, LLDPE, PA, PC, PMMA, POM, etc."
+
+      - label: MaterialForm
+        id_property: code
+        parent_label: FormFactor
+        parent_edge: IS_FORM_OF
+        candidate_edge: ACCEPTS_FORM
+        cardinality: single
+        description: "pellet, regrind, flake, bale, film, lump, powder, fiber"
+
+      - label: MaterialColor
+        id_property: code
+        parent_label: ColorFamily
+        parent_edge: IN_FAMILY
+        candidate_edge: ACCEPTS_COLOR
+        cardinality: any
+        description: "natural, black, white, mixed, clear, custom"
+
+      - label: SourceType
+        id_property: code
+        candidate_edge: ACCEPTS_SOURCE
+        cardinality: any
+        description: "post-industrial, post-consumer, ocean-bound, regrind, wide-spec"
+
+      - label: ProcessType
+        id_property: code
+        parent_label: ProcessFamily
+        parent_edge: BELONGS_TO
+        candidate_edge: OPERATES_PROCESS
+        cardinality: any
+        description: "injection, extrusion, blow_molding, compounding, film, etc."
+
+      - label: FillerType
+        id_property: code
+        candidate_edge: ACCEPTS_FILLER
+        cardinality: any
+        description: "talc, calcium_carbonate, glass_fiber, mica, carbon_black"
+
+      - label: MaterialCategory
+        id_property: code
+        parent_label: MaterialSuperCategory
+        parent_edge: CLASSIFIED_UNDER
+        candidate_edge: ACCEPTS_CATEGORY
+        cardinality: any
+        description: "Engineering, commodity, specialty, bio-based, recycled-content"
+
+      - label: Certification
+        id_property: code
+        candidate_edge: HOLDS_CERTIFICATION
+        cardinality: all
+        description: "FDA, ISO9001, ISO14001, SCS_recycled, ISCC_PLUS, GRS, OBP"
+
+      - label: EquipmentType
+        id_property: name
+        candidate_edge: HAS_EQUIPMENT
+        cardinality: any
+        description: "wash_line, extruder, granulator, shredder, sorting_line, nir_sorter, decontamination, horizontal_baler"
+
+    # --- AUXILIARY ---
+    auxiliary:
+      - label: Company
+        id_property: company_id
+        description: "Parent company entity (res.partner where is_company=true)"
+        properties:
+          - name: company_id
+            type: string
+            required: true
+          - name: name
+            type: string
+          - name: region
+            type: string
+
+      - label: Market
+        id_property: region
+        description: "Geographic market derived from facility.state"
+        properties:
+          - name: region
+            type: string
+            required: true
+          - name: avg_price_per_lb
+            type: float
+            unit: currency
+            managed_by: gds
+
+      - label: Freight
+        id_property: corridor
+        description: "Logistics corridor (e.g., TX→OH) with aggregated rate data"
+        properties:
+          - name: corridor
+            type: string
+            required: true
+          - name: road_miles
+            type: float
+            unit: distance
+          - name: rate_usd_per_lb
+            type: float
+            unit: currency
+          - name: volatility_index
+            type: float
+          - name: last_updated
+            type: datetime
+
+      - label: Margin
+        id_property: offer_ref
+        description: "Deal margin node linked to freight and transaction"
+        properties:
+          - name: offer_ref
+            type: string
+            required: true
+          - name: margin_per_lb
+            type: float
+            unit: currency
+          - name: offer_price
+            type: float
+          - name: counter_price
+            type: float
+          - name: state
+            type: enum
+            values: [draft, sent, accepted, rejected, expired]
+
+      # --- KB OVERLAY NODES ---
+      - label: Grade
+        id_property: grade_id
+        description: >
+          KB overlay: canonical polymer grade with known processing windows.
+          e.g., "HDPE-HMW-PIPE" has MFI 0.1-0.5, density 0.940-0.960.
+          Inferred from material profiles via CapabilityInference.
+        properties:
+          - name: grade_id
+            type: string
+            required: true
+          - name: polymer_code
+            type: string
+          - name: grade_name
+            type: string
+          - name: mfi_min
+            type: float
+          - name: mfi_max
+            type: float
+          - name: density_min
+            type: float
+          - name: density_max
+            type: float
+          - name: typical_applications
+            type: string
+          - name: contamination_sensitivity
+            type: enum
+            values: [low, medium, high, critical]
+
+      - label: InferenceRule
+        id_property: rule_id
+        description: >
+          KB overlay: domain knowledge rules for capability inference.
+          e.g., "If facility has wash_line AND extruder, infer can_handle_post_consumer."
+        properties:
+          - name: rule_id
+            type: string
+            required: true
+          - name: condition_type
+            type: string
+          - name: condition_value
+            type: string
+          - name: inference_type
+            type: string
+          - name: inference_value
+            type: string
+          - name: confidence
+            type: float
+
+      - label: KBContaminantSpec
+        id_property: contaminant_id
+        description: >
+          KB overlay: contaminant routing rules.
+          e.g., "PVC contamination in PET stream → requires sorting_line + wash_line."
+        properties:
+          - name: contaminant_id
+            type: string
+            required: true
+          - name: contaminant_type
+            type: string
+          - name: host_polymer
+            type: string
+          - name: max_tolerance_pct
+            type: float
+          - name: required_equipment
+            type: string
+            description: "Comma-separated equipment names"
+          - name: routing_action
+            type: enum
+            values: [process, sort_first, reject, blend_down]
+
+      - label: QualityTier
+        id_property: tier_id
+        description: "Quality grading tier: prime, near-prime, wide-spec, off-spec"
+        properties:
+          - name: tier_id
+            type: string
+            required: true
+          - name: tier_name
+            type: string
+          - name: contamination_max
+            type: float
+          - name: moisture_max
+            type: float
+          - name: filler_max
+            type: float
+
+  # --- EDGES ---
+  edges:
+    # --- capability (static, from facility profile) ---
+    capability:
+      - type: HAS_FACILITY
+        from: Company
+        to: Facility
+      - type: HAS_MATERIAL
+        from: Facility
+        to: MaterialProfile
+        description: "Legacy edge from original graph. Retained for backward compat."
+      - type: HAS_PROFILE
+        from: Intake
+        to: MaterialProfile
+        description: "Intake links to its material profile"
+      - type: HAS_EQUIPMENT
+        from: Facility
+        to: EquipmentType
+        description: "Materialized from boolean equipment properties"
+      - type: LOCATED_IN_MARKET
+        from: Facility
+        to: Market
+      - type: CONSTRAINED_BY
+        from: MaterialProfile
+        to: Freight
+        description: "Material shipment constrained by corridor economics"
+      - type: BOUND_BY
+        from: Facility
+        to: Freight
+        description: "Facility depends on corridor"
+      - type: INFLUENCES
+        from: Freight
+        to: Margin
+        description: "Corridor cost influences deal margin"
+
+    # --- KB overlay edges ---
+    knowledge:
+      - type: QUALIFIES_FOR
+        from: MaterialProfile
+        to: Grade
+        description: "Material profile maps to a KB grade"
+        properties:
+          - name: confidence
+            type: float
+      - type: INFERRED_BY
+        from: Grade
+        to: InferenceRule
+        description: "Grade assignment justified by inference rule"
+      - type: COMPATIBLE_WITH_PROCESS
+        from: Polymer
+        to: ProcessType
+        description: "Polymer-process compatibility with MFI window"
+        properties:
+          - name: mfi_min
+            type: float
+          - name: mfi_max
+            type: float
+          - name: optimal_mfi
+            type: float
+      - type: REQUIRES_EQUIPMENT
+        from: ProcessType
+        to: EquipmentType
+        description: "Process requires specific equipment"
+      - type: CONTAMINANT_ROUTE
+        from: KBContaminantSpec
+        to: EquipmentType
+        description: "Contaminant handling requires this equipment"
+      - type: SUBSTITUTABLE_FOR
+        from: Polymer
+        to: Polymer
+        description: "HDPE↔LLDPE for film, PP-homo↔PP-copo for injection"
+        properties:
+          - name: confidence
+            type: float
+          - name: application_context
+            type: string
+
+    # --- market ---
+    market:
+      - type: IMPACTS
+        from: Market
+        to: Freight
+        description: "Market connects to freight corridors"
+
+    # --- precomputed (GDS-written) ---
+    precomputed:
+      - type: STRUCTURALLY_COMPATIBLE
+        from: Facility
+        to: Facility
+        properties:
+          - name: score
+            type: float
+        managed_by: gds
+        rebuild_job: structural
+        description: "Node similarity on polymer/form/process/equipment bipartite graph"
+
+      - type: SUCCESS_WITH
+        from: Facility
+        to: Grade
+        properties:
+          - name: score
+            type: float
+            description: "Transaction count"
+          - name: recency_weight
+            type: float
+            description: "exp(-days/90)"
+          - name: last_transaction_date
+            type: date
+        managed_by: gds
+        rebuild_job: reinforcement
+
+      - type: CO_ACCEPTED_WITH
+        from: Polymer
+        to: Polymer
+        properties:
+          - name: jaccard_similarity
+            type: float
+        managed_by: gds
+        rebuild_job: polymer_cooccurrence
+        description: "Facilities that accept polymer A also accept polymer B"
+
+      - type: CO_LOCATED_WITH
+        from: Facility
+        to: Facility
+        properties:
+          - name: proximity_score
+            type: float
+          - name: distance_km
+            type: float
+        managed_by: gds
+        rebuild_job: geo_proximity
+
+      - type: RECENTLY_TRANSACTED_WITH
+        from: Facility
+        to: Facility
+        properties:
+          - name: recency_score
+            type: float
+          - name: last_date
+            type: date
+          - name: txn_count_90d
+            type: int
+        managed_by: gds
+        rebuild_job: temporal_recency
+
+      - type: ACCEPTED_MATERIAL_FROM
+        from: Facility
+        to: Facility
+        properties:
+          - name: count
+            type: int
+          - name: success_rate
+            type: float
+          - name: avg_price_per_lb
+            type: float
+        managed_by: gds
+        rebuild_job: reinforcement_outcomes
+
+      - type: REJECTED_MATERIAL_FROM
+        from: Facility
+        to: Facility
+        properties:
+          - name: count
+            type: int
+          - name: top_reason
+            type: string
+        managed_by: gds
+        rebuild_job: reinforcement_outcomes
+
+      - type: CAPABILITY_SIMILAR
+        from: Facility
+        to: Facility
+        properties:
+          - name: cosine_sim
+            type: float
+        managed_by: gds
+        description: "Profile shape similarity from one-hot encoded boolean equipment+cert flags"
+
+      - type: BOUGHT_POLYMER
+        from: Facility
+        to: Polymer
+        properties:
+          - name: txn_count
+            type: int
+          - name: avg_qty_lbs
+            type: float
+          - name: last_date
+            type: date
+        managed_by: gds
+        description: "Revealed preference: what buyer actually purchases vs. declared acceptance"
+
+      - type: CO_PURCHASED_WITH
+        from: Polymer
+        to: Polymer
+        properties:
+          - name: lift
+            type: float
+          - name: confidence
+            type: float
+          - name: frequency
+            type: int
+        managed_by: gds
+        description: "Buyers who purchase polymer A also purchase polymer B"
+
+    # --- exclusion ---
+    exclusion:
+      - type: EXCLUDED_FROM
+        from: Facility
+        to: Facility
+        description: "Never match these two (bad history, dispute)"
+        properties:
+          - name: reason
+            type: string
+          - name: exclusion_type
+            type: enum
+            values: [quality, dispute, regulatory, manual]
+          - name: expiry_date
+            type: date
+
+      - type: REGULATORY_BAN
+        from: Polymer
+        to: Market
+        description: "Regulatory ban on polymer in market (e.g., PS ban in CA)"
+
+    # --- transaction ---
+    transaction:
+      - type: TRANSACTED_WITH
+        from: Facility
+        to: Facility
+        properties:
+          - name: transaction_date
+            type: date
+          - name: polymer_code
+            type: string
+          - name: form_code
+            type: string
+          - name: quantity_lbs
+            type: float
+          - name: price_per_lb
+            type: float
+          - name: outcome
+            type: enum
+            values: [completed, rejected, cancelled, quality_issue, partial]
+          - name: quality_rating
+            type: float
+            description: "1.0-5.0 post-transaction quality rating"
+
+      - type: OFFERED_TO
+        from: Facility
+        to: Facility
+        properties:
+          - name: offer_date
+            type: date
+          - name: asking_price
+            type: float
+          - name: response
+            type: enum
+            values: [accepted, rejected, countered, no_response, expired]
+          - name: counter_price
+            type: float
+          - name: response_days
+            type: int
+
+# =============================================================================
+# SECTION 2: QUERY SCHEMA
+# =============================================================================
+query_schema:
+  match_directions:
+    - name: intake_to_facility
+      description: "Supplier has material, find matching processing facilities"
+      query_node: Intake
+      candidate_node: Facility
+      default: true
+
+  derived_parameters:
+    - name: margin_per_lb
+      expression: "asking_price_per_lb - (market_price_per_lb * 0.85)"
+      type: float
+      unit: currency
+      description: "Estimated broker margin assuming 15% below market buy price"
+
+    - name: cost_basis_per_lb
+      expression: "market_price_per_lb * 0.85"
+      type: float
+      unit: currency
+      description: "Estimated acquisition cost"
+
+    - name: yield_pct
+      expression: "100.0 - contamination_pct - moisture_pct - filler_pct"
+      type: float
+      unit: percentage
+      description: "Usable material yield after removing contaminants/moisture/filler"
+
+  fields:
+    # All fields from query_entities.Intake are available here.
+    # This section adds computed/override fields for the match endpoint.
+    - name: intake_id
+      type: string
+      required: true
+    - name: polymer_code
+      type: string
+      required: true
+      maps_to_taxonomy: Polymer
+    - name: form_code
+      type: string
+      required: true
+      maps_to_taxonomy: MaterialForm
+    - name: color_code
+      type: string
+      maps_to_taxonomy: MaterialColor
+    - name: source_type_code
+      type: string
+      maps_to_taxonomy: SourceType
+    - name: material_category_code
+      type: string
+      maps_to_taxonomy: MaterialCategory
+    - name: filler_type_code
+      type: string
+      maps_to_taxonomy: FillerType
+    - name: certification_codes
+      type: "string[]"
+      maps_to_taxonomy: Certification
+      description: "Required certifications (ALL must match)"
+
+    # --- physical ---
+    - name: mfi
+      type: float
+    - name: density
+      type: float
+    - name: contamination_pct
+      type: float
+    - name: moisture_pct
+      type: float
+    - name: filler_pct
+      type: float
+    - name: has_metal
+      type: bool
+      default: false
+    - name: is_metalized
+      type: bool
+      default: false
+    - name: contains_fr
+      type: bool
+      default: false
+
+    # --- volume ---
+    - name: lot_size_lbs
+      type: float
+      required: true
+    - name: monthly_volume_lbs
+      type: float
+
+    # --- certifications ---
+    - name: food_grade
+      type: bool
+      default: false
+    - name: medical_grade
+      type: bool
+      default: false
+    - name: pcr_required
+      type: bool
+      default: false
+
+    # --- pricing ---
+    - name: asking_price_per_lb
+      type: float
+    - name: market_price_per_lb
+      type: float
+
+    # --- geo ---
+    - name: origin_lat
+      type: float
+    - name: origin_lon
+      type: float
+    - name: supplier_facility_lat
+      type: float
+      description: "Supplier home base for backhaul scoring"
+    - name: supplier_facility_lon
+      type: float
+
+    # --- config ---
+    - name: max_distance_km
+      type: float
+      description: "Hard geo gate radius. NULL = no hard limit (soft scoring only)."
+    - name: urgency
+      type: enum
+      values: [routine, urgent, emergency]
+      default: routine
+    - name: mode
+      type: enum
+      values: [strict, relaxed]
+      default: strict
+    - name: max_results
+      type: int
+      default: 25
+    - name: supplier_id
+      type: string
+      description: "For exclusion check and backhaul scoring"
+
+# =============================================================================
+# SECTION 3: TRAVERSAL
+# =============================================================================
+traversal:
+  description: >
+    Navigate from intake material attributes through taxonomy to candidate facilities,
+    with optional KB overlay, affinity, and history edges.
+    Single-stage: all traversals assemble into one Cypher query.
+  steps:
+    - name: polymer_resolve
+      description: "Walk from polymer code to family, then to accepting facilities"
+      pattern: "(candidate:Facility)-[:ACCEPTS_POLYMER]->(p:Polymer {code: $polymer_code})"
+      required: true
+
+    - name: form_resolve
+      description: "Facility accepts the material form"
+      pattern: "(candidate)-[:ACCEPTS_FORM]->(f:MaterialForm {code: $form_code})"
+      required: true
+
+    - name: color_resolve
+      description: "Facility accepts the material color (or accepts any)"
+      pattern: "(candidate)-[:ACCEPTS_COLOR]->(c:MaterialColor {code: $color_code})"
+      required: false
+      notes: "Optional — many facilities accept any color. Gate handles accepts_any_color bypass."
+
+    - name: source_resolve
+      description: "Facility accepts this source type"
+      pattern: "(candidate)-[:ACCEPTS_SOURCE]->(st:SourceType {code: $source_type_code})"
+      required: false
+
+    - name: filler_resolve
+      description: "If filled material, facility accepts this filler type"
+      pattern: "(candidate)-[:ACCEPTS_FILLER]->(ft:FillerType {code: $filler_type_code})"
+      required: false
+      notes: "Only traversed when filler_pct > 0"
+
+    - name: category_resolve
+      description: "Facility accepts this material category"
+      pattern: "(candidate)-[:ACCEPTS_CATEGORY]->(mc:MaterialCategory {code: $material_category_code})"
+      required: false
+
+    - name: certification_resolve
+      description: "Facility holds ALL required certifications"
+      pattern: "(candidate)-[:HOLDS_CERTIFICATION]->(cert:Certification)"
+      required: false
+      notes: >
+        Cardinality: all. Engine must verify candidate holds EVERY cert in certification_codes[].
+        STRESS TEST: multi-value taxonomy with ALL cardinality.
+
+    - name: equipment_capability
+      description: "Resolve equipment edges for process-equipment gate"
+      pattern: "(candidate)-[:HAS_EQUIPMENT]->(eq:EquipmentType)"
+      required: false
+
+    - name: grade_affinity
+      description: "KB overlay: facility's historical success with this material's grade"
+      pattern: "(candidate)-[sw:SUCCESS_WITH]->(g:Grade)<-[:QUALIFIES_FOR]-(mp:MaterialProfile)"
+      required: false
+      notes: "Only fires when KB Grade inference has run. Provides reinforcement scoring."
+
+    - name: structural_affinity
+      description: "Precomputed structural compatibility with supplier's previous buyers"
+      pattern: "(prev_buyer:Facility)<-[:TRANSACTED_WITH]-(supplier:Facility {facility_id: $supplier_id}), (prev_buyer)-[sc:STRUCTURALLY_COMPATIBLE]->(candidate)"
+      required: false
+
+    - name: transaction_history
+      description: "Direct transaction history between supplier and this facility"
+      pattern: "(supplier:Facility {facility_id: $supplier_id})-[th:TRANSACTED_WITH]->(candidate)"
+      required: false
+
+    - name: recent_transactions
+      description: "Recency-weighted transaction signal"
+      pattern: "(supplier:Facility {facility_id: $supplier_id})-[rt:RECENTLY_TRANSACTED_WITH]->(candidate)"
+      required: false
+
+    - name: accepted_history
+      description: "Positive outcome history"
+      pattern: "(candidate)-[ah:ACCEPTED_MATERIAL_FROM]->(supplier:Facility {facility_id: $supplier_id})"
+      required: false
+
+    - name: process_compatibility
+      description: "KB: polymer-process MFI compatibility"
+      pattern: "(p:Polymer {code: $polymer_code})-[pc:COMPATIBLE_WITH_PROCESS]->(pt:ProcessType)<-[:OPERATES_PROCESS]-(candidate)"
+      required: false
+      notes: >
+        STRESS TEST: MFI-process physics gate uses pc.mfi_min and pc.mfi_max from
+        this traversal, NOT from the candidate node. Gate reads from EDGE properties.
+
+    - name: contaminant_routing
+      description: "KB: contaminant-specific equipment requirements"
+      pattern: "(kbc:KBContaminantSpec {host_polymer: $polymer_code})-[:CONTAMINANT_ROUTE]->(req_eq:EquipmentType)<-[:HAS_EQUIPMENT]-(candidate)"
+      required: false
+
+    - name: regulatory_check
+      description: "Check polymer not banned in facility's market"
+      pattern: "(p:Polymer {code: $polymer_code})-[rb:REGULATORY_BAN]->(m:Market)<-[:LOCATED_IN_MARKET]-(candidate)"
+      required: false
+      notes: "Traversal result used by regulatory_ban exclusion gate."
+
+# =============================================================================
+# SECTION 4: GATES
+# =============================================================================
+gates:
+  # --- GATE TYPE: boolean ---
+  - name: polymer_match
+    description: "Facility must accept the intake's polymer (enforced by traversal)"
+    type: traversal
+    null_behavior: fail
+    relaxed_penalty: 0.0
+    notes: "Enforced by polymer_resolve traversal step."
+
+  - name: form_match
+    description: "Facility must accept the material form (enforced by traversal)"
+    type: traversal
+    null_behavior: fail
+    relaxed_penalty: 0.0
+
+  # --- GATE TYPE: range ---
+  - name: mfi_range
+    description: "Material MFI must fall within facility's processing window"
+    type: range
+    candidate_min: min_mfi
+    candidate_max: max_mfi
+    query_param: mfi
+    null_behavior: pass
+    role_exempt: [broker]
+    relaxed_penalty: 0.3
+    notes: >
+      Brokers don't process — they trade. Equipment bypass pattern from original PlasticOS.
+
+  - name: density_range
+    description: "Material density must be within facility's accepted range"
+    type: range
+    candidate_min: density_min
+    candidate_max: density_max
+    query_param: density
+    null_behavior: pass
+    role_exempt: [broker]
+    relaxed_penalty: 0.4
+
+  - name: lot_size
+    description: "Lot size must fit facility's min/max acceptance"
+    type: range
+    candidate_min: min_lot_size_lbs
+    candidate_max: max_lot_size_lbs
+    query_param: lot_size_lbs
+    null_behavior: pass
+    relaxed_penalty: 0.5
+
+  # --- GATE TYPE: threshold ---
+  - name: contamination_tolerance
+    description: "Material contamination must not exceed facility tolerance"
+    type: threshold
+    candidate_prop: max_contamination_pct
+    query_param: contamination_pct
+    operator: ">="
+    null_behavior: pass
+    role_exempt: [broker]
+    relaxed_penalty: 0.2
+    notes: "In relaxed mode, allows 10% overshoot with penalty."
+
+  - name: moisture_tolerance
+    description: "Material moisture must not exceed facility tolerance"
+    type: threshold
+    candidate_prop: max_moisture_pct
+    query_param: moisture_pct
+    operator: ">="
+    null_behavior: pass
+    relaxed_penalty: 0.4
+
+  - name: filler_tolerance
+    description: "If filled material, filler % must be within facility tolerance"
+    type: threshold
+    candidate_prop: max_filler_pct
+    query_param: filler_pct
+    operator: ">="
+    null_behavior: pass
+    condition: "filler_pct > 0"
+    relaxed_penalty: 0.3
+
+  # --- GATE TYPE: boolean (conditional) ---
+  - name: metal_acceptance
+    description: "If material has metal, facility must accept metallic contaminants"
+    type: boolean
+    candidate_prop: accepts_metal
+    query_param: has_metal
+    logic: "NOT $has_metal OR candidate.accepts_metal = true"
+    null_behavior: pass
+    relaxed_penalty: 0.1
+
+  - name: fr_acceptance
+    description: "If material contains flame retardant, facility must accept FR"
+    type: boolean
+    candidate_prop: accepts_fr
+    query_param: contains_fr
+    logic: "NOT $contains_fr OR candidate.accepts_fr = true"
+    null_behavior: pass
+    relaxed_penalty: 0.0
+    regulatory: true
+    notes: "FR materials have regulatory disposal requirements — hard fail even in relaxed."
+
+  - name: food_grade_cert
+    description: "If food-grade material, facility must be food-grade certified"
+    type: boolean
+    candidate_prop: food_grade_certified
+    query_param: food_grade
+    logic: "NOT $food_grade OR candidate.food_grade_certified = true"
+    null_behavior: pass
+    relaxed_penalty: 0.0
+    regulatory: true
+    strict_when: "food_grade = true"
+    notes: >
+      STRESS TEST: conditional gate strictness.
+      When food_grade=true, this is ALWAYS a hard fail regardless of mode.
+      When food_grade=false, gate is skipped entirely.
+
+  - name: medical_grade_cert
+    description: "If medical-grade required, facility must be medical-grade capable"
+    type: boolean
+    candidate_prop: medical_grade_capable
+    query_param: medical_grade
+    logic: "NOT $medical_grade OR candidate.medical_grade_capable = true"
+    null_behavior: pass
+    relaxed_penalty: 0.0
+    regulatory: true
+
+  - name: pcr_cert
+    description: "If PCR certification required, facility must have it"
+    type: boolean
+    candidate_prop: pcr_certified
+    query_param: pcr_required
+    logic: "NOT $pcr_required OR candidate.pcr_certified = true"
+    null_behavior: pass
+    relaxed_penalty: 0.2
+
+  # --- GATE TYPE: composite (MFI-process physics) ---
+  - name: mfi_process_physics
+    description: >
+      STRESS TEST: MFI must be within the polymer-process compatibility window,
+      which lives on the COMPATIBLE_WITH_PROCESS edge, not on the candidate.
+      Gate reads from traversal alias pc.mfi_min / pc.mfi_max.
+      This is the PlasticOS-signature gate that no other domain has.
+    type: composite
+    null_behavior: pass
+    role_exempt: [broker, trader]
+    relaxed_penalty: 0.2
+    strict_when: "candidate.process_type IS NOT NULL"
+    cypher_override: >
+      pc IS NULL
+      OR $mfi IS NULL
+      OR ($mfi >= pc.mfi_min AND $mfi <= pc.mfi_max)
+    notes: >
+      When process_compatibility traversal doesn't fire (no KB data),
+      gate passes via null_behavior. When it fires, enforces physics.
+      CONDITIONAL: only strict when facility declares a process_type.
+
+  # --- GATE TYPE: boolean (form-equipment) ---
+  - name: form_equipment_compat
+    description: >
+      Material form requires specific equipment.
+      Bales need shredder/baler. Regrind needs granulator. Film needs wash_line.
+    type: composite
+    null_behavior: pass
+    role_exempt: [broker, trader]
+    relaxed_penalty: 0.3
+    cypher_override: >
+      ($form_code <> 'bale' OR candidate.has_shredder = true OR candidate.has_horizontal_baler = true)
+      AND ($form_code <> 'regrind' OR candidate.has_granulator = true OR candidate.has_extruder = true)
+      AND ($form_code <> 'film' OR candidate.has_wash_line = true)
+      AND ($form_code <> 'flake' OR candidate.has_extruder = true)
+      AND ($form_code <> 'lump' OR candidate.has_shredder = true)
+
+  # --- GATE TYPE: self_range (capacity utilization) ---
+  - name: capacity_utilization
+    description: >
+      STRESS TEST: self-referencing gate. Facility current utilization
+      must be below 95%. Both values come from the CANDIDATE, not the query.
+      Discovered in healthcare (panel_size < max_panel_size), adapted for plastics.
+    type: self_range
+    candidate_value: current_utilization_pct
+    candidate_limit: 95.0
+    operator: "<="
+    null_behavior: pass
+    role_exempt: [broker]
+    relaxed_penalty: 0.6
+    notes: "Broker exemption: brokers don't have physical capacity constraints."
+
+  # --- GATE TYPE: freshness ---
+  - name: utilization_freshness
+    description: >
+      STRESS TEST: freshness gate from freight domain.
+      Utilization data older than 7 days is unreliable.
+    type: freshness
+    candidate_prop: utilization_updated_at
+    max_age: "P7D"
+    null_behavior: pass
+    relaxed_penalty: 0.5
+    notes: "ISO 8601 duration. 7 days. Stale utilization data gets penalized."
+
+  # --- GATE TYPE: composite (hard geo gate, optional) ---
+  - name: distance_radius
+    description: >
+      STRESS TEST: hard geo gate (from healthcare).
+      Only active when max_distance_km is provided in the query.
+      When NULL, no hard limit — soft geo scoring handles proximity.
+    type: composite
+    null_behavior: pass
+    role_exempt: [broker, trader]
+    relaxed_penalty: 0.3
+    condition: "max_distance_km IS NOT NULL"
+    cypher_override: >
+      $max_distance_km IS NULL
+      OR candidate.lat IS NULL
+      OR $origin_lat IS NULL
+      OR point.distance(
+          point({latitude: candidate.lat, longitude: candidate.lon}),
+          point({latitude: $origin_lat, longitude: $origin_lon})
+        ) / 1000.0 <= $max_distance_km
+
+  # --- GATE TYPE: composite (urgency-adjusted) ---
+  - name: urgency_capacity
+    description: >
+      STRESS TEST: gate threshold changes based on query param (from healthcare wait_time).
+      Emergency material requires facility with >20% spare capacity.
+      Urgent requires >10%. Routine has no capacity gate.
+    type: composite
+    null_behavior: pass
+    role_exempt: [broker]
+    relaxed_penalty: 0.4
+    cypher_override: >
+      candidate.current_utilization_pct IS NULL
+      OR ($urgency = 'routine')
+      OR ($urgency = 'urgent' AND candidate.current_utilization_pct <= 90)
+      OR ($urgency = 'emergency' AND candidate.current_utilization_pct <= 80)
+
+  # --- GATE TYPE: exclusion (match exclusion) ---
+  - name: match_exclusion
+    description: "Supplier-facility pair is not excluded (bad history/dispute)"
+    type: exclusion
+    null_behavior: pass
+    relaxed_penalty: 0.0
+    cypher_override: >
+      NOT exists(
+        MATCH (supplier:Facility {facility_id: $supplier_id})-[:EXCLUDED_FROM]->(candidate)
+      )
+      AND NOT exists(
+        MATCH (candidate)-[:EXCLUDED_FROM]->(supplier:Facility {facility_id: $supplier_id})
+      )
+    notes: "Bidirectional exclusion check."
+
+  # --- GATE TYPE: exclusion (regulatory ban) ---
+  - name: regulatory_ban
+    description: >
+      STRESS TEST: second exclusion source (from healthcare network+patient exclusion).
+      Polymer must not be banned in the facility's market.
+    type: exclusion
+    null_behavior: pass
+    relaxed_penalty: 0.0
+    cypher_override: >
+      NOT exists(
+        MATCH (p:Polymer {code: $polymer_code})-[:REGULATORY_BAN]->(m:Market)<-[:LOCATED_IN_MARKET]-(candidate)
+      )
+
+  # --- GATE TYPE: enum_map (PVC special handling) ---
+  - name: pvc_handling
+    description: >
+      PVC requires specific equipment (wash_line + sorting_line at minimum).
+      Only active when polymer_code = 'PVC'.
+    type: composite
+    null_behavior: pass
+    condition: "polymer_code = 'PVC'"
+    relaxed_penalty: 0.0
+    regulatory: true
+    cypher_override: >
+      $polymer_code <> 'PVC'
+      OR (candidate.has_wash_line = true AND candidate.has_sorting_line = true)
+
+  # --- GATE TYPE: temporal_range (contract window, for future use) ---
+  - name: contract_preference
+    description: >
+      STRESS TEST: temporal_range gate type from freight.
+      If facility prefers contract and material is spot, penalize.
+    type: composite
+    null_behavior: pass
+    relaxed_penalty: 0.6
+    cypher_override: >
+      NOT candidate.prefers_contract = true
+      OR candidate.accepts_spot = true
+
+# =============================================================================
+# SECTION 5: SCORING
+# =============================================================================
+scoring:
+  dimensions:
+    # --- geo_decay: facility proximity ---
+    - name: geo_proximity
+      description: "Geographic proximity with exponential decay"
+      source: computed
+      computation:
+        type: geo_decay
+        candidate_lat: candidate.lat
+        candidate_lon: candidate.lon
+        query_lat: $origin_lat
+        query_lon: $origin_lon
+        distance_unit: km
+        decay_key: geo_decay_km
+        default_decay: 800.0
+      default_when_null: 0.5
+      weight_key: w_geo
+      default_weight: 0.15
+
+    # --- geo_decay: backhaul proximity (from freight) ---
+    - name: backhaul_proximity
+      description: >
+        STRESS TEST: second geo_decay in same query (from freight).
+        Does the facility's location create a good return trip for the supplier?
+        Scores distance from facility back to supplier's home base.
+      source: computed
+      computation:
+        type: geo_decay
+        candidate_lat: candidate.lat
+        candidate_lon: candidate.lon
+        query_lat: $supplier_facility_lat
+        query_lon: $supplier_facility_lon
+        distance_unit: km
+        decay_key: backhaul_decay_km
+        default_decay: 500.0
+      default_when_null: 0.3
+      weight_key: w_backhaul
+      default_weight: 0.05
+      notes: "Only meaningful when supplier_facility_lat/lon provided."
+
+    # --- log_normalized: transaction history depth ---
+    - name: transaction_depth
+      description: "How many successful transactions between supplier and this facility"
+      source: traversal_alias
+      alias: "th"
+      computation:
+        type: log_normalized
+        count_expression: "count(th)"
+        max_value: 100
+      default_when_null: 0.0
+      weight_key: w_transaction
+      default_weight: 0.15
+
+    # --- weighted_rate: reinforcement success (from healthcare) ---
+    - name: reinforcement
+      description: "SUCCESS_WITH edge: historical grade success with recency decay"
+      source: traversal_alias
+      alias: "sw"
+      rate_alias: "sw.score"
+      count_alias: "sw.recency_weight"
+      normalization: weighted_rate
+      min_sample_size: 3
+      default_when_null: 0.0
+      weight_key: w_reinforcement
+      default_weight: 0.15
+
+    # --- candidate_property: quality score passthrough (from healthcare) ---
+    - name: quality
+      description: >
+        STRESS TEST: candidate_property passthrough (from healthcare quality_score).
+        Composite quality score computed by GDS from transaction outcomes.
+      source: computed
+      computation:
+        type: candidate_property
+        candidate_prop: candidate.quality_score
+      default_when_null: 0.5
+      weight_key: w_quality
+      default_weight: 0.10
+
+    # --- inverse_linear: contamination headroom (from healthcare availability) ---
+    - name: contamination_headroom
+      description: >
+        STRESS TEST: inverse_linear (from healthcare wait time).
+        How much contamination headroom does this facility have?
+        Score = 1 - (material_contamination / facility_tolerance).
+        Higher headroom = higher score = safer match.
+      source: computed
+      computation:
+        type: custom_cypher
+        expression: >
+          CASE
+            WHEN candidate.max_contamination_pct IS NULL OR $contamination_pct IS NULL THEN 0.5
+            WHEN candidate.max_contamination_pct = 0 THEN 0.0
+            ELSE 1.0 - ($contamination_pct / candidate.max_contamination_pct)
+          END
+      default_when_null: 0.5
+      weight_key: w_contamination
+      default_weight: 0.10
+
+    # --- community_match: Louvain ---
+    - name: community
+      description: "Louvain community co-membership with supplier's previous buyers"
+      source: computed
+      computation:
+        type: community_match
+        candidate_community: candidate.louvain_community_id
+        query_community: "prev_buyer.louvain_community_id"
+        match_score: 1.0
+        cross_bias_key: community_cross_bias
+        default_cross_bias: 0.90
+      weight_key: w_community
+      default_weight: 0.10
+      aggregation: multiplicative
+
+    # --- price_alignment (from freight rate_competitiveness) ---
+    - name: price_alignment
+      description: >
+        STRESS TEST: price_alignment scoring (from freight).
+        How competitive is the asking price vs market benchmark?
+        Score decays as asking price exceeds market price.
+      source: computed
+      computation:
+        type: price_alignment
+        mode: vs_benchmark
+        direction: lower_is_better
+        candidate_value: $asking_price_per_lb
+        benchmark_value: $market_price_per_lb
+        tolerance: 0.15
+        sensitivity: 2.0
+      default_when_null: 0.5
+      weight_key: w_price
+      default_weight: 0.05
+      condition: "asking_price_per_lb IS NOT NULL AND market_price_per_lb IS NOT NULL"
+
+    # --- temporal_proximity: recency of last transaction (from freight lead_time) ---
+    - name: recency
+      description: >
+        STRESS TEST: temporal_proximity scoring (from freight).
+        How recently did supplier and facility last transact?
+        More recent = higher score.
+      source: traversal_alias
+      alias: "rt"
+      computation:
+        type: temporal_proximity
+        anchor: "datetime()"
+        target: "rt.last_date"
+        granularity: days
+        max_duration: 365
+      default_when_null: 0.0
+      weight_key: w_recency
+      default_weight: 0.05
+
+    # --- KGE: CompoundE3D embedding similarity ---
+    - name: kge
+      description: "Knowledge graph embedding similarity via CompoundE3D"
+      source: external
+      enabled_key: kge_enabled
+      default_enabled: true
+      weight_key: w_kge
+      default_weight: 0.10
+      confidence_threshold_key: kge_confidence_threshold
+      default_confidence_threshold: 0.3
+
+  # --- SOFT SIGNALS ---
+  soft_signals:
+    - name: has_wash_line
+      description: "Facility has wash line (can handle dirtier material)"
+      bonus: 0.02
+    - name: has_decontamination
+      description: "Facility has decontamination capability"
+      bonus: 0.03
+    - name: iso_certified
+      description: "ISO certification bonus"
+      bonus: 0.01
+    - name: accepts_spot
+      description: "Facility accepts spot purchases (faster deal)"
+      bonus: 0.02
+    - name: high_response_rate
+      description: "Facility responds to >80% of offers"
+      threshold: 0.80
+      candidate_prop: response_rate
+      match_type: greater_than
+      bonus: 0.03
+    - name: low_rejection_rate
+      description: "Facility rejects <10% of accepted materials on quality"
+      threshold: 0.10
+      candidate_prop: quality_score
+      match_type: greater_than
+      bonus: 0.02
+    - name: repeat_supplier
+      description: "Facility has successfully transacted with this supplier before"
+      bonus: 0.05
+      notes: "Checked via ACCEPTED_MATERIAL_FROM edge existence"
+    - name: nir_sorter
+      description: "NIR sorting enables polymer verification"
+      bonus: 0.01
+
+  # --- ASSEMBLY ---
+  assembly:
+    method: weighted_sum_with_multiplicative_modifiers
+    description: "final_score = (Σ wᵢ × dᵢ + Σ soft_bonuses) × Π community_modifiers × relaxed_penalty_product"
+    max_results_key: max_results
+    default_max_results: 25
+    conditional_weight_handling: redistribute
+    notes: >
+      When a dimension's condition is false (e.g., price_alignment when no prices provided),
+      its weight is redistributed proportionally among active dimensions.
+
+# =============================================================================
+# SECTION 6: SYNC
+# =============================================================================
+sync:
+  endpoints:
+    - path: /v1/sync/facilities
+      method: POST
+      target_node: Facility
+      id_property: facility_id
+      batch_strategy: UNWIND_MERGE
+      taxonomy_edges:
+        - field: polymer_family_codes
+          edge_type: ACCEPTS_POLYMER
+          target_label: Polymer
+          target_id: code
+        - field: form_codes
+          edge_type: ACCEPTS_FORM
+          target_label: MaterialForm
+          target_id: code
+        - field: color_codes
+          edge_type: ACCEPTS_COLOR
+          target_label: MaterialColor
+          target_id: code
+        - field: source_type_codes
+          edge_type: ACCEPTS_SOURCE
+          target_label: SourceType
+          target_id: code
+        - field: process_type_codes
+          edge_type: OPERATES_PROCESS
+          target_label: ProcessType
+          target_id: code
+        - field: filler_type_codes
+          edge_type: ACCEPTS_FILLER
+          target_label: FillerType
+          target_id: code
+        - field: category_codes
+          edge_type: ACCEPTS_CATEGORY
+          target_label: MaterialCategory
+          target_id: code
+        - field: certification_codes
+          edge_type: HOLDS_CERTIFICATION
+          target_label: Certification
+          target_id: code
+      child_sync:
+        - parent_field: company
+          parent_label: Company
+          parent_id: company_id
+          edge_type: HAS_FACILITY
+          direction: parent_to_child
+      post_sync_hooks:
+        - name: equipment_edge_sync
+          description: "Materialize boolean equipment props as HAS_EQUIPMENT edges"
+
+    - path: /v1/sync/materials
+      method: POST
+      target_node: MaterialProfile
+      id_property: profile_id
+      batch_strategy: UNWIND_MERGE
+      taxonomy_edges:
+        - field: polymer_code
+          edge_type: IS_POLYMER
+          target_label: Polymer
+          target_id: code
+        - field: form_code
+          edge_type: HAS_FORM
+          target_label: MaterialForm
+          target_id: code
+        - field: color_code
+          edge_type: HAS_COLOR
+          target_label: MaterialColor
+          target_id: code
+        - field: filler_type_code
+          edge_type: MODIFIED_BY_FILLER
+          target_label: FillerType
+          target_id: code
+
+    - path: /v1/sync/intakes
+      method: POST
+      target_node: Intake
+      id_property: intake_id
+      batch_strategy: UNWIND_MERGE
+
+    - path: /v1/sync/transactions
+      method: POST
+      target_edge: TRANSACTED_WITH
+      from_node: Facility
+      from_id: supplier_facility_id
+      to_node: Facility
+      to_id: buyer_facility_id
+      batch_strategy: UNWIND_MERGE
+
+    - path: /v1/sync/offers
+      method: POST
+      target_edge: OFFERED_TO
+      from_node: Facility
+      from_id: supplier_facility_id
+      to_node: Facility
+      to_id: buyer_facility_id
+      batch_strategy: UNWIND_MERGE
+
+    - path: /v1/sync/exclusions
+      method: POST
+      target_edge: EXCLUDED_FROM
+      from_node: Facility
+      from_id: excluded_facility_id
+      to_node: Facility
+      to_id: target_facility_id
+      batch_strategy: UNWIND_MERGE
+
+    - path: /v1/sync/freight
+      method: POST
+      target_node: Freight
+      id_property: corridor
+      batch_strategy: UNWIND_MERGE
+
+    # --- STRESS TEST: partial update sync (from freight position sync) ---
+    - path: /v1/sync/capacity
+      method: POST
+      target_node: Facility
+      id_property: facility_id
+      batch_strategy: UNWIND_MATCH_SET
+      partial_update: true
+      fields_updated:
+        - current_utilization_pct
+        - utilization_updated_at
+        - capacity_lbs_month
+      notes: >
+        High-frequency partial sync. Capacity/utilization updates come from
+        production systems every few hours. Can't re-sync 50+ properties each time.
+
+    # --- KB overlay sync ---
+    - path: /v1/sync/grades
+      method: POST
+      target_node: Grade
+      id_property: grade_id
+      batch_strategy: UNWIND_MERGE
+
+    - path: /v1/sync/inference-rules
+      method: POST
+      target_node: InferenceRule
+      id_property: rule_id
+      batch_strategy: UNWIND_MERGE
+
+    - path: /v1/sync/contaminant-specs
+      method: POST
+      target_node: KBContaminantSpec
+      id_property: contaminant_id
+      batch_strategy: UNWIND_MERGE
+
+# =============================================================================
+# SECTION 7: GDS JOBS
+# =============================================================================
+gds_jobs:
+  - name: louvain
+    description: "Community detection across facility transaction patterns"
+    algorithm: gds.louvain
+    schedule:
+      cron: "0 2 * * 0"  # Sunday 2am
+    projection:
+      node_labels: [Facility, Polymer, ProcessType]
+      edge_types: [TRANSACTED_WITH, ACCEPTS_POLYMER, OPERATES_PROCESS]
+    write_property: louvain_community_id
+    write_to: Facility
+
+  - name: structural
+    description: "Facility similarity based on shared polymer/form/process/equipment"
+    algorithm: gds.nodeSimilarity
+    schedule:
+      cron: "0 3 * * 0"  # Sunday 3am
+    projection:
+      node_labels: [Facility, Polymer, MaterialForm, ProcessType, EquipmentType]
+      edge_types: [ACCEPTS_POLYMER, ACCEPTS_FORM, OPERATES_PROCESS, HAS_EQUIPMENT]
+    write_edge: STRUCTURALLY_COMPATIBLE
+    write_from: Facility
+    write_to: Facility
+    similarity_metric: jaccard
+    similarity_cutoff: 0.3
+
+  - name: reinforcement
+    description: "Rebuild SUCCESS_WITH edges from transaction history with recency decay"
+    algorithm: custom_aggregation
+    schedule:
+      cron: "0 3 30 * * *"  # Nightly 3:30am
+    source_edge: TRANSACTED_WITH
+    filter: "outcome = 'completed'"
+    aggregate: count_and_rate
+    rate_numerator_filter: "quality_rating >= 3.0"
+    rate_denominator_filter: "outcome IS NOT NULL"
+    recency_decay: true
+    recency_half_life_days: 90
+    write_edge: SUCCESS_WITH
+    write_properties:
+      - name: score
+        source: count
+      - name: recency_weight
+        source: recency
+      - name: last_transaction_date
+        source: last_date
+
+  - name: polymer_cooccurrence
+    description: "Build CO_ACCEPTED_WITH edges between polymers accepted by same facilities"
+    algorithm: gds.nodeSimilarity
+    schedule:
+      cron: "0 2 30 * * 0"
+    projection:
+      node_labels: [Facility, Polymer]
+      edge_types: [ACCEPTS_POLYMER]
+    write_edge: CO_ACCEPTED_WITH
+    write_from: Polymer
+    write_to: Polymer
+    similarity_metric: jaccard
+    similarity_cutoff: 0.3
+
+  - name: geo_proximity
+    description: "Build CO_LOCATED_WITH edges for nearby facilities"
+    algorithm: custom_aggregation
+    schedule:
+      cron: "0 3 15 * * 0"
+    config:
+      max_distance_km: 500
+      top_k_per_facility: 20
+      proximity_decay_km: 200
+    write_edge: CO_LOCATED_WITH
+    write_from: Facility
+    write_to: Facility
+
+  - name: geo_louvain
+    description: >
+      Geography-weighted Louvain. Writes to SEPARATE property (louvain_geo_community_id).
+      Does NOT overwrite louvain_community_id.
+    algorithm: gds.louvain
+    schedule:
+      cron: "0 3 30 * * 0"
+    projection:
+      node_labels: [Facility]
+      edge_types: [TRANSACTED_WITH, CO_LOCATED_WITH]
+      relationship_weight_property: proximity_score
+    write_property: louvain_geo_community_id
+    write_to: Facility
+
+  - name: temporal_recency
+    description: "Create/prune RECENTLY_TRANSACTED_WITH edges with recency scoring"
+    algorithm: custom_aggregation
+    schedule:
+      cron: "0 3 15 * * *"
+    source_edge: TRANSACTED_WITH
+    recency_decay: true
+    recency_half_life_days: 90
+    prune_threshold: 0.1
+    write_edge: RECENTLY_TRANSACTED_WITH
+    write_properties:
+      - name: recency_score
+        source: recency
+      - name: last_date
+        source: last_date
+      - name: txn_count_90d
+        source: count
+
+  - name: reinforcement_outcomes
+    description: "Aggregate offer outcomes into ACCEPTED_MATERIAL_FROM and REJECTED_MATERIAL_FROM"
+    algorithm: custom_aggregation
+    schedule:
+      cron: "0 3 0 * * *"
+    source_edge: OFFERED_TO
+    aggregate: count_and_rate
+    rate_numerator_filter: "response = 'accepted'"
+    rate_denominator_filter: "response IS NOT NULL"
+    write_edges:
+      - edge: ACCEPTED_MATERIAL_FROM
+        filter: "response = 'accepted'"
+        properties:
+          - name: count
+            source: count
+          - name: success_rate
+            source: rate
+          - name: avg_price_per_lb
+            source: avg_price
+      - edge: REJECTED_MATERIAL_FROM
+        filter: "response = 'rejected'"
+        properties:
+          - name: count
+            source: count
+          - name: top_reason
+            source: mode_reason
+
+  - name: equipment_sync
+    description: "Full reconciliation of HAS_EQUIPMENT edges against boolean properties"
+    algorithm: custom_aggregation
+    schedule:
+      cron: "0 4 * * 0"
+    write_edge: HAS_EQUIPMENT
+    notes: "Also runs incrementally during POST /v1/sync/facilities"
+
+  - name: on_demand_rebuild
+    trigger: api
+    runs: [louvain, structural, reinforcement, polymer_cooccurrence, temporal_recency, reinforcement_outcomes, equipment_sync]
+
+# =============================================================================
+# SECTION 8: KGE
+# =============================================================================
+kge:
+  model: CompoundE3D
+  embedding_dim: 300
+  operators:
+    - rotation_head
+    - rotation_tail
+    - scaling_head
+    - scaling_tail
+    - translation
+  beam_search:
+    beam_width: 10
+    max_depth: 3
+    pruning_strategies: [score_threshold, diversity, constraint]
+  ensemble:
+    strategy: weighted_average
+    cypher_weight: 0.70
+    kge_weight: 0.30
+  training:
+    relation_types:
+      - ACCEPTS_POLYMER
+      - ACCEPTS_FORM
+      - ACCEPTS_COLOR
+      - OPERATES_PROCESS
+      - LOCATED_IN_MARKET
+      - TRANSACTED_WITH
+      - STRUCTURALLY_COMPATIBLE
+      - SUCCESS_WITH
+      - CO_ACCEPTED_WITH
+      - SUBSTITUTABLE_FOR
+      - COMPATIBLE_WITH_PROCESS
+      - RECENTLY_TRANSACTED_WITH
+      - HAS_EQUIPMENT
+      - REJECTED_MATERIAL_FROM
+    negative_sampling:
+      strategy: hard_negatives
+      use_capability_similar: true
+      use_rejected: true
+      description: >
+        Use CAPABILITY_SIMILAR pairs that have NOT transacted as hard negatives.
+        Use REJECTED_MATERIAL_FROM as explicit negatives.
+  sync:
+    vector_index: facility_embeddings
+    dimension: 300
+    similarity_function: cosine
+
+# =============================================================================
+# SECTION 9: NEGOTIATION
+# =============================================================================
+negotiation:
+  enabled: true
+  model: BargainingGame
+  description: >
+    Game-theoretic negotiation for price/terms between supplier and buyer facility.
+    Uses Nash equilibrium with sigmoid acceptance probability.
+  strategy_library:
+    enabled: true
+    tier_mapping:
+      tier_1:
+        aggressiveness: 0.8
+        patience: 0.3
+        description: "High-volume repeat partner"
+      tier_2:
+        aggressiveness: 0.5
+        patience: 0.5
+        description: "Standard partner"
+      tier_3:
+        aggressiveness: 0.3
+        patience: 0.8
+        description: "New or low-volume partner"
+  inputs:
+    - asking_price_per_lb
+    - market_price_per_lb
+    - lot_size_lbs
+    - monthly_volume_lbs
+    - contamination_pct
+    - urgency
+  outputs:
+    - suggested_counter_price
+    - acceptance_probability
+    - recommended_strategy
+    - negotiation_range_min
+    - negotiation_range_max
+
+# =============================================================================
+# SECTION 10: TENANCY
+# =============================================================================
+tenancy:
+  isolation: database_per_tenant
+  tenant_resolution: api_key
+  config_storage: filesystem
+  config_path: "domains/plasticos/spec.yaml"
+  branding:
+    custom_logo: true
+    custom_api_prefix: true
+    custom_response_fields: true
+
+# =============================================================================
+# SECTION 11: COMPLIANCE & DATA GOVERNANCE
+# =============================================================================
+compliance:
+  hipaa: false
+  gdpr: false
+  sox: true
+  custom_regime: "EPA/RCRA"
+  description: "SOX audit for traded commodity volumes. EPA/RCRA for hazardous material tracking."
+
+  audit:
+    enabled: true
+    log_match_requests: true
+    log_match_results: true
+    log_sync_operations: true
+    log_admin_operations: true
+    retention_days: 1095  # 3 years SOX
+    storage: database
+
+  pii:
+    enabled: false
+    notes: "No PII in plastics recycling domain."
+
+  retention:
+    enabled: true
+    transaction_ttl_days: 1825  # 5 years of transaction history
+    audit_ttl_days: 1095
+
+  prohibited_factors: []
+  notes: "No protected-class information in industrial matching."
+
+# =============================================================================
+# SECTION 12: UNITS OF MEASURE
+# =============================================================================
+units:
+  types:
+    - name: weight
+      display_format: "{value} lbs"
+      storage_format: lbs
+      conversions:
+        kg: 2.20462
+        metric_ton: 2204.62
+        short_ton: 2000.0
+
+    - name: distance
+      display_format: "{value} km"
+      storage_format: km
+      conversions:
+        miles: 0.621371
+        meters: 1000.0
+
+    - name: percentage
+      display_format: "{value}%"
+      storage_format: fraction_100
+      conversions:
+        fraction_1: 100.0
+
+    - name: currency
+      display_format: "${value}"
+      storage_format: usd
+      conversions:
+        usd_per_lb: 1.0
+        usd_per_kg: 2.20462
+
+    - name: density
+      display_format: "{value} g/cm³"
+      storage_format: g_per_cm3
+
+    - name: mfi
+      display_format: "{value} g/10min"
+      storage_format: g_per_10min
+      description: "Melt flow index"
+
+# =============================================================================
+# SECTION 13: PLUGINS
+# =============================================================================
+plugins:
+  custom_gate_types:
+    - name: mfi_process_physics
+      description: >
+        Reads MFI window from COMPATIBLE_WITH_PROCESS edge (traversal alias pc),
+        not from candidate node. This is a graph-edge-property gate —
+        unique to PlasticOS.
+      implementation: "plugins/plasticos/mfi_process_gate.py"
+
+    - name: contamination_routing
+      description: >
+        KB overlay: routes material through required equipment based on
+        contaminant type and host polymer. Reads from KBContaminantSpec nodes.
+      implementation: "plugins/plasticos/contamination_routing_gate.py"
+
+  custom_scoring_computations: []
+
+  hooks:
+    pre_match:
+      - name: derive_parameters
+        description: "Compute margin_per_lb, cost_basis, yield_pct from raw query inputs"
+      - name: kb_grade_inference
+        description: >
+          Run CapabilityInference to map intake material to a KB Grade
+          before gates fire. Creates QUALIFIES_FOR edge if confident.
+        implementation: "plugins/plasticos/grade_inference.py"
+
+    post_match:
+      - name: contaminant_routing_enrichment
+        description: >
+          For top-N results, check KBContaminantSpec and annotate response
+          with required pre-processing steps (sort, wash, blend).
+        implementation: "plugins/plasticos/contaminant_enrichment.py"
+      - name: negotiation_enrichment
+        description: >
+          For top-N results, run BargainingGame to compute suggested
+          counter-price and acceptance probability per facility.
+        implementation: "plugins/plasticos/negotiation_enrichment.py"
+        enabled_when: "asking_price_per_lb IS NOT NULL"
+      - name: explainability_builder
+        description: >
+          Build per-dimension score breakdown for every result.
+          Includes gate pass/fail status, dimension scores, and soft signals.
+
+  sync_validators:
+    - name: facility_completeness
+      description: >
+        Reject facility sync payloads missing polymer_family_codes or process_type.
+        Flag incomplete profiles so data quality issues are caught at sync time.
+      min_required_fields: [facility_id, name, facility_role]
+      warn_if_missing: [polymer_family_codes, process_type_codes, lat, lon]
+
+# =============================================================================
+# ENGINE FEATURE STRESS TEST COVERAGE
+# =============================================================================
+# This section is metadata for the engine test harness.
+# It maps every v0.3.0 engine feature to the gate/score/sync/job that exercises it.
+stress_test_coverage:
+  gate_types:
+    boolean: [metal_acceptance, fr_acceptance, food_grade_cert, medical_grade_cert, pcr_cert]
+    range: [mfi_range, density_range, lot_size]
+    threshold: [contamination_tolerance, moisture_tolerance, filler_tolerance]
+    composite: [mfi_process_physics, form_equipment_compat, distance_radius, urgency_capacity, pvc_handling, contract_preference]
+    exclusion: [match_exclusion, regulatory_ban]
+    self_range: [capacity_utilization]
+    freshness: [utilization_freshness]
+    traversal: [polymer_match, form_match]
+    enum_map: []  # covered by composite gates with condition
+    temporal_range: []  # covered by contract_preference composite
+
+  scoring_computation_types:
+    geo_decay: [geo_proximity, backhaul_proximity]
+    log_normalized: [transaction_depth]
+    community_match: [community]
+    inverse_linear: []  # covered by custom_cypher contamination_headroom
+    candidate_property: [quality]
+    weighted_rate: [reinforcement]
+    price_alignment: [price_alignment]
+    temporal_proximity: [recency]
+    custom_cypher: [contamination_headroom]
+
+  sync_strategies:
+    UNWIND_MERGE: [facilities, materials, intakes, transactions, offers, exclusions, freight, grades, inference_rules, contaminant_specs]
+    UNWIND_MATCH_SET: [capacity]
+
+  unique_plasticos_features:
+    - "MFI-process physics gate (reads from edge properties, not node)"
+    - "KB Grade overlay with CapabilityInference pre-match hook"
+    - "KBContaminantSpec routing with post-match enrichment"
+    - "BargainingGame negotiation as post-match hook"
+    - "CompoundE3D KGE with hard-negative sampling from REJECTED_MATERIAL_FROM"
+    - "Equipment boolean→edge materialization sync"
+    - "Dual Louvain communities (transaction-based + geo-weighted)"
+    - "9 GDS jobs (most of any domain spec)"
+    - "22+ edge types (most of any domain spec)"
+    - "Grade/InferenceRule/KBContaminantSpec/QualityTier KB overlay nodes"
+    - "Backhaul geo scoring (supplier return trip)"
+    - "Derived parameters (margin, cost_basis, yield_pct)"
+    - "Role exemptions (broker/trader bypass equipment+capacity gates)"

@@ -1,37 +1,41 @@
-# ============================================================================
-# L9 Engine — Multi-stage Production Dockerfile
-# ============================================================================
+# ─────────────────────────────────────────────────────────────
+# L9 Graph Cognitive Engine — Multi-stage Dockerfile
+# Stage 1: deps    — install Python packages
+# Stage 2: runtime — slim image with only what we need
+# ─────────────────────────────────────────────────────────────
 
-FROM python:3.11-slim AS builder
+# ── Stage 1: Dependencies ──────────────────────────────────
+FROM python:3.12-slim AS deps
 
 WORKDIR /build
+COPY requirements.txt requirements.txt
+RUN pip install --no-cache-dir --prefix=/install -r requirements.txt
 
-# Install build deps
-RUN pip install --no-cache-dir poetry &&     poetry config virtualenvs.create false
-
-COPY pyproject.toml poetry.lock* ./
-RUN poetry install --no-dev --no-interaction --no-ansi 2>/dev/null ||     pip install --no-cache-dir fastapi uvicorn neo4j pydantic pyyaml apscheduler redis
-
-COPY . .
-
-# --- Production ---
-FROM python:3.11-slim
-
-ARG L9_PROJECT=l9-engine
-ARG L9_ENV=prod
+# ── Stage 2: Runtime ───────────────────────────────────────
+FROM python:3.12-slim AS runtime
 
 WORKDIR /app
 
-# Copy installed packages + app code
-COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
-COPY --from=builder /usr/local/bin /usr/local/bin
-COPY --from=builder /build/engine ./engine
-COPY --from=builder /build/domains ./domains
+# Copy installed packages from deps stage
+COPY --from=deps /install /usr/local
 
-ENV L9_PROJECT=$L9_PROJECT     L9_ENV=$L9_ENV     API_PORT=8000     API_WORKERS=4     LOG_LEVEL=INFO     PYTHONUNBUFFERED=1
+# Copy application code
+COPY engine/ /app/engine/
+COPY domains/ /app/domains/
+
+# Copy entrypoint
+COPY scripts/entrypoint.sh /app/entrypoint.sh
+RUN chmod +x /app/entrypoint.sh
+
+# Non-root user
+RUN groupadd -r l9 && useradd -r -g l9 -d /app -s /sbin/nologin l9
+RUN chown -R l9:l9 /app
+USER l9
 
 EXPOSE 8000
 
-HEALTHCHECK --interval=30s --timeout=5s --retries=3   CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/v1/health')"
+# Health check
+HEALTHCHECK --interval=15s --timeout=5s --retries=3 \
+    CMD python -c "import httpx; r=httpx.get('http://localhost:8000/v1/health'); exit(0 if r.status_code==200 else 1)"
 
-CMD ["uvicorn", "engine.api.app:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "4"]
+ENTRYPOINT ["/app/entrypoint.sh"]

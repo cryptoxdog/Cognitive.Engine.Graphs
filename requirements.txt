@@ -8,6 +8,7 @@ neo4j>=5.25.0,<6.0.0
 pydantic>=2.10.0,<3.0.0
 pydantic-settings>=2.6.0,<3.0.0
 pyyaml>=6.0,<7.0
+python-multipart>=0.0.9,<1.0.0
 redis>=5.2.0,<6.0.0
 apscheduler>=3.10.0,<4.0.0
 httpx>=0.28.0,<0.29.0

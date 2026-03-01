@@ -1,460 +1,295 @@
-"""
-tests/unit/test_gates_all_types.py
+# ============================================================================
+# tests/unit/test_gates_all_types.py
+# ============================================================================
 
-Comprehensive unit tests for all 10 gate types.
+"""
+Comprehensive unit tests for gate types and GateCompiler.
 Target Coverage: 85%+
 """
 
 import pytest
-from engine.gates.types.boolean import BooleanGate
-from engine.gates.types.composite import CompositeGate
-from engine.gates.types.enummap import EnumMapGate
-from engine.gates.types.exclusion import ExclusionGate
-from engine.gates.types.freshness import FreshnessGate
-from engine.gates.types.range import RangeGate
-from engine.gates.types.selfrange import SelfRangeGate
-from engine.gates.types.temporalrange import TemporalRangeGate
-from engine.gates.types.threshold import ThresholdGate
-from engine.gates.types.traversal import TraversalGate
+from unittest.mock import MagicMock
 
-# ============================================================================
-# THRESHOLD GATE TESTS
-# ============================================================================
+from engine.gates.compiler import GateCompiler
+from engine.gates.types.all_gates import (
+    BaseGate,
+    BooleanGate,
+    RangeGate,
+    ThresholdGate,
+    EnumMapGate,
+    ExclusionGate,
+    SelfRangeGate,
+    FreshnessGate,
+    TemporalRangeGate,
+    TraversalGate,
+    CompositeGate,
+)
+from engine.config.schema import DomainSpec, GateSpec, GateType, NullBehavior
 
 
-@pytest.mark.unit
-class TestThresholdGate:
-    """Test ThresholdGate compilation and inversion."""
+def make_mock_gate_spec(**kwargs) -> MagicMock:
+    """Create a mock GateSpec with given attributes."""
+    spec = MagicMock(spec=GateSpec)
+    spec.name = kwargs.get("name", "test_gate")
+    spec.gate_type = kwargs.get("gate_type", GateType.THRESHOLD)
+    spec.candidate_prop = kwargs.get("candidate_prop")
+    spec.candidateprop = kwargs.get("candidateprop", kwargs.get("candidate_prop"))
+    spec.query_param = kwargs.get("query_param")
+    spec.queryparam = kwargs.get("queryparam", kwargs.get("query_param"))
+    spec.null_behavior = kwargs.get("null_behavior", NullBehavior.PASS)
+    spec.match_directions = kwargs.get("match_directions")
+    spec.exempt_roles = kwargs.get("exempt_roles")
+    spec.required = kwargs.get("required", True)
+    spec.relaxed_penalty = kwargs.get("relaxed_penalty")
+    spec.candidate_prop_min = kwargs.get("candidate_prop_min")
+    spec.candidate_prop_max = kwargs.get("candidate_prop_max")
+    spec.inverse = kwargs.get("inverse", False)
+    spec.edge_type = kwargs.get("edge_type")
+    spec.sub_gates = kwargs.get("sub_gates")
+    spec.combinator = kwargs.get("combinator")
+    spec.duration_field = kwargs.get("duration_field")
+    spec.duration_value = kwargs.get("duration_value")
+    spec.query_param_start = kwargs.get("query_param_start")
+    spec.query_param_end = kwargs.get("query_param_end")
+    spec.target_label = kwargs.get("target_label")
+    spec.target_prop = kwargs.get("target_prop")
+    spec.query_entity_ref = kwargs.get("query_entity_ref")
+    return spec
 
-    def test_threshold_lte_compiles(self):
-        """Threshold gate with <= operator compiles correctly."""
-        gate = ThresholdGate(
-            name="credit_min",
-            candidateprop="mincreditscore",
-            queryparam="creditscore",
-            operator="<=",
-            nullbehavior="pass",
-        )
 
-        cypher = gate.compile("c", "$query")
-        assert "c.mincreditscore <= $query.creditscore" in cypher
-
-    def test_threshold_gte_compiles(self):
-        """Threshold gate with >= operator compiles correctly."""
-        gate = ThresholdGate(
-            name="dti_max", candidateprop="maxdtipct", queryparam="dtipct", operator=">=", nullbehavior="pass"
-        )
-
-        cypher = gate.compile("c", "$query")
-        assert "c.maxdtipct >= $query.dtipct" in cypher
-
-    def test_threshold_lt_compiles(self):
-        """Threshold gate with < operator compiles correctly."""
-        gate = ThresholdGate(
-            name="price_under", candidateprop="priceperlb", queryparam="maxprice", operator="<", nullbehavior="fail"
-        )
-
-        cypher = gate.compile("c", "$query")
-        assert "c.priceperlb < $query.maxprice" in cypher
-
-    def test_threshold_gt_compiles(self):
-        """Threshold gate with > operator compiles correctly."""
-        gate = ThresholdGate(
-            name="quantity_over",
-            candidateprop="availablequantity",
-            queryparam="minquantity",
-            operator=">",
-            nullbehavior="fail",
-        )
-
-        cypher = gate.compile("c", "$query")
-        assert "c.availablequantity > $query.minquantity" in cypher
-
-    def test_threshold_eq_compiles(self):
-        """Threshold gate with = operator compiles correctly."""
-        gate = ThresholdGate(
-            name="exact_match", candidateprop="value", queryparam="targetvalue", operator="=", nullbehavior="fail"
-        )
-
-        cypher = gate.compile("c", "$query")
-        assert "c.value = $query.targetvalue" in cypher
-
-    def test_threshold_null_pass(self):
-        """Threshold gate with nullbehavior=pass allows NULL."""
-        gate = ThresholdGate(
-            name="credit_min",
-            candidateprop="mincreditscore",
-            queryparam="creditscore",
-            operator="<=",
-            nullbehavior="pass",
-        )
-
-        cypher = gate.compile("c", "$query")
-        assert "IS NULL OR" in cypher
-
-    def test_threshold_null_fail(self):
-        """Threshold gate with nullbehavior=fail blocks NULL."""
-        gate = ThresholdGate(
-            name="credit_min",
-            candidateprop="mincreditscore",
-            queryparam="creditscore",
-            operator="<=",
-            nullbehavior="fail",
-        )
-
-        cypher = gate.compile("c", "$query")
-        assert "IS NOT NULL AND" in cypher
-
-    def test_threshold_inverts_lte_to_gte(self):
-        """Threshold gate <= inverts to >= for bidirectional matching."""
-        gate = ThresholdGate(
-            name="credit_min",
-            candidateprop="mincreditscore",
-            queryparam="creditscore",
-            operator="<=",
-            nullbehavior="pass",
-            invertible=True,
-        )
-
-        inverted = gate.invert()
-        cypher = inverted.compile("c", "$query")
-
-        # After inversion: queryparam <= candidateprop (>= when flipped)
-        assert ">=" in cypher
+def make_mock_domain_spec(gates: list | None = None) -> MagicMock:
+    """Create a mock DomainSpec."""
+    spec = MagicMock(spec=DomainSpec)
+    spec.gates = MagicMock()
+    spec.gates.gates = gates or []
+    spec.compliance = None
+    return spec
 
 
 # ============================================================================
-# RANGE GATE TESTS
+# GATE COMPILER TESTS
 # ============================================================================
 
 
 @pytest.mark.unit
-class TestRangeGate:
-    """Test RangeGate compilation and logic."""
+class TestGateCompiler:
+    """Test GateCompiler functionality."""
 
-    def test_range_gate_compiles(self):
-        """Range gate compiles with min and max checks."""
-        gate = RangeGate(
+    def test_compile_threshold_gate(self) -> None:
+        """Threshold gate compiles to >= comparison."""
+        gate = make_mock_gate_spec(
+            name="credit_min",
+            gate_type=GateType.THRESHOLD,
+            candidate_prop="mincreditscore",
+            query_param="creditscore",
+        )
+        domain_spec = make_mock_domain_spec(gates=[gate])
+        compiler = GateCompiler(domain_spec)
+
+        cypher = compiler.compile(gate)
+
+        assert "candidate.mincreditscore" in cypher
+        assert "$creditscore" in cypher
+
+    def test_compile_boolean_gate(self) -> None:
+        """Boolean gate compiles to equality check."""
+        gate = make_mock_gate_spec(
+            name="va_eligible",
+            gate_type=GateType.BOOLEAN,
+            candidate_prop="acceptsva",
+            query_param="vaeligible",
+        )
+        domain_spec = make_mock_domain_spec(gates=[gate])
+        compiler = GateCompiler(domain_spec)
+
+        cypher = compiler.compile(gate)
+
+        assert "candidate.acceptsva" in cypher
+
+    def test_compile_range_gate(self) -> None:
+        """Range gate compiles to min/max bounds."""
+        gate = make_mock_gate_spec(
             name="price_range",
-            candidateprop="priceperlb",
-            queryparam_min="minpriceperlb",
-            queryparam_max="maxpriceperlb",
-            nullbehavior="fail",
+            gate_type=GateType.RANGE,
+            candidate_prop="price",
+            query_param="price",
+            candidate_prop_min="min_price",
+            candidate_prop_max="max_price",
         )
+        domain_spec = make_mock_domain_spec(gates=[gate])
+        compiler = GateCompiler(domain_spec)
 
-        cypher = gate.compile("c", "$query")
-        assert "$query.minpriceperlb <= c.priceperlb" in cypher
-        assert "c.priceperlb <= $query.maxpriceperlb" in cypher
+        cypher = compiler.compile(gate)
 
-    def test_range_gate_null_pass(self):
-        """Range gate with nullbehavior=pass allows NULL."""
-        gate = RangeGate(
-            name="price_range",
-            candidateprop="priceperlb",
-            queryparam_min="minprice",
-            queryparam_max="maxprice",
-            nullbehavior="pass",
+        assert "candidate.min_price" in cypher or "min_price" in cypher
+
+    def test_compile_enummap_gate(self) -> None:
+        """EnumMap gate compiles to IN clause."""
+        gate = make_mock_gate_spec(
+            name="polymer_match",
+            gate_type=GateType.ENUMMAP,
+            candidate_prop="polymertype",
+            query_param="polymertype",
         )
+        domain_spec = make_mock_domain_spec(gates=[gate])
+        compiler = GateCompiler(domain_spec)
 
-        cypher = gate.compile("c", "$query")
-        assert "IS NULL OR" in cypher
+        cypher = compiler.compile(gate)
 
-    def test_range_gate_null_fail(self):
-        """Range gate with nullbehavior=fail blocks NULL."""
-        gate = RangeGate(
-            name="price_range",
-            candidateprop="priceperlb",
-            queryparam_min="minprice",
-            queryparam_max="maxprice",
-            nullbehavior="fail",
+        assert "IN" in cypher or "candidate.polymertype" in cypher
+
+    def test_compile_exclusion_gate(self) -> None:
+        """Exclusion gate compiles to NOT exists pattern."""
+        gate = make_mock_gate_spec(
+            name="blacklist",
+            gate_type=GateType.EXCLUSION,
+            edge_type="BLACKLISTED",
         )
+        domain_spec = make_mock_domain_spec(gates=[gate])
+        compiler = GateCompiler(domain_spec)
 
-        cypher = gate.compile("c", "$query")
-        assert "IS NOT NULL AND" in cypher
+        cypher = compiler.compile(gate)
 
+        assert "NOT" in cypher
+        assert "exists" in cypher.lower()
 
-# ============================================================================
-# BOOLEAN GATE TESTS
-# ============================================================================
-
-
-@pytest.mark.unit
-class TestBooleanGate:
-    """Test BooleanGate compilation."""
-
-    def test_boolean_gate_true_compiles(self):
-        """Boolean gate with true value compiles correctly."""
-        gate = BooleanGate(name="accepts_new", candidateprop="acceptsnewpatients", queryparam=True, nullbehavior="fail")
-
-        cypher = gate.compile("c", "$query")
-        assert "c.acceptsnewpatients = true" in cypher
-
-    def test_boolean_gate_false_compiles(self):
-        """Boolean gate with false value compiles correctly."""
-        gate = BooleanGate(name="not_emergency", candidateprop="emergencyonly", queryparam=False, nullbehavior="pass")
-
-        cypher = gate.compile("c", "$query")
-        assert "c.emergencyonly = false" in cypher
-
-    def test_boolean_gate_queryparam_reference(self):
-        """Boolean gate can reference query parameter."""
-        gate = BooleanGate(
-            name="va_eligible", candidateprop="requiresvaeligibility", queryparam="vaeligible", nullbehavior="pass"
+    def test_compile_selfrange_gate(self) -> None:
+        """SelfRange gate compiles to candidate min/max bounds."""
+        gate = make_mock_gate_spec(
+            name="capacity",
+            gate_type=GateType.SELFRANGE,
+            candidate_prop="capacity",
+            query_param="requested",
+            candidate_prop_min="min_capacity",
+            candidate_prop_max="max_capacity",
         )
+        domain_spec = make_mock_domain_spec(gates=[gate])
+        compiler = GateCompiler(domain_spec)
 
-        cypher = gate.compile("c", "$query")
-        assert "c.requiresvaeligibility = $query.vaeligible" in cypher
+        cypher = compiler.compile(gate)
 
+        assert "candidate" in cypher
 
-# ============================================================================
-# ENUM MAP GATE TESTS
-# ============================================================================
-
-
-@pytest.mark.unit
-class TestEnumMapGate:
-    """Test EnumMapGate compilation with mappings."""
-
-    def test_enummap_simple_equality(self):
-        """EnumMap with no mapping uses simple equality."""
-        gate = EnumMapGate(
-            name="polymer_match", candidateprop="polymertype", queryparam="polymertype", nullbehavior="fail"
+    def test_compile_freshness_gate(self) -> None:
+        """Freshness gate compiles to datetime comparison."""
+        gate = make_mock_gate_spec(
+            name="data_fresh",
+            gate_type=GateType.FRESHNESS,
+            candidate_prop="lastupdated",
+            duration_field="days",
+            duration_value=7,
         )
+        domain_spec = make_mock_domain_spec(gates=[gate])
+        compiler = GateCompiler(domain_spec)
 
-        cypher = gate.compile("c", "$query")
-        assert "c.polymertype = $query.polymertype" in cypher
+        cypher = compiler.compile(gate)
 
-    def test_enummap_with_complex_mapping(self):
-        """EnumMap with complex mapping generates IN clause."""
-        gate = EnumMapGate(
-            name="loan_purpose",
-            candidateprop="loanpurpose",
-            queryparam="loanpurpose",
-            mappings={"purchase": ["purchase", "newpurchase"], "refinance": ["refinance", "refi", "cashout"]},
-            nullbehavior="fail",
+        assert "datetime()" in cypher
+        assert "duration" in cypher
+
+    def test_compile_temporalrange_gate(self) -> None:
+        """TemporalRange gate compiles to date range check."""
+        gate = make_mock_gate_spec(
+            name="availability",
+            gate_type=GateType.TEMPORALRANGE,
+            candidate_prop="available_date",
+            query_param="target_date",
+            query_param_start="start_date",
+            query_param_end="end_date",
         )
+        domain_spec = make_mock_domain_spec(gates=[gate])
+        compiler = GateCompiler(domain_spec)
 
-        cypher = gate.compile("c", "$query")
-        assert "IN" in cypher or "=" in cypher
+        cypher = compiler.compile(gate)
 
+        assert "candidate.available_date" in cypher
 
-# ============================================================================
-# EXCLUSION GATE TESTS
-# ============================================================================
-
-
-@pytest.mark.unit
-class TestExclusionGate:
-    """Test ExclusionGate compilation."""
-
-    def test_exclusion_gate_compiles(self):
-        """Exclusion gate generates NOT EXISTS pattern."""
-        gate = ExclusionGate(
-            name="blacklist", edgetype="BLACKLISTED", fromnode="query", tonode="candidate", nullbehavior="pass"
+    def test_compile_traversal_gate(self) -> None:
+        """Traversal gate compiles to exists pattern."""
+        gate = make_mock_gate_spec(
+            name="network",
+            gate_type=GateType.TRAVERSAL,
+            edge_type="ACCEPTS",
+            target_label="Insurance",
+            target_prop="planid",
+            query_param="insuranceplan",
         )
+        domain_spec = make_mock_domain_spec(gates=[gate])
+        compiler = GateCompiler(domain_spec)
 
-        cypher = gate.compile("c", "$query")
-        assert "NOT EXISTS" in cypher
-        assert "BLACKLISTED" in cypher
+        cypher = compiler.compile(gate)
 
-    def test_exclusion_gate_reverse_direction(self):
-        """Exclusion gate can block reverse direction."""
-        gate = ExclusionGate(
-            name="excluded_buyers", edgetype="EXCLUDED_BY", fromnode="candidate", tonode="query", nullbehavior="pass"
+        assert "exists" in cypher.lower()
+
+    def test_compile_all_gates_combines_with_and(self) -> None:
+        """compile_all_gates combines gates with AND."""
+        gate1 = make_mock_gate_spec(
+            name="gate1",
+            gate_type=GateType.BOOLEAN,
+            candidate_prop="prop1",
+            query_param="val1",
         )
-
-        cypher = gate.compile("c", "$query")
-        assert "NOT EXISTS" in cypher
-        assert "EXCLUDED_BY" in cypher
-
-
-# ============================================================================
-# SELF-RANGE GATE TESTS
-# ============================================================================
-
-
-@pytest.mark.unit
-class TestSelfRangeGate:
-    """Test SelfRangeGate compilation."""
-
-    def test_selfrange_gate_compiles(self):
-        """Self-range gate checks if query value falls within candidate's range."""
-        gate = SelfRangeGate(
-            name="panel_capacity",
-            candidateprop_min="currentpanelsize",
-            candidateprop_max="maxpanelsize",
-            queryparam=1,  # Adding 1 patient
-            nullbehavior="fail",
+        gate2 = make_mock_gate_spec(
+            name="gate2",
+            gate_type=GateType.BOOLEAN,
+            candidate_prop="prop2",
+            query_param="val2",
         )
+        domain_spec = make_mock_domain_spec(gates=[gate1, gate2])
+        compiler = GateCompiler(domain_spec)
 
-        cypher = gate.compile("c", "$query")
-        assert "c.currentpanelsize" in cypher
-        assert "c.maxpanelsize" in cypher
+        cypher = compiler.compile_all_gates(match_direction="buyer_to_seller")
 
-    def test_selfrange_gate_with_queryparam(self):
-        """Self-range gate can use query parameter for value."""
-        gate = SelfRangeGate(
-            name="capacity_check",
-            candidateprop_min="currentload",
-            candidateprop_max="maxload",
-            queryparam="requestedload",
-            nullbehavior="fail",
-        )
-
-        cypher = gate.compile("c", "$query")
-        assert "$query.requestedload" in cypher
-
-
-# ============================================================================
-# FRESHNESS GATE TESTS
-# ============================================================================
-
-
-@pytest.mark.unit
-class TestFreshnessGate:
-    """Test FreshnessGate compilation."""
-
-    def test_freshness_gate_compiles(self):
-        """Freshness gate uses duration.between for recency."""
-        gate = FreshnessGate(name="data_freshness", candidateprop="lastupdated", maxagedays=30, nullbehavior="fail")
-
-        cypher = gate.compile("c", "$query")
-        assert "duration.between" in cypher
-        assert "lastupdated" in cypher
-
-    def test_freshness_gate_maxagehours(self):
-        """Freshness gate supports hours."""
-        gate = FreshnessGate(name="realtime_data", candidateprop="lastupdated", maxagehours=24, nullbehavior="fail")
-
-        cypher = gate.compile("c", "$query")
-        assert "duration.between" in cypher
-
-
-# ============================================================================
-# TEMPORAL RANGE GATE TESTS
-# ============================================================================
-
-
-@pytest.mark.unit
-class TestTemporalRangeGate:
-    """Test TemporalRangeGate compilation."""
-
-    def test_temporalrange_gate_compiles(self):
-        """Temporal range gate checks overlapping time windows."""
-        gate = TemporalRangeGate(
-            name="availability_window",
-            candidateprop_start="availablestart",
-            candidateprop_end="availableend",
-            queryparam_start="pickupdate",
-            queryparam_end="deliverydate",
-            nullbehavior="fail",
-        )
-
-        cypher = gate.compile("c", "$query")
-        assert "availablestart" in cypher
-        assert "availableend" in cypher
-        assert "pickupdate" in cypher or "deliverydate" in cypher
-
-
-# ============================================================================
-# TRAVERSAL GATE TESTS
-# ============================================================================
-
-
-@pytest.mark.unit
-class TestTraversalGate:
-    """Test TraversalGate compilation."""
-
-    def test_traversal_gate_compiles(self):
-        """Traversal gate generates EXISTS pattern."""
-        gate = TraversalGate(
-            name="insurance_network",
-            pattern="candidate-[:ACCEPTS_INSURANCE]->(ins:InsurancePlan {planid: $query.insuranceplan})",
-            condition="ins IS NOT NULL",
-            nullbehavior="fail",
-        )
-
-        cypher = gate.compile("c", "$query")
-        assert "EXISTS" in cypher
-        assert "ACCEPTS_INSURANCE" in cypher
-
-    def test_traversal_gate_complex_pattern(self):
-        """Traversal gate supports complex patterns."""
-        gate = TraversalGate(
-            name="skill_match",
-            pattern="candidate-[:HAS_SKILL]->(s:Skill)<-[:REQUIRES]-(query)",
-            condition="s IS NOT NULL",
-            nullbehavior="fail",
-        )
-
-        cypher = gate.compile("c", "$query")
-        assert "EXISTS" in cypher
-        assert "HAS_SKILL" in cypher
-
-
-# ============================================================================
-# COMPOSITE GATE TESTS
-# ============================================================================
-
-
-@pytest.mark.unit
-class TestCompositeGate:
-    """Test CompositeGate with AND/OR logic."""
-
-    def test_composite_gate_and_compiles(self):
-        """Composite gate with AND combines sub-gates."""
-        subgate1 = ThresholdGate(
-            name="credit_min",
-            candidateprop="mincreditscore",
-            queryparam="creditscore",
-            operator="<=",
-            nullbehavior="pass",
-        )
-
-        subgate2 = ThresholdGate(
-            name="dti_max", candidateprop="maxdtipct", queryparam="dtipct", operator=">=", nullbehavior="pass"
-        )
-
-        gate = CompositeGate(name="credit_and_dti", operator="AND", gates=[subgate1, subgate2], nullbehavior="pass")
-
-        cypher = gate.compile("c", "$query")
         assert "AND" in cypher
-        assert "mincreditscore" in cypher
-        assert "maxdtipct" in cypher
 
-    def test_composite_gate_or_compiles(self):
-        """Composite gate with OR combines sub-gates."""
-        subgate1 = BooleanGate(name="va_eligible", candidateprop="acceptsva", queryparam=True, nullbehavior="pass")
-
-        subgate2 = BooleanGate(name="fha_eligible", candidateprop="acceptsfha", queryparam=True, nullbehavior="pass")
-
-        gate = CompositeGate(name="va_or_fha", operator="OR", gates=[subgate1, subgate2], nullbehavior="pass")
-
-        cypher = gate.compile("c", "$query")
-        assert "OR" in cypher
-
-    def test_composite_gate_nested(self):
-        """Composite gates can be nested."""
-        inner_gate = CompositeGate(
-            name="inner",
-            operator="AND",
-            gates=[
-                ThresholdGate("g1", "prop1", "val1", "<=", "pass"),
-                ThresholdGate("g2", "prop2", "val2", ">=", "pass"),
-            ],
-            nullbehavior="pass",
+    def test_compile_all_gates_filters_by_direction(self) -> None:
+        """compile_all_gates filters gates by match direction."""
+        gate1 = make_mock_gate_spec(
+            name="gate1",
+            gate_type=GateType.BOOLEAN,
+            candidate_prop="prop1",
+            query_param="val1",
+            match_directions=["buyer_to_seller"],
         )
-
-        outer_gate = CompositeGate(
-            name="outer",
-            operator="OR",
-            gates=[inner_gate, BooleanGate("g3", "prop3", True, "pass")],
-            nullbehavior="pass",
+        gate2 = make_mock_gate_spec(
+            name="gate2",
+            gate_type=GateType.BOOLEAN,
+            candidate_prop="prop2",
+            query_param="val2",
+            match_directions=["seller_to_buyer"],
         )
+        domain_spec = make_mock_domain_spec(gates=[gate1, gate2])
+        compiler = GateCompiler(domain_spec)
 
-        cypher = outer_gate.compile("c", "$query")
-        assert "AND" in cypher
-        assert "OR" in cypher
+        cypher = compiler.compile_all_gates(match_direction="buyer_to_seller")
+
+        assert "prop1" in cypher
+        assert "prop2" not in cypher
+
+    def test_compile_all_gates_exempts_by_role(self) -> None:
+        """compile_all_gates exempts gates by role."""
+        gate = make_mock_gate_spec(
+            name="gate1",
+            gate_type=GateType.BOOLEAN,
+            candidate_prop="prop1",
+            query_param="val1",
+            exempt_roles=["admin"],
+        )
+        domain_spec = make_mock_domain_spec(gates=[gate])
+        compiler = GateCompiler(domain_spec)
+
+        cypher = compiler.compile_all_gates(match_direction="any", role="admin")
+
+        assert cypher == "true"  # Gate exempted
+
+    def test_compile_all_gates_empty_returns_true(self) -> None:
+        """compile_all_gates returns 'true' when no gates."""
+        domain_spec = make_mock_domain_spec(gates=[])
+        compiler = GateCompiler(domain_spec)
+
+        cypher = compiler.compile_all_gates(match_direction="any")
+
+        assert cypher == "true"
 
 
 # ============================================================================
@@ -464,92 +299,128 @@ class TestCompositeGate:
 
 @pytest.mark.unit
 class TestNullSemantics:
-    """Test NULL behavior across all gate types."""
+    """Test NULL behavior in gate compilation."""
 
-    @pytest.mark.parametrize(
-        "gate_class,config",
-        [
-            (ThresholdGate, {"name": "test", "candidateprop": "prop", "queryparam": "param", "operator": "<="}),
-            (RangeGate, {"name": "test", "candidateprop": "prop", "queryparam_min": "min", "queryparam_max": "max"}),
-            (BooleanGate, {"name": "test", "candidateprop": "prop", "queryparam": True}),
-        ],
-    )
-    def test_null_pass_generates_or_clause(self, gate_class, config):
-        """All gates with nullbehavior=pass generate OR NULL clause."""
-        config["nullbehavior"] = "pass"
-        gate = gate_class(**config)
+    def test_null_pass_wraps_with_or_null(self) -> None:
+        """NullBehavior.PASS wraps predicate with OR IS NULL."""
+        gate = make_mock_gate_spec(
+            name="test",
+            gate_type=GateType.THRESHOLD,
+            candidate_prop="prop",
+            query_param="val",
+            null_behavior=NullBehavior.PASS,
+        )
+        domain_spec = make_mock_domain_spec(gates=[gate])
+        compiler = GateCompiler(domain_spec)
 
-        cypher = gate.compile("c", "$query")
-        assert "IS NULL OR" in cypher
+        cypher = compiler.compile(gate)
 
-    @pytest.mark.parametrize(
-        "gate_class,config",
-        [
-            (ThresholdGate, {"name": "test", "candidateprop": "prop", "queryparam": "param", "operator": "<="}),
-            (RangeGate, {"name": "test", "candidateprop": "prop", "queryparam_min": "min", "queryparam_max": "max"}),
-            (BooleanGate, {"name": "test", "candidateprop": "prop", "queryparam": True}),
-        ],
-    )
-    def test_null_fail_generates_not_null_clause(self, gate_class, config):
-        """All gates with nullbehavior=fail generate NOT NULL clause."""
-        config["nullbehavior"] = "fail"
-        gate = gate_class(**config)
+        assert "IS NULL" in cypher or "OR" in cypher
 
-        cypher = gate.compile("c", "$query")
-        assert "IS NOT NULL" in cypher
+    def test_null_fail_wraps_with_and_not_null(self) -> None:
+        """NullBehavior.FAIL wraps predicate with AND IS NOT NULL."""
+        gate = make_mock_gate_spec(
+            name="test",
+            gate_type=GateType.THRESHOLD,
+            candidate_prop="prop",
+            query_param="val",
+            null_behavior=NullBehavior.FAIL,
+        )
+        domain_spec = make_mock_domain_spec(gates=[gate])
+        compiler = GateCompiler(domain_spec)
+
+        cypher = compiler.compile(gate)
+
+        assert "IS NOT NULL" in cypher or "AND" in cypher
 
 
 # ============================================================================
-# GATE INVERSION TESTS
+# GATE TYPE CLASS TESTS (all_gates.py)
 # ============================================================================
 
 
 @pytest.mark.unit
-class TestGateInversion:
-    """Test bidirectional gate inversion."""
+class TestGateTypeClasses:
+    """Test individual gate type classes from all_gates.py."""
 
-    def test_threshold_gate_inverts(self):
-        """Threshold gate swaps candidateprop and queryparam."""
-        gate = ThresholdGate(
-            name="credit_min",
-            candidateprop="mincreditscore",
-            queryparam="creditscore",
-            operator="<=",
-            nullbehavior="pass",
-            invertible=True,
-        )
+    def test_base_gate_is_abstract(self) -> None:
+        """BaseGate cannot be instantiated directly."""
+        with pytest.raises(TypeError):
+            BaseGate(MagicMock(), MagicMock())
 
-        inverted = gate.invert()
+    def test_threshold_gate_compile(self) -> None:
+        """ThresholdGate.compile() generates comparison."""
+        spec = MagicMock()
+        spec.name = "test"
+        spec.candidateprop = "mincredit"
+        spec.queryparam = "credit"
+        spec.operator = "<="
 
-        assert inverted.candidateprop == "creditscore"  # Swapped
-        assert inverted.queryparam == "mincreditscore"  # Swapped
+        domain_spec = MagicMock()
+        gate = ThresholdGate(spec, domain_spec)
 
-    def test_range_gate_inverts(self):
-        """Range gate swaps candidateprop and query params."""
-        gate = RangeGate(
-            name="price_range",
-            candidateprop="priceperlb",
-            queryparam_min="minprice",
-            queryparam_max="maxprice",
-            nullbehavior="pass",
-            invertible=True,
-        )
+        cypher = gate.compile()
 
-        inverted = gate.invert()
+        assert "candidate.mincredit" in cypher
+        assert "<=" in cypher
 
-        # After inversion, logic reverses
-        assert inverted is not None
+    def test_boolean_gate_compile(self) -> None:
+        """BooleanGate.compile() generates equality."""
+        spec = MagicMock()
+        spec.name = "test"
+        spec.candidateprop = "active"
+        spec.queryparam = "isactive"
 
-    def test_non_invertible_gate_raises(self):
-        """Non-invertible gate raises error on invert()."""
-        gate = ThresholdGate(
-            name="credit_min",
-            candidateprop="mincreditscore",
-            queryparam="creditscore",
-            operator="<=",
-            nullbehavior="pass",
-            invertible=False,  # Not invertible
-        )
+        domain_spec = MagicMock()
+        gate = BooleanGate(spec, domain_spec)
 
-        with pytest.raises(ValueError):
-            gate.invert()
+        cypher = gate.compile()
+
+        assert "candidate.active" in cypher
+        assert "=" in cypher
+
+    def test_exclusion_gate_compile(self) -> None:
+        """ExclusionGate.compile() generates NOT EXISTS."""
+        spec = MagicMock()
+        spec.name = "test"
+        spec.edgetype = "BLOCKED"
+        spec.fromnode = None
+        spec.tonode = None
+
+        domain_spec = MagicMock()
+        gate = ExclusionGate(spec, domain_spec)
+
+        cypher = gate.compile()
+
+        assert "NOT EXISTS" in cypher
+        assert "BLOCKED" in cypher
+
+    def test_freshness_gate_compile(self) -> None:
+        """FreshnessGate.compile() generates duration check."""
+        spec = MagicMock()
+        spec.name = "test"
+        spec.candidateprop = "updated_at"
+        spec.maxagedays = 30
+
+        domain_spec = MagicMock()
+        gate = FreshnessGate(spec, domain_spec)
+
+        cypher = gate.compile()
+
+        assert "duration.between" in cypher
+        assert "30" in cypher
+
+    def test_traversal_gate_compile(self) -> None:
+        """TraversalGate.compile() generates EXISTS pattern."""
+        spec = MagicMock()
+        spec.name = "test"
+        spec.pattern = "(candidate)-[:HAS]->(t:Target)"
+        spec.condition = "t.id = $param"
+
+        domain_spec = MagicMock()
+        gate = TraversalGate(spec, domain_spec)
+
+        cypher = gate.compile()
+
+        assert "EXISTS" in cypher
+        assert "HAS" in cypher

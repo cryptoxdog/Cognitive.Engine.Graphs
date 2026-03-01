@@ -1,0 +1,1310 @@
+# ================================================================
+# PlasticOS Graph Cognitive Engine — Spec Patch v0.5.0
+# ================================================================
+# Revision: v0.5.0 (Architecture Unification Patch)
+# Parent: v0.4.0
+# Date: 2026-02-27
+# Status: ACTIVE
+# ================================================================
+#
+# CHANGELOG v0.4.0 → v0.5.0
+# ──────────────────────────
+# BREAKING:
+#   - COMPATIBLE_WITH_PROCESS edge: replaced optimal_mfi_min/max
+#     with gating_properties[] array (GatingSpec schema)
+#   - BUYER_ACCEPTS_GRADE concept: uses required_properties[] (GatingSpec)
+#   - SourceType taxonomy: split into supply_class + recovery_class
+#   - MaterialAttribute "repro" reclassified to supply_class: feedstock
+#
+# ADDED:
+#   - GatingSpec: universal property-constraint schema
+#   - KBGrade node label (KB overlay layer)
+#   - KBContaminantSpec node label
+#   - KBInferenceRule node label
+#   - InferenceMetadata schema on engine nodes
+#   - KB hot-reload with downstream invalidation
+#   - Re-inference delta report endpoint
+#   - Confidence scoring on all inferred fields
+#
+# UPGRADED:
+#   - COMPATIBLE_WITH_PROCESS → gating_properties[]
+#   - BUYER_ACCEPTS_GRADE (new) → required_properties[]
+#   - Contamination limits → KBContaminantSpec nodes
+#
+# KILLED:
+#   - KB_HAS_PROPERTY edge concept (scalars → node properties)
+#   - SUITABLE_FOR_APPLICATION edge concept (→ node property arrays)
+#   - Flat contamination limit edge concept (→ KBContaminantSpec)
+#
+# MODIFIED:
+#   - SourceType taxonomy: new classification model
+#   - MaterialAttribute taxonomy: repro moved out
+#   - Polymer node: added polymer_tier property
+#   - Facility node: replaced min_mfi/max_mfi with process_gating[]
+# ================================================================
+
+
+# ════════════════════════════════════════════════════════════════
+# SECTION 0: UNIVERSAL SCHEMAS (NEW)
+# ════════════════════════════════════════════════════════════════
+# These schemas are referenced by edges, nodes, and API payloads.
+# One deserializer, one comparator, one Cypher pattern.
+# ════════════════════════════════════════════════════════════════
+
+universal_schemas:
+
+  # ── GatingSpec ──────────────────────────────────────────────
+  # The SINGLE pattern for any property-range constraint.
+  # Used on: COMPATIBLE_WITH_PROCESS, BUYER_ACCEPTS_GRADE,
+  #          Facility.process_gating[], KBGrade matching
+  - name: GatingSpec
+    version: "1.0"
+    description: >
+      Universal property-range constraint. Replaces all bespoke
+      min_mfi/max_mfi, min_iv/max_iv, min_kvalue/max_kvalue
+      patterns across the entire project.
+    schema:
+      property_key:
+        type: string
+        required: true
+        description: "Canonical property name from PropertyRegistry"
+        examples: ["melt_flow_index", "intrinsic_viscosity", "k_value",
+                   "melt_volume_rate", "density", "moisture_content",
+                   "tensile_strength", "impact_strength", "elongation_at_break"]
+      min:
+        type: float
+        nullable: true
+        description: "Minimum acceptable value. null = no lower bound"
+      max:
+        type: float
+        nullable: true
+        description: "Maximum acceptable value. null = no upper bound"
+      typical:
+        type: float
+        nullable: true
+        description: "Typical/target value for scoring proximity"
+      unit:
+        type: string
+        required: true
+        examples: ["g/10min", "dL/g", "dimensionless", "cm3/10min",
+                   "g/cm3", "ppm", "%", "MPa", "J/m", "°C"]
+      test_method:
+        type: string
+        nullable: true
+        examples: ["ASTM D1238", "ASTM D4603", "ISO 1628-2",
+                   "ISO 1133", "ASTM D792", "ASTM D638"]
+      test_conditions:
+        type: string
+        nullable: true
+        description: "Critical for cross-polymer safety. PC MVR at 300C/1.2kg ≠ PP MFI at 230C/2.16kg"
+        examples: ["190C/2.16kg", "230C/2.16kg", "230C/3.8kg",
+                   "300C/1.2kg", "200C/5kg", "260C/5kg"]
+      significance:
+        type: string
+        nullable: true
+        description: "Human-readable note on why this property matters for this context"
+    cypher_comparator: |
+      // Generic range check — works for ANY GatingSpec entry
+      // $gating is a list of GatingSpec maps on the edge/node
+      // $material_props is the material's measured properties map
+      WITH edge, material,
+           [g IN edge.gating_properties
+            WHERE g.property_key IN keys($material_props)
+            AND (g.min IS NULL OR $material_props[g.property_key] >= g.min)
+            AND (g.max IS NULL OR $material_props[g.property_key] <= g.max)
+           ] AS passing_gates,
+           [g IN edge.gating_properties] AS all_gates
+      WHERE size(passing_gates) = size(all_gates)
+    pydantic_model: |
+      class GatingSpec(BaseModel):
+          property_key: str
+          min: Optional[float] = None
+          max: Optional[float] = None
+          typical: Optional[float] = None
+          unit: str
+          test_method: Optional[str] = None
+          test_conditions: Optional[str] = None
+          significance: Optional[str] = None
+
+  # ── InferenceMetadata ──────────────────────────────────────
+  # Stamped on every inferred field on engine nodes.
+  - name: InferenceMetadata
+    version: "1.0"
+    description: >
+      Attached to every field value that was inferred (not directly
+      entered by a user or synced from Odoo). Enables delta reports
+      and stale-detection after KB reload.
+    schema:
+      value:
+        type: any
+        description: "The inferred value"
+      confidence:
+        type: float
+        required: true
+        description: "0.0–1.0 inference confidence score"
+        range: [0.0, 1.0]
+      source:
+        type: string
+        required: true
+        description: "Which system produced this inference"
+        values: ["kb_resolver", "perplexity_enrichment", "consensus_engine",
+                 "rule_engine", "kge_prediction", "manual_override"]
+      kb_version:
+        type: string
+        nullable: true
+        description: "KB version that produced this value (e.g., '8.0')"
+      inferred_at:
+        type: datetime
+        required: true
+      rule_id:
+        type: string
+        nullable: true
+        description: "ID of the inference rule that fired"
+      superseded_by:
+        type: string
+        nullable: true
+        description: "If re-inferred, points to the new inference run ID"
+
+  # ── ContaminantSpec ────────────────────────────────────────
+  # Structured contamination tolerance — earns a node because
+  # tolerances are tiered (strict/moderate/lenient) and shared.
+  - name: ContaminantSpec
+    version: "1.0"
+    schema:
+      contaminant_key:
+        type: string
+        required: true
+        examples: ["pvc", "pet", "polyolefins", "polystyrene",
+                   "copper", "moisture", "dirt_labels", "metal"]
+      tolerance_strict:
+        type: float
+        nullable: true
+        unit_field: tolerance_unit
+      tolerance_moderate:
+        type: float
+        nullable: true
+      tolerance_lenient:
+        type: float
+        nullable: true
+      tolerance_unit:
+        type: string
+        required: true
+        examples: ["%", "ppm"]
+      detection_methods:
+        type: list[string]
+        examples: [["NIR spectroscopy", "density separation", "visual inspection"]]
+      severity:
+        type: string
+        values: ["critical", "high", "moderate", "low"]
+      impact_description:
+        type: string
+        nullable: true
+
+
+# ════════════════════════════════════════════════════════════════
+# SECTION 1: TAXONOMY CORRECTIONS
+# ════════════════════════════════════════════════════════════════
+# Maps directly to the Odoo XML taxonomy files.
+# ════════════════════════════════════════════════════════════════
+
+taxonomy_patches:
+
+  # ── SourceType reclassification ────────────────────────────
+  # Problem: virgin/postconsumer/postindustrial in same flat enum
+  # Fix: Two-axis classification
+  source_type:
+    description: >
+      source_type_data.xml has 8 entries in a flat list.
+      Virgin, Wide Spec, Off Spec are FEEDSTOCK (supply-side).
+      Post-Consumer, Post-Industrial, Post-Commercial, Agricultural,
+      Ocean Recovered are RECOVERED (demand-side lifecycle return).
+      These are orthogonal axes. Mixing them causes false equivalence.
+
+    new_classification_model:
+      supply_class:
+        type: enum
+        values: [feedstock, recovered]
+        description: "Primary axis: was this manufactured or recovered?"
+
+      feedstock_subtype:
+        type: enum
+        nullable: true  # null when supply_class = recovered
+        values: [prime, wide_spec, off_spec, repro]
+        description: "Feedstock quality tier. Only set when supply_class=feedstock"
+
+      recovery_subtype:
+        type: enum
+        nullable: true  # null when supply_class = feedstock
+        values: [post_consumer, post_industrial, post_commercial,
+                 agricultural, ocean_recovered]
+        description: "Recovery stream origin. Only set when supply_class=recovered"
+
+    migration_map:
+      # XML code → new classification
+      - {xml_code: prime,           supply_class: feedstock,  feedstock_subtype: prime,           recovery_subtype: null}
+      - {xml_code: wide_spec,       supply_class: feedstock,  feedstock_subtype: wide_spec,       recovery_subtype: null}
+      - {xml_code: off_spec,        supply_class: feedstock,  feedstock_subtype: off_spec,        recovery_subtype: null}
+      - {xml_code: post_consumer,   supply_class: recovered,  feedstock_subtype: null,            recovery_subtype: post_consumer}
+      - {xml_code: post_industrial, supply_class: recovered,  feedstock_subtype: null,            recovery_subtype: post_industrial}
+      - {xml_code: post_commercial, supply_class: recovered,  feedstock_subtype: null,            recovery_subtype: post_commercial}
+      - {xml_code: agricultural,    supply_class: recovered,  feedstock_subtype: null,            recovery_subtype: agricultural}
+      - {xml_code: ocean_recovered, supply_class: recovered,  feedstock_subtype: null,            recovery_subtype: ocean_recovered}
+
+    graph_impact:
+      node_label: SourceType
+      old_properties: [code, name, description, sequence]
+      new_properties:
+        - {name: code, type: string, description: "Original XML code — retained for backwards compat"}
+        - {name: name, type: string}
+        - {name: supply_class, type: string, values: "feedstock|recovered"}
+        - {name: feedstock_subtype, type: string, nullable: true}
+        - {name: recovery_subtype, type: string, nullable: true}
+        - {name: sequence, type: int}
+
+    kb_grade_type_mapping:
+      description: >
+        KB YAML files use 'type: virgin/postconsumer/postindustrial'.
+        Map to the new two-axis model during KB ingest.
+      map:
+        - {kb_type: virgin,         supply_class: feedstock, feedstock_subtype: prime}
+        - {kb_type: postconsumer,   supply_class: recovered, recovery_subtype: post_consumer}
+        - {kb_type: postindustrial, supply_class: recovered, recovery_subtype: post_industrial}
+
+  # ── MaterialAttribute cleanup ──────────────────────────────
+  material_attribute:
+    description: >
+      material_attribute_data.xml has 'repro' (sequence 50).
+      Repro is NOT an attribute/tag — it's a feedstock subtype.
+      Move it to supply_class=feedstock, feedstock_subtype=repro.
+    changes:
+      - action: REMOVE_FROM_ATTRIBUTE
+        code: repro
+        reason: "Repro is a supply classification, not a material attribute tag"
+      - action: ADD_TO_SOURCE_TYPE
+        new_entry:
+          code: repro
+          name: "Reprocessed"
+          supply_class: feedstock
+          feedstock_subtype: repro
+          recovery_subtype: null
+          description: "Reprocessed material (e.g., repro pellets from scrap)"
+          sequence: 55  # between prime(50) and wide_spec(60)
+
+  # ── Polymer node enrichment ────────────────────────────────
+  polymer:
+    description: >
+      polymer_data.xml has polymer_tier (commodity/engineering/specialty).
+      Ensure this maps to a graph property for KB grade resolution.
+    xml_field_map:
+      # polymer_data.xml fields → Polymer node properties
+      - {xml_field: name,         node_prop: name,         type: string}
+      - {xml_field: code,         node_prop: code,         type: string}
+      - {xml_field: full_name,    node_prop: full_name,    type: string}
+      - {xml_field: resin_code,   node_prop: resin_id_code, type: int, nullable: true}
+      - {xml_field: polymer_tier, node_prop: polymer_tier, type: string, values: "commodity|engineering|specialty"}
+      - {xml_field: sequence,     node_prop: sequence,     type: int}
+
+  # ── ProcessType mapping ────────────────────────────────────
+  process_type:
+    description: >
+      process_type_data.xml → ProcessType nodes.
+      Each process has different gating properties per polymer.
+      The GatingSpec on COMPATIBLE_WITH_PROCESS handles this.
+    xml_entries:
+      - {code: injection,    name: "Injection Molding",    seq: 10}
+      - {code: extrusion,    name: "Extrusion",            seq: 20}
+      - {code: blow_mold,    name: "Blow Molding",         seq: 30}
+      - {code: compounding,  name: "Compounding",          seq: 35}
+      - {code: thermoform,   name: "Thermoforming",        seq: 40}
+      - {code: rotomold,     name: "Rotational Molding",   seq: 50}
+      - {code: film_blown,   name: "Film Blown",           seq: 60}
+      - {code: film_cast,    name: "Film Cast",            seq: 70}
+      - {code: other,        name: "Other",                seq: 999}
+    gating_property_per_polymer:
+      description: >
+        Different polymers use different gating properties for the
+        same process. This is WHY we need GatingSpec instead of
+        hardcoded mfi_min/mfi_max.
+      examples:
+        - {polymer: HDPE,  process: blow_mold,  gating_key: melt_flow_index, unit: "g/10min", test_conditions: "190C/2.16kg"}
+        - {polymer: PVC,   process: extrusion,   gating_key: k_value,         unit: dimensionless, test_conditions: "ISO 1628-2"}
+        - {polymer: PET,   process: injection,    gating_key: intrinsic_viscosity, unit: "dL/g", test_conditions: "ASTM D4603"}
+        - {polymer: PC,    process: injection,    gating_key: melt_volume_rate, unit: "cm3/10min", test_conditions: "300C/1.2kg"}
+        - {polymer: PA,    process: injection,    gating_key: relative_viscosity, unit: dimensionless, test_conditions: "ISO 307"}
+        - {polymer: ABS,   process: injection,    gating_key: melt_flow_index, unit: "g/10min", test_conditions: "230C/3.8kg"}
+        - {polymer: HIPS,  process: injection,    gating_key: melt_flow_rate,  unit: "g/10min", test_conditions: "200C/5kg"}
+        - {polymer: LDPE,  process: film_blown,   gating_key: melt_flow_index, unit: "g/10min", test_conditions: "190C/2.16kg"}
+
+  # ── FillerType mapping ─────────────────────────────────────
+  filler_type:
+    xml_entries:
+      - {code: glass,   name: "Glass Filled",   seq: 10}
+      - {code: talc,    name: "Talc Filled",     seq: 20}
+      - {code: caco3,   name: "CaCO3 Filled",    seq: 25}
+      - {code: mineral, name: "Mineral Filled",   seq: 30}
+      - {code: carbon,  name: "Carbon Filled",    seq: 40}
+      - {code: wood,    name: "Wood Filled",      seq: 50}
+      - {code: other,   name: "Other Filler",     seq: 999}
+
+  # ── MaterialForm mapping ───────────────────────────────────
+  material_form:
+    description: >
+      material_form_data.xml → MaterialForm nodes.
+      Some forms are "origin forms" (drums, buckets, bottles) that
+      describe what the material WAS, not its current processing form.
+    xml_entries:
+      - {code: bales,     name: "Bales",      seq: 5,   form_class: bulk}
+      - {code: film,      name: "Film",       seq: 10,  form_class: sheet}
+      - {code: regrind,   name: "Regrind",    seq: 20,  form_class: particulate}
+      - {code: flake,     name: "Flake",      seq: 30,  form_class: particulate}
+      - {code: rollstock, name: "Rollstock",  seq: 40,  form_class: sheet}
+      - {code: pellets,   name: "Pellets",    seq: 50,  form_class: particulate}
+      - {code: purge,     name: "Purge",      seq: 60,  form_class: bulk}
+      - {code: chopped,   name: "Chopped",    seq: 70,  form_class: particulate}
+      - {code: shred,     name: "Shred",      seq: 80,  form_class: particulate}
+      - {code: densified, name: "Densified",  seq: 90,  form_class: bulk}
+      - {code: parts,     name: "Parts",      seq: 100, form_class: rigid}
+      - {code: sheet,     name: "Sheet",      seq: 110, form_class: sheet}
+      - {code: powder,    name: "Powder",     seq: 120, form_class: particulate}
+      - {code: logs,      name: "Logs",       seq: 130, form_class: bulk}
+      - {code: floorsweep, name: "Floorsweep", seq: 140, form_class: mixed}
+      - {code: loose,     name: "Loose",      seq: 155, form_class: bulk}
+      - {code: drums,     name: "Drums",      seq: 160, form_class: origin}
+      - {code: pallets,   name: "Pallets",    seq: 165, form_class: origin}
+      - {code: buckets,   name: "Buckets",    seq: 170, form_class: origin}
+      - {code: bottles,   name: "Bottles",    seq: 180, form_class: origin}
+      - {code: other,     name: "Other",      seq: 999, form_class: other}
+    new_property:
+      name: form_class
+      type: string
+      values: "particulate|sheet|bulk|rigid|origin|mixed|other"
+      description: "Groups forms by physical handling class for equipment matching"
+
+  # ── MaterialColor mapping ──────────────────────────────────
+  material_color:
+    xml_entries:
+      - {code: clear,      name: "Clear",       hex: "#E0E0E0", seq: 10}
+      - {code: natural,    name: "Natural",     hex: "#F5F5DC",  seq: 20}
+      - {code: white,      name: "White",       hex: "#FFFFFF",  seq: 30}
+      - {code: black,      name: "Black",       hex: "#000000",  seq: 40}
+      - {code: mixed,      name: "Mixed Color", hex: null,       seq: 50}
+      - {code: blue,       name: "Blue",        hex: "#0000FF",  seq: 60}
+      - {code: blue_white, name: "Blue/White",  hex: "#87CEEB",  seq: 65}
+      - {code: red,        name: "Red",         hex: "#FF0000",  seq: 70}
+      - {code: green,      name: "Green",       hex: "#00FF00",  seq: 80}
+      - {code: yellow,     name: "Yellow",      hex: "#FFFF00",  seq: 90}
+      - {code: orange,     name: "Orange",      hex: "#FFA500",  seq: 100}
+      - {code: gray,       name: "Gray",        hex: "#808080",  seq: 110}
+
+  # ── PackagingType mapping ──────────────────────────────────
+  packaging_type:
+    xml_entries:
+      - {code: bales,        name: "Bales",        seq: 10}
+      - {code: gaylords,     name: "Gaylords",     seq: 20}
+      - {code: supersacks,   name: "Super Sacks",  seq: 30}
+      - {code: palletized,   name: "Palletized",   seq: 40}
+      - {code: loose,        name: "Loose",        seq: 50}
+      - {code: bulk_trailer, name: "Bulk Trailer",  seq: 60}
+      - {code: other,        name: "Other",        seq: 999}
+
+  # ── MaterialAttribute mapping (minus repro) ────────────────
+  material_attribute:
+    description: "After removing repro, these remain as boolean/tag attributes"
+    xml_entries:
+      - {code: clean,             name: "Clean",              seq: 10,  boolean_field: null}
+      - {code: dry,               name: "Dry",                seq: 20,  boolean_field: null}
+      - {code: with_moisture,     name: "With Moisture",      seq: 30,  boolean_field: null}
+      - {code: reusable,          name: "Reusable",           seq: 40,  boolean_field: null}
+      # repro REMOVED — moved to SourceType.feedstock_subtype=repro
+      - {code: mixed,             name: "Mixed",              seq: 60,  boolean_field: null}
+      - {code: metalized,         name: "Metalized",          seq: 70,  boolean_field: is_metalized}
+      - {code: with_metal,        name: "With Metal",         seq: 80,  boolean_field: has_metal}
+      - {code: no_metal,          name: "No Metal",           seq: 90,  boolean_field: has_metal}
+      - {code: printed,           name: "Printed",            seq: 100, boolean_field: null}
+      - {code: no_print,          name: "No Print",           seq: 110, boolean_field: null}
+      - {code: oily,              name: "Oily",               seq: 120, boolean_field: null}
+      - {code: no_value,          name: "No Value",           seq: 130, boolean_field: null}
+      - {code: pvc_contaminated,  name: "PVC Contaminated",   seq: 140, boolean_field: null}
+      - {code: pp_contaminated,   name: "PP Contaminated",    seq: 150, boolean_field: null}
+      - {code: has_odor,          name: "Has Odor",           seq: 160, boolean_field: null}
+      - {code: oil_residue,       name: "Oil Residue",        seq: 170, boolean_field: null}
+      - {code: flame_retardant,   name: "Flame Retardant",    seq: 180, boolean_field: has_fr}
+
+
+# ════════════════════════════════════════════════════════════════
+# SECTION 2: EDGE UPGRADES & KILLS
+# ════════════════════════════════════════════════════════════════
+
+edge_patches:
+
+  # ── UPGRADE: COMPATIBLE_WITH_PROCESS ───────────────────────
+  - edge: COMPATIBLE_WITH_PROCESS
+    action: UPGRADE
+    from: PolymerFamily
+    to: ProcessType
+    category: capability
+    managed_by: kb_overlay  # populated from KB YAML, not hardcoded seed_data
+    layer: process_affinity
+    status: BREAKING_CHANGE
+
+    old_properties:
+      - {name: optimal_mfi_min, type: float}
+      - {name: optimal_mfi_max, type: float}
+      - {name: compatibility_grade, type: string}
+
+    new_properties:
+      - name: gating_properties
+        type: "list[GatingSpec]"
+        required: true
+        description: >
+          Array of GatingSpec entries. Each polymer-process pair
+          has different gating properties. PVC uses K-value,
+          PET uses IV, PC uses MVR, HDPE uses MFI.
+          Cypher reads these dynamically — zero hardcoding.
+      - name: compatibility_grade
+        type: string
+        values: "optimal|acceptable|marginal"
+        description: "Overall compatibility tier"
+      - name: kb_source_grade_ids
+        type: "list[string]"
+        nullable: true
+        description: "Which KB grade IDs contributed to this edge"
+      - name: kb_version
+        type: string
+        nullable: true
+
+    new_seed_data:
+      description: >
+        Replaces the old 20-entry MFI-only seed_data.
+        Now each entry carries the correct gating property for
+        that polymer-process pair, sourced from KB YAML files.
+      entries:
+        # HDPE — gated on MFI (190C/2.16kg)
+        - polymer_code: hdpe
+          process_code: injection
+          compatibility_grade: optimal
+          gating_properties:
+            - {property_key: melt_flow_index, min: 4.0,  max: null, unit: "g/10min", test_method: "ASTM D1238", test_conditions: "190C/2.16kg"}
+            - {property_key: density,         min: 0.94, max: 0.97, unit: "g/cm3",   test_method: "ASTM D792"}
+        - polymer_code: hdpe
+          process_code: extrusion
+          compatibility_grade: optimal
+          gating_properties:
+            - {property_key: melt_flow_index, min: null, max: 2.0,  unit: "g/10min", test_method: "ASTM D1238", test_conditions: "190C/2.16kg"}
+        - polymer_code: hdpe
+          process_code: blow_mold
+          compatibility_grade: optimal
+          gating_properties:
+            - {property_key: melt_flow_index, min: 0.1,  max: 1.0,  unit: "g/10min", test_method: "ASTM D1238", test_conditions: "190C/2.16kg"}
+
+        # LDPE — gated on MFI (190C/2.16kg)
+        - polymer_code: ldpe
+          process_code: film_blown
+          compatibility_grade: optimal
+          gating_properties:
+            - {property_key: melt_flow_index, min: 0.2,  max: 2.0,  unit: "g/10min", test_method: "ASTM D1238", test_conditions: "190C/2.16kg", significance: "Lower MFI = better bubble stability"}
+        - polymer_code: ldpe
+          process_code: film_cast
+          compatibility_grade: optimal
+          gating_properties:
+            - {property_key: melt_flow_index, min: 2.0,  max: 8.0,  unit: "g/10min", test_method: "ASTM D1238", test_conditions: "190C/2.16kg"}
+        - polymer_code: ldpe
+          process_code: injection
+          compatibility_grade: acceptable
+          gating_properties:
+            - {property_key: melt_flow_index, min: 4.0,  max: 50.0, unit: "g/10min", test_method: "ASTM D1238", test_conditions: "190C/2.16kg"}
+        - polymer_code: ldpe
+          process_code: extrusion
+          compatibility_grade: optimal
+          gating_properties:
+            - {property_key: melt_flow_index, min: 0.3,  max: 6.0,  unit: "g/10min", test_method: "ASTM D1238", test_conditions: "190C/2.16kg"}
+
+        # PVC — gated on K-value (ISO 1628-2), NOT MFI
+        - polymer_code: pvc
+          process_code: extrusion
+          compatibility_grade: optimal
+          gating_properties:
+            - {property_key: k_value, min: 62, max: 70, unit: dimensionless, test_method: "ISO 1628-2", significance: "K-value = molecular weight indicator for PVC. MFI not applicable."}
+        - polymer_code: pvc
+          process_code: injection
+          compatibility_grade: acceptable
+          gating_properties:
+            - {property_key: k_value, min: 55, max: 62, unit: dimensionless, test_method: "ISO 1628-2", significance: "Lower K for injection — needs flow"}
+
+        # PET — gated on IV (ASTM D4603), NOT MFI
+        - polymer_code: pet
+          process_code: injection
+          compatibility_grade: optimal
+          gating_properties:
+            - {property_key: intrinsic_viscosity, min: 0.72, max: 0.88, unit: "dL/g", test_method: "ASTM D4603", significance: "Preform/bottle grade IV range"}
+        - polymer_code: pet
+          process_code: thermoform
+          compatibility_grade: optimal
+          gating_properties:
+            - {property_key: intrinsic_viscosity, min: 0.70, max: 0.85, unit: "dL/g", test_method: "ASTM D4603"}
+            - {property_key: crystallinity, max: 5.0, unit: "%", significance: "APET must be amorphous for clarity"}
+        - polymer_code: pet
+          process_code: extrusion
+          compatibility_grade: optimal
+          gating_properties:
+            - {property_key: intrinsic_viscosity, min: 0.70, max: 1.0, unit: "dL/g", test_method: "ASTM D4603"}
+
+        # PC — gated on MVR (300C/1.2kg), NOT MFI
+        - polymer_code: pc
+          process_code: injection
+          compatibility_grade: optimal
+          gating_properties:
+            - {property_key: melt_volume_rate, min: 6.0, max: 65.0, unit: "cm3/10min", test_method: "ISO 1133", test_conditions: "300C/1.2kg", significance: "DO NOT convert to other conditions. PC flow is condition-dependent."}
+
+        # PA (Nylon) — gated on relative viscosity
+        - polymer_code: nylon
+          process_code: injection
+          compatibility_grade: optimal
+          gating_properties:
+            - {property_key: relative_viscosity, min: 2.4, max: 3.2, unit: dimensionless, test_method: "ISO 307", significance: "RV correlates to molecular weight and melt behavior"}
+            - {property_key: moisture_content, min: null, max: 0.2, unit: "%", test_method: "Karl Fischer", significance: "PA6 is hygroscopic. >0.2% causes hydrolysis during processing."}
+        - polymer_code: nylon
+          process_code: extrusion
+          compatibility_grade: acceptable
+          gating_properties:
+            - {property_key: relative_viscosity, min: 2.7, max: 3.8, unit: dimensionless, test_method: "ISO 307"}
+
+        # ABS — gated on MFI (230C/3.8kg) — different conditions than HDPE!
+        - polymer_code: abs
+          process_code: injection
+          compatibility_grade: optimal
+          gating_properties:
+            - {property_key: melt_flow_index, min: 1.0, max: 30.0, unit: "g/10min", test_method: "ASTM D1238", test_conditions: "230C/3.8kg"}
+        - polymer_code: abs
+          process_code: extrusion
+          compatibility_grade: acceptable
+          gating_properties:
+            - {property_key: melt_flow_index, min: 1.0, max: 8.0, unit: "g/10min", test_method: "ASTM D1238", test_conditions: "230C/3.8kg"}
+
+        # HIPS — gated on MFR (200C/5kg) — yet another condition
+        - polymer_code: hips
+          process_code: injection
+          compatibility_grade: optimal
+          gating_properties:
+            - {property_key: melt_flow_rate, min: 2.0, max: 18.0, unit: "g/10min", test_method: "ASTM D1238", test_conditions: "200C/5kg"}
+        - polymer_code: hips
+          process_code: thermoform
+          compatibility_grade: optimal
+          gating_properties:
+            - {property_key: melt_flow_rate, min: 1.5, max: 5.0, unit: "g/10min", test_method: "ASTM D1238", test_conditions: "200C/5kg"}
+
+        # PP — gated on MFI (230C/2.16kg)
+        - polymer_code: pp
+          process_code: injection
+          compatibility_grade: optimal
+          gating_properties:
+            - {property_key: melt_flow_index, min: 4.0, max: null, unit: "g/10min", test_method: "ASTM D1238", test_conditions: "230C/2.16kg"}
+        - polymer_code: pp
+          process_code: extrusion
+          compatibility_grade: optimal
+          gating_properties:
+            - {property_key: melt_flow_index, min: null, max: 4.0, unit: "g/10min", test_method: "ASTM D1238", test_conditions: "230C/2.16kg"}
+        - polymer_code: pp
+          process_code: film_blown
+          compatibility_grade: optimal
+          gating_properties:
+            - {property_key: melt_flow_index, min: null, max: 3.0, unit: "g/10min", test_method: "ASTM D1238", test_conditions: "230C/2.16kg"}
+        - polymer_code: pp
+          process_code: blow_mold
+          compatibility_grade: optimal
+          gating_properties:
+            - {property_key: melt_flow_index, min: 0.5, max: 4.0, unit: "g/10min", test_method: "ASTM D1238", test_conditions: "230C/2.16kg"}
+
+    new_bootstrap_cypher: |
+      UNWIND $compatibilities AS c
+      MATCH (pf:PolymerFamily {code: c.polymer_code})
+      MATCH (pt:ProcessType {code: c.process_code})
+      MERGE (pf)-[r:COMPATIBLE_WITH_PROCESS]->(pt)
+      SET r.gating_properties = apoc.convert.toJson(c.gating_properties),
+          r.compatibility_grade = c.compatibility_grade,
+          r.kb_source_grade_ids = c.kb_source_grade_ids,
+          r.kb_version = c.kb_version
+
+    new_cypher_gate: |
+      // REPLACES old Gate 4 MFI check in matchstrict.cypher
+      // Dynamic gating — reads property_key from edge, not hardcoded field
+      OPTIONAL MATCH (pf:PolymerFamily {code: $polymer_code})-[cwp:COMPATIBLE_WITH_PROCESS]->(pt:ProcessType {code: f.process_type})
+      WITH f, cwp,
+           CASE WHEN cwp IS NULL THEN true  // no KB constraint = pass
+           ELSE ALL(g IN apoc.convert.fromJsonList(cwp.gating_properties) WHERE
+             CASE
+               WHEN g.property_key = 'melt_flow_index'      AND $mfi IS NOT NULL
+                 THEN (g.min IS NULL OR $mfi >= g.min) AND (g.max IS NULL OR $mfi <= g.max)
+               WHEN g.property_key = 'intrinsic_viscosity'   AND $iv IS NOT NULL
+                 THEN (g.min IS NULL OR $iv >= g.min) AND (g.max IS NULL OR $iv <= g.max)
+               WHEN g.property_key = 'k_value'               AND $k_value IS NOT NULL
+                 THEN (g.min IS NULL OR $k_value >= g.min) AND (g.max IS NULL OR $k_value <= g.max)
+               WHEN g.property_key = 'melt_volume_rate'      AND $mvr IS NOT NULL
+                 THEN (g.min IS NULL OR $mvr >= g.min) AND (g.max IS NULL OR $mvr <= g.max)
+               WHEN g.property_key = 'relative_viscosity'    AND $rv IS NOT NULL
+                 THEN (g.min IS NULL OR $rv >= g.min) AND (g.max IS NULL OR $rv <= g.max)
+               WHEN g.property_key = 'melt_flow_rate'        AND $mfr IS NOT NULL
+                 THEN (g.min IS NULL OR $mfr >= g.min) AND (g.max IS NULL OR $mfr <= g.max)
+               WHEN g.property_key = 'density'               AND $density IS NOT NULL
+                 THEN (g.min IS NULL OR $density >= g.min) AND (g.max IS NULL OR $density <= g.max)
+               WHEN g.property_key = 'moisture_content'      AND $moisture IS NOT NULL
+                 THEN (g.min IS NULL OR $moisture >= g.min) AND (g.max IS NULL OR $moisture <= g.max)
+               WHEN g.property_key = 'crystallinity'         AND $crystallinity IS NOT NULL
+                 THEN (g.min IS NULL OR $crystallinity >= g.min) AND (g.max IS NULL OR $crystallinity <= g.max)
+               ELSE true  // property not provided in query = skip gate
+             END
+           )
+           END AS passes_gating
+      WHERE passes_gating = true
+
+  # ── UPGRADE: Facility process gating ───────────────────────
+  - node: Facility
+    action: UPGRADE
+    status: BREAKING_CHANGE
+    description: >
+      Replace flat min_mfi/max_mfi on Facility with
+      process_gating[] using GatingSpec. Facility-level
+      property constraints become polymer-aware.
+    old_properties_removed:
+      - min_mfi
+      - max_mfi
+    new_properties_added:
+      - name: process_gating
+        type: "JSON string (list[GatingSpec])"
+        nullable: true
+        description: >
+          Facility-declared property constraints. These are what
+          the BUYER says they need, stored as GatingSpec entries.
+          Distinct from KB-derived COMPATIBLE_WITH_PROCESS which
+          is what the PHYSICS says the process needs.
+
+  # ── KILL: KB_HAS_PROPERTY ──────────────────────────────────
+  - edge: KB_HAS_PROPERTY
+    action: KILL
+    reason: >
+      Generic edge to flat scalar value. No conditional logic,
+      no tiering, no structured data. These are simple key-value
+      pairs that belong as node properties on KBGrade.
+    replacement: "KBGrade node properties (density, tensile_strength, etc.)"
+
+  # ── KILL: SUITABLE_FOR_APPLICATION ─────────────────────────
+  - edge: SUITABLE_FOR_APPLICATION
+    action: KILL
+    reason: >
+      Applications are already arrays on KB grades in every YAML.
+      No conditional logic — just a flat list per grade.
+    replacement: "KBGrade.applications_primary[] and KBGrade.applications_secondary[] node properties"
+
+  # ── KILL: flat contamination limit edges ───────────────────
+  - edge: KB_CONTAMINATION_LIMIT
+    action: KILL
+    reason: >
+      Contamination tolerances are tiered (strict/moderate/lenient)
+      and shared across grades. This is conditional structured data.
+      Earns a node, not a flat edge property.
+    replacement: "KBContaminantSpec node + HAS_CONTAMINANT_SPEC edge"
+
+
+# ════════════════════════════════════════════════════════════════
+# SECTION 3: NEW NODE LABELS (KB OVERLAY LAYER)
+# ════════════════════════════════════════════════════════════════
+
+new_node_labels:
+
+  # ── KBGrade ────────────────────────────────────────────────
+  - label: KBGrade
+    added_in: v0.5.0
+    managed_by: kb_ingest
+    description: >
+      Knowledge base grade node. One per grade per polymer KB YAML.
+      Contains all scalar properties from the KB (density, tensile,
+      processing temps, etc.) as node properties. NOT an engine node.
+      Linked to PolymerFamily and ProcessType via edges.
+    constraint: "CREATE CONSTRAINT kb_grade_id IF NOT EXISTS FOR (kg:KBGrade) REQUIRE kg.grade_id IS UNIQUE"
+    indexes:
+      - "CREATE INDEX kb_grade_polymer IF NOT EXISTS FOR (kg:KBGrade) ON (kg.polymer_family)"
+      - "CREATE INDEX kb_grade_supply_class IF NOT EXISTS FOR (kg:KBGrade) ON (kg.supply_class)"
+    properties:
+      # Identity
+      - {name: grade_id, type: string, required: true, description: "e.g., PETBOTTLEGRADE, PVCPIPEK65"}
+      - {name: grade_name, type: string}
+      - {name: description, type: string}
+      - {name: polymer_family, type: string, description: "Polymer family code (hdpe, pp, pvc, pet, etc.)"}
+      - {name: kb_version, type: string}
+
+      # Supply classification (two-axis model)
+      - {name: supply_class, type: string, values: "feedstock|recovered"}
+      - {name: feedstock_subtype, type: string, nullable: true, values: "prime|wide_spec|off_spec|repro"}
+      - {name: recovery_subtype, type: string, nullable: true, values: "post_consumer|post_industrial|post_commercial|agricultural|ocean_recovered"}
+
+      # Scalar properties (was KB_HAS_PROPERTY edge — now killed)
+      - {name: density_min, type: float, nullable: true}
+      - {name: density_max, type: float, nullable: true}
+      - {name: density_typical, type: float, nullable: true}
+      - {name: density_unit, type: string, default: "g/cm3"}
+      - {name: tensile_strength_min, type: float, nullable: true}
+      - {name: tensile_strength_max, type: float, nullable: true}
+      - {name: tensile_strength_typical, type: float, nullable: true}
+      - {name: flexural_modulus_typical, type: float, nullable: true}
+      - {name: impact_strength_typical, type: float, nullable: true}
+      - {name: hdt_typical, type: float, nullable: true}
+      - {name: melt_temp_min, type: float, nullable: true}
+      - {name: melt_temp_max, type: float, nullable: true}
+      - {name: max_safe_temp, type: float, nullable: true}
+      - {name: drying_temp, type: float, nullable: true}
+      - {name: drying_hours_min, type: float, nullable: true}
+      - {name: drying_hours_max, type: float, nullable: true}
+
+      # Gating properties (polymer-specific)
+      - {name: gating_value, type: float, nullable: true, description: "Primary gating value (MFI, IV, K-value, MVR, RV)"}
+      - {name: gating_value_min, type: float, nullable: true}
+      - {name: gating_value_max, type: float, nullable: true}
+      - {name: gating_property_key, type: string, nullable: true, description: "Which GatingSpec property this represents"}
+
+      # PCR compatibility (was flat — stays flat, it's a scalar)
+      - {name: max_pcr_pct, type: float, nullable: true}
+      - {name: typical_pcr_pct, type: float, nullable: true}
+      - {name: pcr_quality_requirements, type: string, nullable: true}
+
+      # Applications (was SUITABLE_FOR_APPLICATION edge — now killed)
+      - {name: applications_primary, type: "list[string]"}
+      - {name: applications_secondary, type: "list[string]"}
+
+      # Market data
+      - {name: availability, type: string, nullable: true, values: "abundant|moderate|limited"}
+      - {name: demand, type: string, nullable: true, values: "high|moderate|low"}
+      - {name: discount_vs_virgin_pct, type: float, nullable: true}
+
+    edges_from:
+      - {type: "GRADE_OF", to: "PolymerFamily", description: "Which polymer family this grade belongs to"}
+      - {type: "GRADE_COMPATIBLE_WITH", to: "ProcessType", properties: "gating_properties[] (GatingSpec)", description: "Process compatibility with full gating spec"}
+      - {type: "REQUIRES_CERT", to: "Certification", description: "Required certifications for this grade"}
+      - {type: "HAS_CONTAMINANT_SPEC", to: "KBContaminantSpec", description: "Contamination tolerance profile"}
+      - {type: "HAS_INFERENCE_RULE", to: "KBInferenceRule", description: "Conditional inference rules"}
+
+  # ── KBContaminantSpec ──────────────────────────────────────
+  - label: KBContaminantSpec
+    added_in: v0.5.0
+    managed_by: kb_ingest
+    description: >
+      Contamination tolerance node. Shared across grades.
+      Contains tiered tolerances (strict/moderate/lenient) and
+      detection methods. Earns a node because it's structured
+      conditional data referenced by multiple grades.
+    constraint: "CREATE CONSTRAINT kb_contaminant_spec_id IF NOT EXISTS FOR (kc:KBContaminantSpec) REQUIRE kc.spec_id IS UNIQUE"
+    properties:
+      - {name: spec_id, type: string, required: true, description: "e.g., PVC_CONTAM_POLYOLEFINS"}
+      - {name: contaminant_key, type: string, required: true}
+      - {name: polymer_family, type: string}
+      - {name: severity, type: string, values: "critical|high|moderate|low"}
+      - {name: tolerance_strict, type: float, nullable: true}
+      - {name: tolerance_moderate, type: float, nullable: true}
+      - {name: tolerance_lenient, type: float, nullable: true}
+      - {name: tolerance_unit, type: string}
+      - {name: detection_methods, type: "list[string]"}
+      - {name: impact_description, type: string, nullable: true}
+      - {name: removal_methods, type: "list[string]", nullable: true}
+      - {name: kb_version, type: string}
+
+  # ── KBInferenceRule ────────────────────────────────────────
+  - label: KBInferenceRule
+    added_in: v0.5.0
+    managed_by: kb_ingest
+    description: >
+      Conditional inference rule from KB YAML. Only rules with
+      IF/WHEN/THEN logic earn a node. Simple property defaults
+      are stored as KBGrade node properties.
+    constraint: "CREATE CONSTRAINT kb_inference_rule_id IF NOT EXISTS FOR (kr:KBInferenceRule) REQUIRE kr.rule_id IS UNIQUE"
+    properties:
+      - {name: rule_id, type: string, required: true}
+      - {name: rule_name, type: string}
+      - {name: polymer_family, type: string}
+      - {name: when_conditions, type: "JSON string", description: "Serialized condition map"}
+      - {name: then_inferences, type: "JSON string", description: "Serialized inference map"}
+      - {name: reasoning_mode, type: string, values: "deductive|inductive|abductive"}
+      - {name: confidence, type: float}
+      - {name: exceptions, type: "list[string]", nullable: true}
+      - {name: kb_version, type: string}
+
+  # ── KBBuyerProfile ─────────────────────────────────────────
+  - label: KBBuyerProfile
+    added_in: v0.5.0
+    managed_by: kb_ingest
+    description: >
+      Buyer archetype from KB YAML. Carries required_properties[]
+      using the same GatingSpec schema. Enables dynamic buyer-material
+      matching without hardcoded property checks.
+    constraint: "CREATE CONSTRAINT kb_buyer_profile_id IF NOT EXISTS FOR (kb:KBBuyerProfile) REQUIRE kb.buyer_id IS UNIQUE"
+    properties:
+      - {name: buyer_id, type: string, required: true, description: "e.g., PVCBP001, PETBP_BOTTLE"}
+      - {name: buyer_type, type: string}
+      - {name: industry, type: string}
+      - {name: polymer_family, type: string}
+      - {name: typical_companies, type: "list[string]"}
+      - {name: quality_threshold, type: string, values: "very_strict|strict|high|moderate|flexible"}
+      - {name: volume_min_tons_month, type: float, nullable: true}
+      - {name: volume_max_tons_month, type: float, nullable: true}
+      - {name: certifications_required, type: "list[string]"}
+      - {name: price_sensitivity, type: string, values: "very_low|low|moderate|high"}
+      - {name: grade_preferences, type: "list[string]", description: "Preferred KBGrade IDs"}
+      - {name: required_properties, type: "JSON string (list[GatingSpec])", description: "Buyer's property requirements in GatingSpec format"}
+      - {name: decision_criteria, type: "JSON string", description: "Weighted decision factors"}
+      - {name: red_flags, type: "list[string]"}
+      - {name: kb_version, type: string}
+
+  # ── KBRecyclingRule ────────────────────────────────────────
+  - label: KBRecyclingRule
+    added_in: v0.5.0
+    managed_by: kb_ingest
+    description: >
+      Recycling-specific rules (e.g., rigid/flexible segregation,
+      K-value blending, cycle limits). Separate from generic
+      inference rules because these are domain-specific processing
+      constraints with safety implications.
+    constraint: "CREATE CONSTRAINT kb_recycling_rule_id IF NOT EXISTS FOR (krr:KBRecyclingRule) REQUIRE krr.rule_id IS UNIQUE"
+    properties:
+      - {name: rule_id, type: string, required: true}
+      - {name: rule_name, type: string}
+      - {name: polymer_family, type: string}
+      - {name: condition, type: string}
+      - {name: action, type: string}
+      - {name: reasoning, type: string}
+      - {name: confidence, type: float}
+      - {name: exceptions, type: "list[string]", nullable: true}
+      - {name: kb_version, type: string}
+
+
+# ════════════════════════════════════════════════════════════════
+# SECTION 4: KB HOT-RELOAD & RE-INFERENCE
+# ════════════════════════════════════════════════════════════════
+
+kb_reload:
+
+  endpoint: "POST /v1/kb/ingest"
+  description: >
+    Ingests KB YAML files, writes/updates KBGrade, KBContaminantSpec,
+    KBInferenceRule, KBBuyerProfile, KBRecyclingRule nodes and all
+    connecting edges. After write, triggers downstream invalidation
+    and re-inference pass.
+
+  reload_pipeline:
+    - step: 1
+      name: parse_and_validate
+      description: "Parse YAML, validate against schema, detect version delta"
+      output: "{old_version, new_version, changed_grade_ids[], changed_rule_ids[]}"
+
+    - step: 2
+      name: write_kb_nodes
+      description: "MERGE all KB nodes (idempotent). Delete nodes removed in new version."
+      cypher_pattern: |
+        UNWIND $grades AS g
+        MERGE (kg:KBGrade {grade_id: g.grade_id})
+        SET kg += g.properties, kg.kb_version = $new_version
+
+    - step: 3
+      name: write_kb_edges
+      description: >
+        Rebuild GRADE_OF, GRADE_COMPATIBLE_WITH (with gating_properties[]),
+        REQUIRES_CERT, HAS_CONTAMINANT_SPEC, HAS_INFERENCE_RULE edges.
+
+    - step: 4
+      name: identify_stale_engine_nodes
+      description: >
+        Find all engine nodes (MaterialProfile, Facility) with
+        inferred fields where inference_metadata.kb_version != $new_version
+        AND inference_metadata.source IN ['kb_resolver', 'rule_engine'].
+      cypher: |
+        MATCH (n)
+        WHERE (n:MaterialProfile OR n:Facility)
+        AND any(key IN keys(n) WHERE
+          n[key + '__inference'] IS NOT NULL
+          AND apoc.convert.fromJsonMap(n[key + '__inference']).kb_version <> $new_version
+          AND apoc.convert.fromJsonMap(n[key + '__inference']).source IN ['kb_resolver', 'rule_engine']
+        )
+        RETURN n
+
+    - step: 5
+      name: snapshot_pre_reinference
+      description: >
+        Capture pre-reinference state: {node_id, field, old_value,
+        old_confidence, was_blank}. Only nodes that existed at
+        last reinference (exclude nodes added since).
+      filter: "n.created_at <= $last_reinference_timestamp"
+
+    - step: 6
+      name: reinference_pass
+      description: >
+        Re-run inference on all stale nodes using new KB data.
+        Each inferred field gets updated InferenceMetadata with
+        new kb_version, new confidence, new timestamp.
+
+    - step: 7
+      name: generate_delta_report
+      description: "Compare pre/post snapshots, generate KPI report"
+
+  reinference_delta_report:
+    endpoint: "GET /v1/kb/reinference-report/{run_id}"
+    schema:
+      run_id:
+        type: string
+        description: "UUID of the reinference run"
+      kb_version_old:
+        type: string
+      kb_version_new:
+        type: string
+      timestamp:
+        type: datetime
+      eligible_node_count:
+        type: int
+        description: >
+          Only nodes that existed at last reinference.
+          Nodes added since are excluded for true KPI measurement.
+
+      confidence_deltas:
+        improved:
+          type: int
+          description: "Fields where confidence went UP"
+        degraded:
+          type: int
+          description: "Fields where confidence went DOWN"
+        unchanged:
+          type: int
+        avg_confidence_old:
+          type: float
+        avg_confidence_new:
+          type: float
+        max_degradation:
+          type: object
+          properties:
+            node_id: string
+            field: string
+            old_confidence: float
+            new_confidence: float
+            delta: float
+
+      coverage_deltas:
+        previously_blank_now_filled:
+          type: int
+          description: "Gap backfill KPI — primary improvement metric"
+        previously_filled_now_blank:
+          type: int
+          description: "Regression alert — should be 0"
+        coverage_pct_old:
+          type: float
+        coverage_pct_new:
+          type: float
+
+      flagged_regressions:
+        type: "list[object]"
+        description: "Any field where confidence dropped > 0.15"
+        item_schema:
+          node_id: string
+          field: string
+          old_confidence: float
+          new_confidence: float
+          reason: string
+
+      alerts:
+        regression_threshold: 0.15
+        coverage_regression_blocks_reload: false  # configurable
+        confidence_regression_blocks_reload: false
+
+  inference_field_storage:
+    description: >
+      Every inferred field on an engine node is stored as TWO properties:
+      - {field_name}: the actual value
+      - {field_name}__inference: JSON-serialized InferenceMetadata
+    example:
+      node: "MaterialProfile (material_id: 4821)"
+      field: density
+      storage:
+        density: 0.954
+        density__inference: |
+          {
+            "confidence": 0.82,
+            "source": "kb_resolver",
+            "kb_version": "8.0",
+            "inferred_at": "2026-02-27T16:23:00Z",
+            "rule_id": "HDPE_DENSITY_FROM_GRADE"
+          }
+
+
+# ════════════════════════════════════════════════════════════════
+# SECTION 5: PROPERTY REGISTRY
+# ════════════════════════════════════════════════════════════════
+# Canonical property keys referenced by GatingSpec across all
+# polymers. Ensures consistent naming in Cypher, Python, and KB.
+# ════════════════════════════════════════════════════════════════
+
+property_registry:
+  - key: melt_flow_index
+    display_name: "Melt Flow Index (MFI)"
+    unit: "g/10min"
+    test_method: "ASTM D1238"
+    polymers: [hdpe, ldpe, lldpe, pp, abs, pp_pe]
+    notes: "Test conditions vary by polymer. Always check test_conditions field."
+
+  - key: melt_flow_rate
+    display_name: "Melt Flow Rate (MFR)"
+    unit: "g/10min"
+    test_method: "ASTM D1238"
+    polymers: [hips, ps, eps]
+    notes: "HIPS/PS convention uses MFR not MFI. Different test conditions."
+
+  - key: melt_volume_rate
+    display_name: "Melt Volume Rate (MVR)"
+    unit: "cm3/10min"
+    test_method: "ISO 1133"
+    polymers: [pc, pc_pmma]
+    notes: "PC industry standard. DO NOT convert between MVR and MFI."
+
+  - key: intrinsic_viscosity
+    display_name: "Intrinsic Viscosity (IV)"
+    unit: "dL/g"
+    test_method: "ASTM D4603"
+    polymers: [pet, pbt]
+    notes: "Primary gating property for all PET grades."
+
+  - key: k_value
+    display_name: "K-Value"
+    unit: dimensionless
+    test_method: "ISO 1628-2"
+    polymers: [pvc]
+    notes: "Molecular weight indicator for PVC. MFI not applicable to PVC."
+
+  - key: relative_viscosity
+    display_name: "Relative Viscosity (RV)"
+    unit: dimensionless
+    test_method: "ISO 307"
+    polymers: [nylon]
+    notes: "Primary molecular weight indicator for PA6/PA66."
+
+  - key: density
+    display_name: "Density"
+    unit: "g/cm3"
+    test_method: "ASTM D792"
+    polymers: [all]
+    notes: "Universal property. Often gating for HDPE (density determines grade)."
+
+  - key: moisture_content
+    display_name: "Moisture Content"
+    unit: "%"
+    test_method: "Karl Fischer"
+    polymers: [nylon, pet, pc, pbt]
+    notes: "Critical for hygroscopic polymers. Processing gate."
+
+  - key: tensile_strength
+    display_name: "Tensile Strength"
+    unit: "MPa"
+    test_method: "ASTM D638"
+    polymers: [all]
+
+  - key: impact_strength
+    display_name: "Impact Strength (Izod)"
+    unit: "J/m"
+    test_method: "ASTM D256"
+    polymers: [all]
+
+  - key: elongation_at_break
+    display_name: "Elongation at Break"
+    unit: "%"
+    test_method: "ASTM D638"
+    polymers: [all]
+
+  - key: crystallinity
+    display_name: "Crystallinity"
+    unit: "%"
+    test_method: "DSC"
+    polymers: [pet, hdpe, pp]
+    notes: "Gating for APET (must be <5%) vs CPET (>20%)."
+
+  - key: shore_a_hardness
+    display_name: "Shore A Hardness"
+    unit: dimensionless
+    test_method: "ASTM D2240"
+    polymers: [tpe, tpo]
+
+  - key: chlorine_content
+    display_name: "Chlorine Content"
+    unit: "%"
+    test_method: null
+    polymers: [pvc]
+    notes: "Distinguishes PVC (~57%) from CPVC (63-69%)."
+
+
+# ════════════════════════════════════════════════════════════════
+# SECTION 6: DDL PATCH (Neo4j)
+# ════════════════════════════════════════════════════════════════
+
+ddl_patch:
+  description: "Additive DDL statements for v0.5.0 nodes and indexes"
+
+  constraints:
+    - "CREATE CONSTRAINT kb_grade_id IF NOT EXISTS FOR (kg:KBGrade) REQUIRE kg.grade_id IS UNIQUE"
+    - "CREATE CONSTRAINT kb_contaminant_spec_id IF NOT EXISTS FOR (kc:KBContaminantSpec) REQUIRE kc.spec_id IS UNIQUE"
+    - "CREATE CONSTRAINT kb_inference_rule_id IF NOT EXISTS FOR (kr:KBInferenceRule) REQUIRE kr.rule_id IS UNIQUE"
+    - "CREATE CONSTRAINT kb_buyer_profile_id IF NOT EXISTS FOR (kb:KBBuyerProfile) REQUIRE kb.buyer_id IS UNIQUE"
+    - "CREATE CONSTRAINT kb_recycling_rule_id IF NOT EXISTS FOR (krr:KBRecyclingRule) REQUIRE krr.rule_id IS UNIQUE"
+
+  indexes:
+    - "CREATE INDEX kb_grade_polymer IF NOT EXISTS FOR (kg:KBGrade) ON (kg.polymer_family)"
+    - "CREATE INDEX kb_grade_supply_class IF NOT EXISTS FOR (kg:KBGrade) ON (kg.supply_class)"
+    - "CREATE INDEX kb_grade_version IF NOT EXISTS FOR (kg:KBGrade) ON (kg.kb_version)"
+    - "CREATE INDEX kb_buyer_polymer IF NOT EXISTS FOR (kb:KBBuyerProfile) ON (kb.polymer_family)"
+    - "CREATE INDEX kb_contaminant_polymer IF NOT EXISTS FOR (kc:KBContaminantSpec) ON (kc.polymer_family)"
+    - "CREATE INDEX kb_rule_polymer IF NOT EXISTS FOR (kr:KBInferenceRule) ON (kr.polymer_family)"
+
+  edge_indexes:
+    - "CREATE INDEX grade_compat_grade IF NOT EXISTS FOR ()-[r:GRADE_COMPATIBLE_WITH]-() ON (r.compatibility_grade)"
+
+
+# ════════════════════════════════════════════════════════════════
+# SECTION 7: API ENDPOINT CHANGES
+# ════════════════════════════════════════════════════════════════
+
+api_patches:
+
+  match_endpoint:
+    path: "POST /v1/match"
+    status: MODIFIED
+    changes:
+      - description: "Accept polymer-specific gating params in request body"
+        old_params: [mfi]
+        new_params:
+          - {name: mfi, type: float, nullable: true, description: "MFI for polyolefins/ABS"}
+          - {name: iv, type: float, nullable: true, description: "IV for PET"}
+          - {name: k_value, type: float, nullable: true, description: "K-value for PVC"}
+          - {name: mvr, type: float, nullable: true, description: "MVR for PC"}
+          - {name: rv, type: float, nullable: true, description: "RV for PA"}
+          - {name: mfr, type: float, nullable: true, description: "MFR for HIPS/PS"}
+          - {name: density, type: float, nullable: true}
+          - {name: moisture, type: float, nullable: true}
+          - {name: crystallinity, type: float, nullable: true}
+        note: >
+          Only the relevant gating param for the query polymer needs
+          to be provided. The Cypher gate reads property_key from
+          the COMPATIBLE_WITH_PROCESS edge and checks the matching
+          query param. Missing params = gate passes.
+
+  kb_ingest_endpoint:
+    path: "POST /v1/kb/ingest"
+    status: NEW
+    description: "Ingest KB YAML, trigger re-inference, return delta report"
+    request_body:
+      kb_yaml: "string (raw YAML content or file path)"
+      polymer_family: "string (e.g., 'pvc', 'pet')"
+      force_reinference: "bool (default true)"
+    response:
+      run_id: string
+      kb_version_old: string
+      kb_version_new: string
+      nodes_written: int
+      edges_written: int
+      reinference_triggered: bool
+      reinference_report_url: "string (GET /v1/kb/reinference-report/{run_id})"
+
+  reinference_report_endpoint:
+    path: "GET /v1/kb/reinference-report/{run_id}"
+    status: NEW
+    description: "Retrieve delta report for a specific reinference run"
+    response: "$ref: #/kb_reload/reinference_delta_report/schema"
+
+
+# ════════════════════════════════════════════════════════════════
+# SECTION 8: MIGRATION GUIDE
+# ════════════════════════════════════════════════════════════════
+
+migration:
+  from: v0.4.0
+  to: v0.5.0
+  breaking: true
+
+  steps:
+    - order: 1
+      action: "Run DDL patch (Section 6) — adds new constraints and indexes"
+      reversible: true
+
+    - order: 2
+      action: "Update SourceType nodes with supply_class/feedstock_subtype/recovery_subtype"
+      cypher: |
+        // Feedstock types
+        MATCH (s:SourceType) WHERE s.code IN ['prime', 'wide_spec', 'off_spec']
+        SET s.supply_class = 'feedstock',
+            s.feedstock_subtype = s.code,
+            s.recovery_subtype = null
+        // Recovered types
+        MATCH (s:SourceType) WHERE s.code IN ['post_consumer', 'post_industrial', 'post_commercial', 'agricultural', 'ocean_recovered']
+        SET s.supply_class = 'recovered',
+            s.recovery_subtype = s.code,
+            s.feedstock_subtype = null
+      reversible: true
+
+    - order: 3
+      action: "Add repro to SourceType, remove from MaterialAttribute"
+      cypher: |
+        MERGE (s:SourceType {code: 'repro'})
+        SET s.name = 'Reprocessed',
+            s.supply_class = 'feedstock',
+            s.feedstock_subtype = 'repro',
+            s.recovery_subtype = null,
+            s.sequence = 55
+        // Remap any MaterialProfile edges from repro attribute to repro source type
+        MATCH (mp:MaterialProfile)-[r:HAS_ATTRIBUTE]->(ma:MaterialAttribute {code: 'repro'})
+        MERGE (st:SourceType {code: 'repro'})
+        MERGE (mp)-[:HAS_SOURCE_TYPE]->(st)
+        DELETE r
+      reversible: false
+      note: "Destructive — backup HAS_ATTRIBUTE edges first"
+
+    - order: 4
+      action: "Migrate COMPATIBLE_WITH_PROCESS edges to gating_properties[]"
+      cypher: |
+        // Read old edges, transform to new schema
+        MATCH (pf:PolymerFamily)-[old:COMPATIBLE_WITH_PROCESS]->(pt:ProcessType)
+        WITH pf, pt, old,
+             CASE
+               WHEN pf.code IN ['hdpe','ldpe','lldpe','pp','pp_pe']
+                 THEN [{property_key: 'melt_flow_index', min: old.optimal_mfi_min, max: old.optimal_mfi_max, unit: 'g/10min', test_method: 'ASTM D1238'}]
+               WHEN pf.code = 'pvc'
+                 THEN [{property_key: 'k_value', min: null, max: null, unit: 'dimensionless', test_method: 'ISO 1628-2'}]
+               WHEN pf.code = 'pet'
+                 THEN [{property_key: 'intrinsic_viscosity', min: null, max: null, unit: 'dL/g', test_method: 'ASTM D4603'}]
+               WHEN pf.code = 'pc'
+                 THEN [{property_key: 'melt_volume_rate', min: null, max: null, unit: 'cm3/10min', test_method: 'ISO 1133'}]
+               ELSE [{property_key: 'melt_flow_index', min: old.optimal_mfi_min, max: old.optimal_mfi_max, unit: 'g/10min', test_method: 'ASTM D1238'}]
+             END AS new_gating
+        SET old.gating_properties = apoc.convert.toJson(new_gating)
+        REMOVE old.optimal_mfi_min, old.optimal_mfi_max
+      reversible: false
+      note: "After this, re-run bootstrap with full seed_data from Section 2"
+
+    - order: 5
+      action: "Ingest all 8 KB YAML files via POST /v1/kb/ingest"
+      files:
+        - plasticos_kb_ldpe_v8.0.yaml
+        - plasticos_kb_pet_v8.0.yaml
+        - plasticos_kb_pvc_v8.0.yaml
+        - plasticos_kb_pc_v8.0.yaml
+        - plasticos_kb_pa_v8.0.yaml
+        - plasticos_kb_abs_v8.0.yaml
+        - plasticos_kb_hips_v8.0.yaml
+        - plasticos_kb_gaylord_boxes_v8.0.yaml
+
+    - order: 6
+      action: "Migrate Facility.min_mfi/max_mfi to process_gating[]"
+      cypher: |
+        MATCH (f:Facility)
+        WHERE f.min_mfi IS NOT NULL OR f.max_mfi IS NOT NULL
+        SET f.process_gating = apoc.convert.toJson([{
+          property_key: 'melt_flow_index',
+          min: f.min_mfi,
+          max: f.max_mfi,
+          unit: 'g/10min',
+          test_method: 'ASTM D1238',
+          test_conditions: '190C/2.16kg'
+        }])
+        REMOVE f.min_mfi, f.max_mfi
+
+    - order: 7
+      action: "Run initial re-inference pass on all engine nodes"
+      note: "First run has no baseline — delta report shows 100% as 'newly filled'"

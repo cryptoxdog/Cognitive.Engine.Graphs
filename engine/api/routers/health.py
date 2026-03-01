@@ -2,19 +2,19 @@
 Health check router.
 """
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter
 
-from engine.graph.driver import GraphDriver
+from engine.api.app import get_graph_driver
 
 router = APIRouter()
 
 
 @router.get("/health")
-async def health_check(graph_driver: GraphDriver = Depends()) -> dict:
+async def health_check() -> dict:
     """Health check endpoint."""
     try:
-        # Verify Neo4j connectivity
-        await graph_driver.execute_query("RETURN 1 AS health")
+        driver = get_graph_driver()
+        await driver.execute_query("RETURN 1 AS health")
         return {
             "status": "healthy",
             "database": "connected",

@@ -1,55 +1,116 @@
-# ============================================================================
-# L9 Engine — Local Development Stack
-# ============================================================================
+# ─────────────────────────────────────────────────────────────
+# L9 Graph Cognitive Engine — Local Dev Docker Compose
 # Usage: docker compose up -d
-# ============================================================================
+# API:   http://localhost:8000/v1/health
+# Neo4j: http://localhost:7474 (browser), bolt://localhost:7687
+# Redis: localhost:6379
+# ─────────────────────────────────────────────────────────────
 
 services:
-  neo4j:
-    image: neo4j:5.15-enterprise
-    container_name: l9-neo4j
+
+  # ── API Server ───────────────────────────────────────────
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: l9-graph-api
     ports:
-      - "7474:7474"
-      - "7687:7687"
+      - "8000:8000"
     environment:
-      - NEO4J_AUTH=${NEO4J_USERNAME:-neo4j}/${NEO4J_PASSWORD:-devpassword}
-      - NEO4J_ACCEPT_LICENSE_AGREEMENT=yes
-      - NEO4J_PLUGINS=["graph-data-science"]
-      - NEO4J_dbms_security_procedures_unrestricted=gds.*
-      - NEO4J_dbms_memory_heap_initial__size=512m
-      - NEO4J_dbms_memory_heap_max__size=1g
-      - NEO4J_dbms_memory_pagecache_size=512m
+      # Neo4j — uses Docker service name, not localhost
+      PLASTICOS_NEO4J_URI: bolt://neo4j:7687
+      PLASTICOS_NEO4J_USER: neo4j
+      PLASTICOS_NEO4J_PASSWORD: l9-dev-password
+      PLASTICOS_NEO4J_POOL_SIZE: 20
+      # Redis
+      PLASTICOS_REDIS_URL: redis://redis:6379/0
+      # API
+      PLASTICOS_API_KEY: dev-key-sha256-not-for-production
+      PLASTICOS_LOG_LEVEL: debug
+      PLASTICOS_CORS_ORIGINS: '["http://localhost:3000","http://localhost:8000"]'
+      # Scoring defaults
+      PLASTICOS_W_STRUCTURAL: "0.30"
+      PLASTICOS_W_GEO: "0.25"
+      PLASTICOS_W_REINFORCEMENT: "0.20"
+      PLASTICOS_W_FRESHNESS: "0.10"
+      PLASTICOS_GEO_DECAY_KM: "800.0"
+      PLASTICOS_COMMUNITY_CROSS_BIAS: "0.92"
+      PLASTICOS_MAX_RESULTS: "25"
+      # Domain
+      PLASTICOS_DOMAIN_SPEC: domains/plasticos_spec.yaml
     volumes:
-      - neo4j-data:/data
-      - neo4j-logs:/logs
-    networks:
-      - l9-net
+      # Hot-reload: mount source code so changes reflect without rebuild
+      - ./engine:/app/engine:ro
+      - ./domains:/app/domains:ro
+    depends_on:
+      neo4j:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:7474 || exit 1"]
+      test: ["CMD", "python", "-c", "import httpx; r=httpx.get('http://localhost:8000/v1/health'); exit(0 if r.status_code==200 else 1)"]
       interval: 10s
       timeout: 5s
-      retries: 10
+      retries: 5
+      start_period: 15s
+    restart: unless-stopped
+    networks:
+      - l9-graph
 
+  # ── Neo4j 5.x Enterprise + GDS ──────────────────────────
+  neo4j:
+    image: neo4j:5-enterprise
+    container_name: l9-graph-neo4j
+    ports:
+      - "7475:7474"   # Browser (7475 external -> 7474 internal)
+      - "7688:7687"   # Bolt (7688 external -> 7687 internal)
+    environment:
+      NEO4J_AUTH: neo4j/l9-dev-password
+      NEO4J_ACCEPT_LICENSE_AGREEMENT: "yes"
+      NEO4J_PLUGINS: '["graph-data-science"]'
+      NEO4J_dbms_memory_heap_initial__size: 512m
+      NEO4J_dbms_memory_heap_max__size: 1g
+      NEO4J_dbms_memory_pagecache_size: 512m
+      NEO4J_dbms_security_procedures_unrestricted: gds.*
+      NEO4J_dbms_security_procedures_allowlist: gds.*
+    volumes:
+      - neo4j_data:/data
+      - neo4j_logs:/logs
+      - neo4j_plugins:/plugins
+    healthcheck:
+      test: ["CMD-SHELL", "cypher-shell -u neo4j -p l9-dev-password 'RETURN 1' || exit 1"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+    restart: unless-stopped
+    networks:
+      - l9-graph
+
+  # ── Redis 7.x ───────────────────────────────────────────
   redis:
     image: redis:7-alpine
-    container_name: l9-redis
+    container_name: l9-graph-redis
     ports:
       - "6379:6379"
+    command: redis-server --maxmemory 128mb --maxmemory-policy allkeys-lru
     volumes:
-      - redis-data:/data
-    networks:
-      - l9-net
+      - redis_data:/data
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
+      interval: 5s
       timeout: 3s
       retries: 5
+    restart: unless-stopped
+    networks:
+      - l9-graph
 
 volumes:
-  neo4j-data:
-  neo4j-logs:
-  redis-data:
+  neo4j_data:
+  neo4j_logs:
+  neo4j_plugins:
+  redis_data:
 
 networks:
-  l9-net:
-    name: l9-net
+  l9-graph:
+    driver: bridge
