@@ -1,0 +1,15 @@
+# L9 Engine — Production Dependencies
+# Generated from pyproject.toml. Use: pip install -r requirements.txt
+# For dev deps: pip install -r requirements-dev.txt
+
+fastapi>=0.115.0,<0.116.0
+uvicorn[standard]>=0.34.0,<0.35.0
+neo4j>=5.25.0,<6.0.0
+pydantic>=2.10.0,<3.0.0
+pydantic-settings>=2.6.0,<3.0.0
+pyyaml>=6.0,<7.0
+redis>=5.2.0,<6.0.0
+apscheduler>=3.10.0,<4.0.0
+httpx>=0.28.0,<0.29.0
+structlog>=24.4.0,<25.0.0
+prometheus-client>=0.21.0,<1.0.0

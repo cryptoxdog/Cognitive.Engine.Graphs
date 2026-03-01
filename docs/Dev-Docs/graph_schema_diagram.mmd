@@ -1,0 +1,27 @@
+
+graph TB
+    subgraph "UNIVERSAL GRAPH SCHEMA ($510B Revenue-Proven)"
+        Q[QueryEntity<br/>Initiating Request]
+        C[CandidateEntity<br/>Match Target]
+        A[AttributeEntity<br/>Classification]
+        T[TransactionHistory<br/>Past Outcomes]
+        X[AuxiliaryEntity<br/>Supporting Data]
+
+        Q -->|CAPABILITY_MATCH<br/>strength, gating| C
+        Q -->|SIMILAR_TO<br/>similarity_score| Q
+        C -->|SIMILAR_TO<br/>similarity_score, method| C
+        Q -->|HISTORICAL_SUCCESS<br/>outcome, confidence| C
+        C -->|CO_OCCURRED_WITH<br/>frequency, lift| C
+        Q -->|EXCLUDED_FROM<br/>reason, permanent| C
+        C -->|ENRICHMENT<br/>signal_type, strength| X
+        Q -->|HAS_CONTEXT<br/>context_type, signal_strength| A
+        A -->|IS_A<br/>hierarchy_level| A
+        Q -->|TRANSACTED| T
+        C -->|TRANSACTED| T
+    end
+
+    style Q fill:#4CAF50,stroke:#2E7D32,color:#fff
+    style C fill:#2196F3,stroke:#1565C0,color:#fff
+    style A fill:#FF9800,stroke:#E65100,color:#fff
+    style T fill:#9C27B0,stroke:#6A1B9A,color:#fff
+    style X fill:#00BCD4,stroke:#006064,color:#fff

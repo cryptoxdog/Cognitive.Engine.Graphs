@@ -1,0 +1,95 @@
+---
+domain:
+  id: repo-as-agent
+  name: RepoOS Code-Contributor-Issue Matching
+  description: >
+    Repository-as-agent matching issues to optimal contributors with code
+    ownership, expertise signals, and collaboration patterns.
+  version: 1.0.0
+
+ontology:
+  nodes:
+    - label: Issue
+      managedby: sync
+      queryentity: true
+      properties:
+        - {name: issueid, type: string, required: true}
+        - {name: title, type: string}
+        - {name: labels, type: string}
+        - {name: affectedfiles, type: string}
+        - {name: priority, type: enum, values: [low, medium, high, critical]}
+        - {name: estimatedcomplexity, type: enum, values: [trivial, easy, medium, hard]}
+    
+    - label: Contributor
+      managedby: sync
+      candidate: true
+      properties:
+        - {name: contributorid, type: string, required: true}
+        - {name: username, type: string}
+        - {name: ownedfiles, type: string}
+        - {name: expertise, type: string}
+        - {name: activeprs, type: int}
+        - {name: avgresolutiontimehours, type: float}
+        - {name: contributionscore, type: float}
+    
+    - label: CodeModule
+      managedby: static
+      taxonomy: true
+      properties:
+        - {name: modulepath, type: string}
+
+  edges:
+    - {type: OWNS_MODULE, from: Contributor, to: CodeModule, direction: DIRECTED, category: capability, managedby: sync}
+    - {type: RESOLVED_ISSUE, from: Contributor, to: Issue, direction: DIRECTED, category: transaction, managedby: sync}
+    - {type: COLLABORATED_WITH, from: Contributor, to: Contributor, direction: UNDIRECTED, category: precomputed, managedby: gds}
+
+matchentities:
+  candidate:
+    - {label: Contributor, matchdirection: issuetocontributor}
+  queryentity:
+    - {label: Issue, matchdirection: issuetocontributor}
+
+queryschema:
+  matchdirections: [issuetocontributor]
+  fields:
+    - {name: issueid, type: string, required: true}
+    - {name: title, type: string}
+    - {name: labels, type: string}
+    - {name: affectedfiles, type: string}
+    - {name: priority, type: enum}
+    - {name: estimatedcomplexity, type: enum}
+
+gates:
+  - name: code_ownership
+    type: traversal
+    pattern: "candidate-[:OWNS_MODULE]->(m:CodeModule)<-[:AFFECTS]-(query)"
+    condition: "m IS NOT NULL"
+  - name: capacity_check
+    type: threshold
+    candidateprop: activeprs
+    queryparam: 5
+    operator: "<="
+
+scoring:
+  dimensions:
+    - name: contribution_score
+      source: candidateproperty
+      candidateprop: contributionscore
+      computation: candidateproperty
+      weightkey: wcontribution
+      defaultweight: 0.35
+    - name: resolution_speed
+      source: candidateproperty
+      candidateprop: avgresolutiontimehours
+      computation: inverselinear
+      minvalue: 0
+      maxvalue: 168
+      weightkey: wspeed
+      defaultweight: 0.30
+    - name: expertise_match
+      source: computed
+      computation: customcypher
+      expression: "size([x IN candidate.expertise WHERE x IN $query.labels]) / size($query.labels)"
+      weightkey: wexpertise
+      defaultweight: 0.25
+

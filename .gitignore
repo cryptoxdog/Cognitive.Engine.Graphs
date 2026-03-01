@@ -1,0 +1,52 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+.eggs/
+
+# IDE / Cursor / Staging
+.cursor/
+.cursor-commands
+.harvest-staging/
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Environment
+.env
+*.env
+!.env.template
+!.env.example
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Caches
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Temporary
+*.tmp
+*.temp
+*.log
+*.bak
+
+# Secrets
+credentials.json
+secrets.json
+*.pem
+*.key

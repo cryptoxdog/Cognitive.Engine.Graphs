@@ -1,0 +1,70 @@
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# DORA META: Dev Layer GMP (Gate-Measure-Prove) Validation
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# CREATED: 2026-02-15T21:34:00-04:00
+# AUTHOR: L9 Engineering (cryptoxdog)
+# PURPOSE: Validate dev layer isolation and packet flow invariants
+# DEPENDENCIES: pytest, dev_layer tests
+# DEPLOYMENT: Runs on all PRs touching dev_layer/
+# DORA METRICS: Gate pass rate >95% | Test coverage >80%
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+name: Dev Layer GMP Validation
+
+on:
+  pull_request:
+    paths:
+      - 'dev_layer/**'
+      - 'tests/dev_layer/**'
+  workflow_dispatch:
+
+concurrency:
+  group: dev-layer-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  dev-layer-validation:
+    name: Validate Dev Layer
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v5.3.0
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest pytest-cov pytest-asyncio
+
+      - name: Run Dev Layer Tests
+        run: |
+          pytest tests/dev_layer/ \
+            --cov=dev_layer \
+            --cov-report=xml \
+            --cov-report=term-missing \
+            --cov-fail-under=80 \
+            -v
+
+      - name: Upload Coverage to Codecov
+        uses: codecov/codecov-action@15f84a87bdc039a8af98c1a9e12c153c15c1d773 # v5.1.2
+        with:
+          files: ./coverage.xml
+          flags: dev-layer
+          fail_ci_if_error: false
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# DORA META END
+# LAST_MODIFIED: 2026-02-15T21:34:00-04:00
+# CHANGE_SUMMARY: Action version fixes, added concurrency control
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

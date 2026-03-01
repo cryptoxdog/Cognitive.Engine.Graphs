@@ -1,0 +1,103 @@
+---
+domain:
+  id: research-agent
+  name: ResearchOS Query-Paper-Dataset Matching
+  description: >
+    AI-first research agent matching queries to optimal papers, datasets, and
+    code repositories with citation networks and reproducibility tracking.
+  version: 1.0.0
+
+ontology:
+  nodes:
+    - label: ResearchQuery
+      managedby: api
+      queryentity: true
+      properties:
+        - {name: queryid, type: string, required: true}
+        - {name: query, type: string}
+        - {name: domain, type: enum, values: [ml, nlp, cv, robotics, theory]}
+        - {name: mindate, type: date}
+        - {name: requirescode, type: bool}
+        - {name: requiresdataset, type: bool}
+    
+    - label: Paper
+      managedby: sync
+      candidate: true
+      properties:
+        - {name: paperid, type: string, required: true}
+        - {name: title, type: string}
+        - {name: authors, type: string}
+        - {name: publicationdate, type: date}
+        - {name: venue, type: string}
+        - {name: citationcount, type: int}
+        - {name: hascode, type: bool}
+        - {name: hasdataset, type: bool}
+        - {name: reproducibilityscore, type: float}
+    
+    - label: Dataset
+      managedby: sync
+      auxiliary: true
+      properties:
+        - {name: datasetid, type: string}
+        - {name: name, type: string}
+        - {name: size, type: string}
+
+  edges:
+    - {type: CITES, from: Paper, to: Paper, direction: DIRECTED, category: referral, managedby: sync}
+    - {type: USES_DATASET, from: Paper, to: Dataset, direction: DIRECTED, category: capability, managedby: sync}
+    - {type: COCITED_WITH, from: Paper, to: Paper, direction: UNDIRECTED, category: precomputed, managedby: gds}
+
+matchentities:
+  candidate:
+    - {label: Paper, matchdirection: querytopaper}
+  queryentity:
+    - {label: ResearchQuery, matchdirection: querytopaper}
+
+queryschema:
+  matchdirections: [querytopaper]
+  fields:
+    - {name: queryid, type: string, required: true}
+    - {name: query, type: string, required: true}
+    - {name: domain, type: enum}
+    - {name: mindate, type: date}
+    - {name: requirescode, type: bool}
+    - {name: requiresdataset, type: bool}
+
+gates:
+  - name: publication_freshness
+    type: threshold
+    candidateprop: publicationdate
+    queryparam: mindate
+    operator: ">="
+  - name: code_availability
+    type: boolean
+    candidateprop: hascode
+    queryparam: requirescode
+    strictwhen: "$query.requirescode = true"
+  - name: dataset_availability
+    type: boolean
+    candidateprop: hasdataset
+    queryparam: requiresdataset
+    strictwhen: "$query.requiresdataset = true"
+
+scoring:
+  dimensions:
+    - name: citation_score
+      source: candidateproperty
+      candidateprop: citationcount
+      computation: lognormalized
+      maxvalue: 10000
+      weightkey: wcitation
+      defaultweight: 0.35
+    - name: reproducibility
+      source: candidateproperty
+      candidateprop: reproducibilityscore
+      computation: candidateproperty
+      weightkey: wrepro
+      defaultweight: 0.30
+    - name: recency
+      source: computed
+      computation: temporalproximity
+      weightkey: wrecency
+      defaultweight: 0.20
+

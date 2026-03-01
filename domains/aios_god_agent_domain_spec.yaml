@@ -1,0 +1,96 @@
+---
+domain:
+  id: aios-god-agent
+  name: AIOS Tool-Capability-Workflow Orchestration
+  description: >
+    AI operating system matching user intents to optimal tool chains with
+    capability composition and execution orchestration.
+  version: 1.0.0
+
+ontology:
+  nodes:
+    - label: Intent
+      managedby: api
+      queryentity: true
+      properties:
+        - {name: intentid, type: string, required: true}
+        - {name: userinput, type: string}
+        - {name: category, type: enum, values: [search, compute, create, transform, analyze]}
+        - {name: requiredcapabilities, type: string}
+        - {name: maxexecutiontimeseconds, type: int}
+    
+    - label: Tool
+      managedby: sync
+      candidate: true
+      properties:
+        - {name: toolid, type: string, required: true}
+        - {name: name, type: string}
+        - {name: capabilities, type: string}
+        - {name: inputformat, type: string}
+        - {name: outputformat, type: string}
+        - {name: avgexecutiontimeseconds, type: int}
+        - {name: reliabilityscore, type: float}
+        - {name: costpercall, type: float, unit: currency}
+    
+    - label: Capability
+      managedby: static
+      taxonomy: true
+      properties:
+        - {name: capabilityid, type: string}
+
+  edges:
+    - {type: HAS_CAPABILITY, from: Tool, to: Capability, direction: DIRECTED, category: capability, managedby: sync}
+    - {type: COMPOSES_WITH, from: Tool, to: Tool, direction: DIRECTED, category: capability, managedby: sync}
+    - {type: EXECUTED_FOR, from: Tool, to: Intent, direction: DIRECTED, category: transaction, managedby: api}
+
+matchentities:
+  candidate:
+    - {label: Tool, matchdirection: intenttotool}
+  queryentity:
+    - {label: Intent, matchdirection: intenttotool}
+
+queryschema:
+  matchdirections: [intenttotool]
+  fields:
+    - {name: intentid, type: string, required: true}
+    - {name: userinput, type: string, required: true}
+    - {name: category, type: enum}
+    - {name: requiredcapabilities, type: string}
+    - {name: maxexecutiontimeseconds, type: int}
+
+gates:
+  - name: capability_match
+    type: traversal
+    pattern: "candidate-[:HAS_CAPABILITY]->(c:Capability)<-[:REQUIRES]-(query)"
+    condition: "c IS NOT NULL"
+  - name: execution_time_limit
+    type: threshold
+    candidateprop: avgexecutiontimeseconds
+    queryparam: maxexecutiontimeseconds
+    operator: "<="
+
+scoring:
+  dimensions:
+    - name: reliability
+      source: candidateproperty
+      candidateprop: reliabilityscore
+      computation: candidateproperty
+      weightkey: wreliability
+      defaultweight: 0.40
+    - name: execution_speed
+      source: candidateproperty
+      candidateprop: avgexecutiontimeseconds
+      computation: inverselinear
+      minvalue: 0
+      maxvalue: 300
+      weightkey: wspeed
+      defaultweight: 0.30
+    - name: cost_efficiency
+      source: candidateproperty
+      candidateprop: costpercall
+      computation: inverselinear
+      minvalue: 0
+      maxvalue: 1.0
+      weightkey: wcost
+      defaultweight: 0.20
+

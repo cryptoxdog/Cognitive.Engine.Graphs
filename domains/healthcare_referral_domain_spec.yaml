@@ -1,0 +1,131 @@
+---
+domain:
+  id: healthcare-referral
+  name: HealthOS Provider-Patient-Specialist Matching
+  description: >
+    Match patients to optimal providers and specialists with HIPAA-compliant
+    filtering and capacity-aware routing.
+  version: 1.0.0
+
+ontology:
+  nodes:
+    - label: Patient
+      managedby: sync
+      queryentity: true
+      properties:
+        - {name: patientid, type: string, required: true}
+        - {name: age, type: int}
+        - {name: zipcode, type: string}
+        - {name: insuranceplan, type: string}
+        - {name: primarycondition, type: string}
+        - {name: urgency, type: enum, values: [routine, urgent, emergency]}
+    
+    - label: Provider
+      managedby: sync
+      candidate: true
+      properties:
+        - {name: providerid, type: string, required: true}
+        - {name: name, type: string}
+        - {name: specialty, type: string}
+        - {name: acceptsnewpatients, type: bool}
+        - {name: currentpanelsize, type: int, managedby: sync}
+        - {name: maxpanelsize, type: int}
+        - {name: latitude, type: float}
+        - {name: longitude, type: float}
+        - {name: avgwaitdays, type: int}
+        - {name: qualityscore, type: float}
+    
+    - label: Specialty
+      managedby: static
+      taxonomy: true
+      properties:
+        - {name: code, type: string}
+    
+    - label: InsurancePlan
+      managedby: static
+      taxonomy: true
+      properties:
+        - {name: planid, type: string}
+
+  edges:
+    - {type: SPECIALIZES_IN, from: Provider, to: Specialty, direction: DIRECTED, category: taxonomy, managedby: sync}
+    - {type: ACCEPTS_INSURANCE, from: Provider, to: InsurancePlan, direction: DIRECTED, category: capability, managedby: sync}
+    - {type: TREATED_PATIENT, from: Provider, to: Patient, direction: DIRECTED, category: transaction, managedby: sync}
+
+matchentities:
+  candidate:
+    - {label: Provider, matchdirection: patienttoprovider}
+  queryentity:
+    - {label: Patient, matchdirection: patienttoprovider}
+
+queryschema:
+  matchdirections: [patienttoprovider]
+  fields:
+    - {name: patientid, type: string, required: true}
+    - {name: age, type: int}
+    - {name: zipcode, type: string, required: true}
+    - {name: insuranceplan, type: string, required: true}
+    - {name: primarycondition, type: string, required: true}
+    - {name: urgency, type: enum}
+    - {name: maxdistancemiles, type: float}
+
+traversal:
+  steps:
+    - name: insurance_check
+      pattern: "candidate-[:ACCEPTS_INSURANCE]->(ins:InsurancePlan {planid: $query.insuranceplan})"
+      required: true
+    - name: specialty_match
+      pattern: "candidate-[:SPECIALIZES_IN]->(sp:Specialty)<-[:REQUIRES]-(cond:Condition {name: $query.primarycondition})"
+      required: false
+
+gates:
+  - name: accepts_new_patients
+    type: boolean
+    candidateprop: acceptsnewpatients
+    queryparam: true
+    nullbehavior: fail
+  - name: panel_capacity
+    type: selfrange
+    candidateprop_min: currentpanelsize
+    candidateprop_max: maxpanelsize
+    queryparam: 1
+  - name: distance_max
+    type: threshold
+    candidateprop: distance
+    queryparam: maxdistancemiles
+    operator: "<="
+
+scoring:
+  dimensions:
+    - name: distance_score
+      source: computed
+      computation: geodecay
+      weightkey: wdistance
+      defaultweight: 0.35
+    - name: wait_time
+      source: candidateproperty
+      candidateprop: avgwaitdays
+      computation: inverselinear
+      minvalue: 0
+      maxvalue: 30
+      weightkey: wwait
+      defaultweight: 0.25
+    - name: quality_score
+      source: candidateproperty
+      candidateprop: qualityscore
+      computation: candidateproperty
+      weightkey: wquality
+      defaultweight: 0.30
+
+compliance:
+  regimes:
+    - {name: HIPAA, description: "Health Insurance Portability and Accountability Act"}
+  prohibitedfactors:
+    enabled: true
+    blockedfields: [race, ethnicity, religion, geneticinformation, disability]
+    enforcement: compiletime
+  pii:
+    enabled: true
+    fields: [patientid, name, ssn, dob]
+    handling: hash
+

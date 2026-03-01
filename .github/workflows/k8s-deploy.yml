@@ -1,0 +1,214 @@
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# Universal CI/CD Pack — Kubernetes Deployment
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# VERSION: 1.0.0
+# PURPOSE: Helm-based deployment with health checks, auto-rollback, notifications
+# REQUIRES: secrets.KUBECONFIG (base64-encoded Kubernetes config)
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+name: Kubernetes Deployment
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Target environment'
+        required: true
+        type: choice
+        options:
+          - staging
+          - production
+
+concurrency:
+  group: k8s-deploy-${{ inputs.environment }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  HELM_VERSION: ${{ vars.HELM_VERSION || '3.16.3' }}
+  HELM_CHART: ${{ vars.HELM_CHART_PATH || 'deploy/helm/chart' }}
+  PROJECT: ${{ vars.PROJECT_NAME || github.event.repository.name }}
+
+jobs:
+  deploy:
+    name: Deploy to ${{ inputs.environment }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment:
+      name: ${{ inputs.environment }}
+      url: ${{ inputs.environment == 'production' && (vars.PROD_URL || format('https://{0}.example.com', github.event.repository.name)) || (vars.STAGING_URL || format('https://staging.{0}.example.com', github.event.repository.name)) }}
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+
+      - name: Set up Helm
+        uses: azure/setup-helm@fe7b79cd5ee1e45176fcad797de68ecaf3ca4814 # v4.2.0
+        with:
+          version: ${{ env.HELM_VERSION }}
+
+      - name: Configure Kubernetes Context
+        uses: azure/k8s-set-context@37ded6a39926e14c926b0dddb168b3a06dd24dfb # v4.0.0
+        with:
+          method: kubeconfig
+          kubeconfig: ${{ secrets.KUBECONFIG }}
+
+      - name: Resolve Environment Configuration
+        id: config
+        run: |
+          REPO_NAME="${{ github.event.repository.name }}"
+          PREFIX="${{ vars.HELM_RELEASE_PREFIX || env.PROJECT }}"
+          
+          if [ "${{ inputs.environment }}" = "production" ]; then
+            echo "namespace=${{ vars.PROD_NAMESPACE || format('{0}-prod', env.PROJECT) }}" >> $GITHUB_OUTPUT
+            echo "release=${PREFIX}-prod" >> $GITHUB_OUTPUT
+            echo "replicas=${{ vars.PROD_REPLICAS || '3' }}" >> $GITHUB_OUTPUT
+            echo "url=${{ vars.PROD_URL || format('https://{0}.example.com', env.PROJECT) }}" >> $GITHUB_OUTPUT
+          else
+            echo "namespace=${{ vars.STAGING_NAMESPACE || format('{0}-staging', env.PROJECT) }}" >> $GITHUB_OUTPUT
+            echo "release=${PREFIX}-staging" >> $GITHUB_OUTPUT
+            echo "replicas=${{ vars.STAGING_REPLICAS || '1' }}" >> $GITHUB_OUTPUT
+            echo "url=${{ vars.STAGING_URL || format('https://staging.{0}.example.com', env.PROJECT) }}" >> $GITHUB_OUTPUT
+          fi
+          
+          echo "image_tag=sha-${GITHUB_SHA::7}" >> $GITHUB_OUTPUT
+
+      - name: Deploy with Helm
+        id: deploy
+        run: |
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "Helm Deployment"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo ""
+          echo "Environment: ${{ inputs.environment }}"
+          echo "Namespace:   ${{ steps.config.outputs.namespace }}"
+          echo "Release:     ${{ steps.config.outputs.release }}"
+          echo "Image Tag:   ${{ steps.config.outputs.image_tag }}"
+          echo ""
+          
+          helm upgrade ${{ steps.config.outputs.release }} ${{ env.HELM_CHART }} \
+            --install \
+            --namespace ${{ steps.config.outputs.namespace }} \
+            --create-namespace \
+            --set image.tag=${{ steps.config.outputs.image_tag }} \
+            --set replicaCount=${{ steps.config.outputs.replicas }} \
+            --set deployment.annotations.commitSHA="${GITHUB_SHA}" \
+            --set deployment.annotations.actor="${GITHUB_ACTOR}" \
+            --set deployment.annotations.timestamp="$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            --wait \
+            --timeout 10m
+          
+          echo "✅ Helm deployment completed"
+
+      - name: Health Check (Polling)
+        id: health
+        run: |
+          echo "Performing health checks..."
+          MAX_ATTEMPTS=30
+          ATTEMPT=0
+          RELEASE="${{ steps.config.outputs.release }}"
+          NS="${{ steps.config.outputs.namespace }}"
+
+          while [ $ATTEMPT -lt $MAX_ATTEMPTS ]; do
+            ATTEMPT=$((ATTEMPT + 1))
+            echo "  Health check attempt $ATTEMPT/$MAX_ATTEMPTS"
+            
+            if kubectl rollout status deployment/${RELEASE} -n ${NS} --timeout=20s 2>/dev/null; then
+              echo "✅ Deployment is healthy"
+              exit 0
+            fi
+            
+            sleep 10
+          done
+
+          echo "❌ Health check failed after $MAX_ATTEMPTS attempts"
+          exit 1
+
+      - name: Smoke Tests
+        id: smoke
+        run: |
+          BASE_URL="${{ steps.config.outputs.url }}"
+          HEALTH="${{ vars.HEALTH_ENDPOINT || '/health' }}"
+          VERSION="${{ vars.VERSION_ENDPOINT || '/api/v1/version' }}"
+
+          echo "Running smoke tests..."
+          echo ""
+
+          # Health endpoint
+          echo "Testing: ${BASE_URL}${HEALTH}"
+          if curl -f -s --max-time 10 "${BASE_URL}${HEALTH}" > /dev/null; then
+            echo "  ✅ Health endpoint OK"
+          else
+            echo "  ❌ Health endpoint FAILED"
+            exit 1
+          fi
+
+          # Version endpoint
+          echo "Testing: ${BASE_URL}${VERSION}"
+          if curl -f -s --max-time 10 "${BASE_URL}${VERSION}" > /dev/null; then
+            echo "  ✅ Version endpoint OK"
+          else
+            echo "  ⚠️  Version endpoint unavailable (non-blocking)"
+          fi
+
+          echo ""
+          echo "✅ Smoke tests passed"
+
+      - name: Auto-Rollback on Failure
+        if: failure() && (steps.health.outcome == 'failure' || steps.smoke.outcome == 'failure')
+        run: |
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "AUTO-ROLLBACK INITIATED"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo ""
+          echo "Health or smoke tests failed. Rolling back to previous release..."
+          
+          helm rollback ${{ steps.config.outputs.release }} \
+            --namespace ${{ steps.config.outputs.namespace }} \
+            --wait \
+            --timeout 5m
+          
+          echo "✅ Rollback completed successfully"
+
+      - name: Notify Slack (Success)
+        if: success() && vars.SLACK_NOTIFICATIONS_ENABLED == 'true'
+        run: |
+          if [ -n "${{ secrets.SLACK_WEBHOOK_URL }}" ]; then
+            curl -X POST ${{ secrets.SLACK_WEBHOOK_URL }} \
+              -H 'Content-Type: application/json' \
+              -d '{
+                "text": "✅ *${{ env.PROJECT }}* deployed to `${{ inputs.environment }}`",
+                "blocks": [{
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "• Environment: `${{ inputs.environment }}`\n• Commit: `${{ github.sha }}`\n• Actor: `${{ github.actor }}`\n• URL: ${{ steps.config.outputs.url }}"
+                  }
+                }]
+              }'
+          fi
+
+      - name: Notify Slack (Failure)
+        if: failure() && vars.SLACK_NOTIFICATIONS_ENABLED == 'true'
+        run: |
+          if [ -n "${{ secrets.SLACK_WEBHOOK_URL }}" ]; then
+            curl -X POST ${{ secrets.SLACK_WEBHOOK_URL }} \
+              -H 'Content-Type: application/json' \
+              -d '{
+                "text": "❌ *${{ env.PROJECT }}* deployment to `${{ inputs.environment }}` FAILED",
+                "blocks": [{
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "• Environment: `${{ inputs.environment }}`\n• Commit: `${{ github.sha }}`\n• Actor: `${{ github.actor }}`\n• <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View Logs>"
+                  }
+                }]
+              }'
+          fi
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# END OF KUBERNETES DEPLOYMENT
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

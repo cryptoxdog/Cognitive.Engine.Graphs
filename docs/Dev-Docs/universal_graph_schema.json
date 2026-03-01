@@ -1,0 +1,222 @@
+{
+  "universal_graph_schema": {
+    "description": "Node and edge types present in Google, Amazon, and Meta that generate $510B revenue",
+    "core_nodes": {
+      "query_entity": {
+        "purpose": "Initiating request/search",
+        "google_example": "SearchQuery with user intent",
+        "amazon_example": "Customer with purchase history",
+        "meta_example": "Advertiser seeking audience",
+        "plastic_os": "MaterialIntake with specifications",
+        "mortgage_os": "BorrowerProfile with financials",
+        "required_properties": [
+          "id (unique identifier)",
+          "attributes (characteristics for matching)",
+          "context (session/history/location)",
+          "timestamp (when query initiated)"
+        ]
+      },
+      "candidate_entity": {
+        "purpose": "Target being matched/recommended",
+        "google_example": "Entity or Ad to serve",
+        "amazon_example": "Product to recommend",
+        "meta_example": "User to target with ad (lookalike)",
+        "plastic_os": "Facility (processor/broker)",
+        "mortgage_os": "LoanProduct \u00d7 Lender composite",
+        "required_properties": [
+          "id (unique identifier)",
+          "capability_attributes (what it can handle)",
+          "performance_metrics (quality signals)",
+          "availability_status (capacity)"
+        ]
+      },
+      "attribute_entity": {
+        "purpose": "Classification/feature for matching",
+        "google_example": "Category, Semantic tag",
+        "amazon_example": "Product attribute (color, size, feature)",
+        "meta_example": "Interest, Demographic segment",
+        "plastic_os": "Polymer, MaterialForm, Contamination level",
+        "mortgage_os": "CreditScore tier, DTI tier, LoanPurpose type",
+        "required_properties": [
+          "name (attribute identifier)",
+          "type (categorical|numerical|boolean)",
+          "hierarchy_level (if multi-level classification)"
+        ]
+      },
+      "transaction_history": {
+        "purpose": "Past outcomes for scoring",
+        "google_example": "Click, Conversion event",
+        "amazon_example": "Purchase, Review rating",
+        "meta_example": "Ad engagement, Conversion",
+        "plastic_os": "Transaction with outcome (success/failure)",
+        "mortgage_os": "Application with outcome (closed/denied/withdrawn)",
+        "required_properties": [
+          "outcome (success|failure|conversion)",
+          "timestamp (when occurred)",
+          "confidence (outcome quality score)",
+          "context (conditions at time of transaction)"
+        ]
+      },
+      "auxiliary_entity": {
+        "purpose": "Supporting data that influences ranking",
+        "google_example": "Advertiser, SearchResult",
+        "amazon_example": "Brand, Review, Category",
+        "meta_example": "Page, Post, Event",
+        "plastic_os": "Lender, Market, Certification, Equipment",
+        "mortgage_os": "Lender, State (licensing), LoanOfficer",
+        "required_properties": [
+          "relationship_to_candidate (how it influences match)",
+          "quality_signals (performance metrics)",
+          "constraints (rules/limits it imposes)"
+        ]
+      }
+    },
+    "core_edges": {
+      "capability_match": {
+        "purpose": "Candidate can fulfill query requirements",
+        "pattern": "(QueryEntity)-[:CAPABILITY_MATCH]->(CandidateEntity)",
+        "google_example": "MATCHES_INTENT, SERVES_AD_FOR",
+        "amazon_example": "HAS_ATTRIBUTE (product matches need)",
+        "meta_example": "BELONGS_TO_AUDIENCE (user matches targeting)",
+        "plastic_os": "ACCEPTS_POLYMER, ACCEPTS_FORM, CAN_RUN",
+        "mortgage_os": "ACCEPTS_CREDIT_SCORE, ACCEPTS_DTI, LOAN_PURPOSE_MATCH",
+        "properties": {
+          "strength": "float 0.0-1.0 (match confidence)",
+          "gating": "boolean (hard requirement vs soft preference)",
+          "timestamp": "datetime (when capability verified)"
+        },
+        "cypher_example": "\nMATCH (query)-[cap:CAPABILITY_MATCH]->(candidate)\nWHERE cap.strength >= 0.8\n  AND cap.gating = true\nRETURN candidate\n                "
+      },
+      "similarity_relationship": {
+        "purpose": "Entities are similar/compatible",
+        "pattern": "(Entity1)-[:SIMILAR_TO]-(Entity2)",
+        "google_example": "RELATED_TO (semantic similarity)",
+        "amazon_example": "PURCHASED_TOGETHER, SUBSTITUTE",
+        "meta_example": "SIMILAR_TO (lookalike via embeddings)",
+        "plastic_os": "STRUCTURALLY_COMPATIBLE (polymer affinity)",
+        "mortgage_os": "PRODUCT_SIMILARITY (feature similarity)",
+        "properties": {
+          "similarity_score": "float 0.0-1.0 (cosine/jaccard)",
+          "method": "string (collaborative|embedding|attribute)",
+          "edge_count": "int (shared neighbors for collab filtering)"
+        },
+        "cypher_example": "\nMATCH (entity1)-[sim:SIMILAR_TO]-(entity2)\nWHERE sim.similarity_score >= 0.85\n  AND sim.method = 'collaborative_filtering'\nRETURN entity2, sim.similarity_score\nORDER BY sim.similarity_score DESC\n                "
+      },
+      "historical_success": {
+        "purpose": "Past positive outcomes between entities",
+        "pattern": "(Query)-[:HISTORICAL_SUCCESS]->(Candidate)",
+        "google_example": "CONVERTED_FROM (user clicked ad \u2192 purchased)",
+        "amazon_example": "CUSTOMER_BOUGHT (with positive review)",
+        "meta_example": "ENGAGED_WITH_AD (with conversion)",
+        "plastic_os": "TRANSACTED_WITH, SUCCESS_WITH (successful transaction)",
+        "mortgage_os": "APPLICATION (with outcome='closed')",
+        "properties": {
+          "outcome": "string (success|conversion|positive)",
+          "confidence": "float 0.0-1.0 (outcome quality)",
+          "timestamp": "datetime (recency for decay)",
+          "context": "json (conditions of success)"
+        },
+        "cypher_example": "\nMATCH (query)-[success:HISTORICAL_SUCCESS]->(candidate)\nWHERE success.outcome = 'positive'\n  AND success.timestamp > datetime() - duration('P90D')\nWITH candidate, \n     avg(success.confidence) as avg_confidence,\n     count(success) as success_count\nRETURN candidate, avg_confidence, success_count\nORDER BY success_count DESC, avg_confidence DESC\n                "
+      },
+      "co_occurrence": {
+        "purpose": "Entities frequently paired (collaborative filtering)",
+        "pattern": "(CandidateA)-[:CO_OCCURRED_WITH]-(CandidateB)",
+        "google_example": "SEARCHED_TOGETHER (query co-occurrence)",
+        "amazon_example": "PURCHASED_TOGETHER (basket analysis)",
+        "meta_example": "ENGAGED_TOGETHER (user liked both)",
+        "plastic_os": "PROCESSED_TOGETHER (facilities handled both materials)",
+        "mortgage_os": "CLOSED_TOGETHER (borrowers closed both products)",
+        "properties": {
+          "frequency": "int (how many times co-occurred)",
+          "lift": "float (frequency / baseline, >1.0 = positive affinity)",
+          "confidence": "float (P(B|A))",
+          "time_window": "string (e.g., '90d')"
+        },
+        "cypher_example": "\nMATCH (candidateA)-[co:CO_OCCURRED_WITH]-(candidateB)\nWHERE co.lift > 1.5\n  AND co.frequency >= 10\nRETURN candidateB, co.lift, co.frequency\nORDER BY co.lift DESC, co.frequency DESC\n                "
+      },
+      "exclusion_relationship": {
+        "purpose": "Negative constraint blocking match",
+        "pattern": "(Query)-[:EXCLUDED_FROM]->(Candidate)",
+        "google_example": "BLOCKED_ADVERTISER (user blocked brand)",
+        "amazon_example": "NEVER_SHOW_AGAIN (explicit rejection)",
+        "meta_example": "HIDDEN_AD (user hid advertiser)",
+        "plastic_os": "EXCLUDED_FROM, PVC_INTOLERANT (blacklist)",
+        "mortgage_os": "BLACKLISTED_LENDER, SUSPENDED_PRODUCT",
+        "properties": {
+          "reason": "string (why excluded)",
+          "permanent": "boolean (temporary vs permanent block)",
+          "timestamp": "datetime (when exclusion set)"
+        },
+        "cypher_example": "\nMATCH (query)-[excl:EXCLUDED_FROM]->(candidate)\nWHERE excl.permanent = false\n  AND excl.timestamp < datetime() - duration('P30D')\nDELETE excl  // Remove temporary exclusions older than 30 days\n                "
+      },
+      "enrichment_relationship": {
+        "purpose": "Supporting data influencing score",
+        "pattern": "(Candidate)-[:ENRICHMENT]->(AuxiliaryEntity)",
+        "google_example": "CLICKED_FROM (engagement signal)",
+        "amazon_example": "REVIEWED_BY (quality signal)",
+        "meta_example": "LIKES, SHARES, COMMENTS",
+        "plastic_os": "HAS_CAPABILITY, HAS_CERTIFICATION",
+        "mortgage_os": "LENDER_PERFORMANCE, LO_SUCCESS",
+        "properties": {
+          "signal_type": "string (quality|performance|compliance)",
+          "strength": "float 0.0-1.0 (signal confidence)",
+          "recency": "datetime (for time-decay)"
+        },
+        "cypher_example": "\nMATCH (candidate)-[enrich:ENRICHMENT]->(auxiliary)\nWHERE enrich.signal_type = 'quality'\n  AND enrich.strength >= 0.8\nWITH candidate, \n     avg(enrich.strength) as quality_score,\n     count(enrich) as signal_count\nRETURN candidate, quality_score, signal_count\nORDER BY quality_score DESC\n                "
+      },
+      "context_relationship": {
+        "purpose": "Session/temporal context for disambiguation",
+        "pattern": "(Query)-[:HAS_CONTEXT]->(ContextEntity)",
+        "google_example": "HAS_SEARCH_HISTORY, IN_LOCATION",
+        "amazon_example": "IN_SESSION, IN_CART",
+        "meta_example": "HAS_PROFILE, RECENT_BEHAVIOR",
+        "plastic_os": "HAS_FORM_CONTEXT, HAS_APPLICATION_CONTEXT",
+        "mortgage_os": "HAS_PROPERTY_CONTEXT, HAS_INTENT_CONTEXT",
+        "properties": {
+          "context_type": "string (session|history|location|behavior)",
+          "signal_strength": "float 0.0-1.0 (disambiguation confidence)",
+          "timestamp": "datetime (when context captured)"
+        },
+        "cypher_example": "\nMATCH (query)-[ctx:HAS_CONTEXT]->(context)\nWHERE ctx.signal_strength >= 0.7\nWITH query, collect(context) as context_signals\n\n// Use context to disambiguate\nMATCH (query)-[:COULD_BE]->(candidate)\nMATCH (candidate)<-[support:SUPPORTS_ENTITY]-(ctx_signal)\nWHERE ctx_signal IN context_signals\nWITH candidate, sum(support.strength * ctx_signal.signal_strength) as disambiguation_score\nRETURN candidate, disambiguation_score\nORDER BY disambiguation_score DESC\nLIMIT 1\n                "
+      }
+    }
+  },
+  "revenue_generation_mechanisms": {
+    "customer_acquisition": {
+      "graph_mechanism": "Expand addressable entity space via graph discovery",
+      "google": "Long-tail entity targeting captures niche advertisers",
+      "amazon": "Product discovery via recommendations = new customer acquisition",
+      "meta": "Lookalike audiences find new customers similar to best customers",
+      "node_pattern": "QueryEntity \u2192 Multi-hop traversal \u2192 New CandidateEntity (no direct history)",
+      "edge_pattern": "SIMILAR_TO + CO_OCCURRED_WITH enables discovery beyond 1-hop",
+      "revenue_formula": "New customers = Graph expansion reach \u00d7 Conversion rate"
+    },
+    "conversion_optimization": {
+      "graph_mechanism": "Match quality improvement via historical success patterns",
+      "google": "Semantic ad matching reduces wasted spend \u2192 8x advertiser ROI",
+      "amazon": "6x conversion rate with recommendations (12.29% vs 2.17%)",
+      "meta": "Interest targeting + lookalikes \u2192 25.6% YoY growth",
+      "node_pattern": "QueryEntity \u2192 HISTORICAL_SUCCESS edges \u2192 High-confidence CandidateEntity",
+      "edge_pattern": "CAPABILITY_MATCH + HISTORICAL_SUCCESS = precision",
+      "revenue_formula": "Revenue = Volume \u00d7 (Baseline conversion + Graph boost)"
+    },
+    "cross_sell_expansion": {
+      "graph_mechanism": "Affinity detection via collaborative filtering",
+      "google": "Related entity suggestions expand advertiser targeting",
+      "amazon": "20-40% AOV increase via bundle recommendations",
+      "meta": "Interest expansion (user likes A \u2192 target A + B)",
+      "node_pattern": "CandidateEntity \u2192 CO_OCCURRED_WITH \u2192 Related CandidateEntity",
+      "edge_pattern": "Lift > 1.5 signals positive affinity for cross-sell",
+      "revenue_formula": "Expansion revenue = Base purchase \u00d7 (1 + Affinity-driven upsell %)"
+    },
+    "retention_loyalty": {
+      "graph_mechanism": "Churn prediction via engagement graph patterns",
+      "google": "Entity-based bidding creates advertiser lock-in (switching cost)",
+      "amazon": "Re-purchase recommendations drive repeat behavior",
+      "meta": "Engagement graph predicts churn \u2192 re-engagement campaigns",
+      "node_pattern": "CustomerEntity \u2192 Weakening ENGAGEMENT edges \u2192 Churn risk",
+      "edge_pattern": "Declining edge strength + dormant nodes = churn signal",
+      "revenue_formula": "Retained revenue = At-risk LTV \u00d7 (1 - Churn rate after intervention)"
+    }
+  }
+}

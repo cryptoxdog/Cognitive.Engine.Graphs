@@ -1,0 +1,174 @@
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# Universal CI/CD Pack — PR Review Policy Enforcement
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# VERSION: 1.0.0
+# PURPOSE: Automated PR size limits and review policy enforcement
+# FEATURES: Configurable thresholds, auto-comments, merge blocking
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+name: PR Review Enforcement
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+concurrency:
+  group: pr-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  enforce-pr-policies:
+    name: Enforce PR Policies
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+
+      - name: Load Configuration
+        id: config
+        run: |
+          CONFIG=".github/pr_review_config.yaml"
+          
+          # Set defaults
+          WARN=300
+          BLOCK=1000
+          MAX_FILES=50
+          
+          # Override from config file if exists
+          if [ -f "$CONFIG" ]; then
+            if command -v python3 &> /dev/null; then
+              WARN=$(python3 -c "import yaml; c=yaml.safe_load(open('$CONFIG')); print(c.get('size_limits',{}).get('warn_threshold', 300))" 2>/dev/null || echo 300)
+              BLOCK=$(python3 -c "import yaml; c=yaml.safe_load(open('$CONFIG')); print(c.get('size_limits',{}).get('block_threshold', 1000))" 2>/dev/null || echo 1000)
+              MAX_FILES=$(python3 -c "import yaml; c=yaml.safe_load(open('$CONFIG')); print(c.get('size_limits',{}).get('max_files_changed', 50))" 2>/dev/null || echo 50)
+            fi
+          fi
+          
+          # Repository variables override everything
+          echo "warn=${{ vars.PR_WARN_LINES || '' }}${WARN}" | sed 's/[^0-9].*//' >> $GITHUB_OUTPUT
+          echo "block=${{ vars.PR_BLOCK_LINES || '' }}${BLOCK}" | sed 's/[^0-9].*//' >> $GITHUB_OUTPUT
+          echo "max_files=${{ vars.PR_MAX_FILES || '' }}${MAX_FILES}" | sed 's/[^0-9].*//' >> $GITHUB_OUTPUT
+
+      - name: Check PR Size and Policies
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
+        with:
+          script: |
+            const pr = context.payload.pull_request;
+            const additions = pr.additions || 0;
+            const deletions = pr.deletions || 0;
+            const total = additions + deletions;
+            const files = pr.changed_files || 0;
+
+            const warn = parseInt('${{ vars.PR_WARN_LINES || '300' }}');
+            const block = parseInt('${{ vars.PR_BLOCK_LINES || '1000' }}');
+            const maxFiles = parseInt('${{ vars.PR_MAX_FILES || '50' }}');
+
+            console.log(`PR Stats: +${additions} -${deletions} = ${total} lines, ${files} files`);
+            console.log(`Thresholds: warn=${warn}, block=${block}, maxFiles=${maxFiles}`);
+
+            let messages = [];
+            let shouldFail = false;
+            let shouldWarn = false;
+
+            // Check file count
+            if (files > maxFiles) {
+              shouldFail = true;
+              messages.push(`❌ **Too Many Files Changed**`);
+              messages.push(`   Changed: ${files} files`);
+              messages.push(`   Limit: ${maxFiles} files`);
+              messages.push(`   **Action Required:** Split into multiple focused PRs`);
+              messages.push('');
+            }
+
+            // Check total lines
+            if (total > block) {
+              shouldFail = true;
+              messages.push(`❌ **PR Too Large**`);
+              messages.push(`   Lines changed: ${total}`);
+              messages.push(`   Limit: ${block} lines`);
+              messages.push(`   **Action Required:** Break into smaller, atomic PRs`);
+              messages.push('');
+            } else if (total > warn) {
+              shouldWarn = true;
+              messages.push(`⚠️  **Large PR Warning**`);
+              messages.push(`   Lines changed: ${total}`);
+              messages.push(`   Warning threshold: ${warn} lines`);
+              messages.push(`   Consider splitting for easier review`);
+              messages.push('');
+            }
+
+            // Add best practices reminder for large PRs
+            if (shouldFail || shouldWarn) {
+              messages.push('### 📋 Best Practices for Large Changes');
+              messages.push('');
+              messages.push('1. **Refactoring + Features**: Separate into 2 PRs');
+              messages.push('2. **Multiple Features**: One PR per feature');
+              messages.push('3. **Database + Code**: Separate migration from logic');
+              messages.push('4. **Generated Code**: Separate from manual changes');
+              messages.push('');
+            }
+
+            // Add summary
+            if (shouldFail) {
+              messages.push('---');
+              messages.push('');
+              messages.push('🚫 **This PR is blocked from merging until size limits are met.**');
+              messages.push('');
+            } else if (shouldWarn) {
+              messages.push('---');
+              messages.push('');
+              messages.push('✅ **This PR meets minimum requirements but is larger than recommended.**');
+              messages.push('');
+            } else {
+              messages.push('✅ **PR size is within recommended limits**');
+              messages.push('');
+            }
+
+            // Post comment if there are messages
+            if (messages.length > 0) {
+              const body = messages.join('\n');
+              
+              // Check if we already commented
+              const comments = await github.rest.issues.listComments({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: pr.number
+              });
+              
+              const botComment = comments.data.find(comment => 
+                comment.user.type === 'Bot' && 
+                comment.body.includes('PR size is')
+              );
+              
+              if (botComment) {
+                // Update existing comment
+                await github.rest.issues.updateComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  comment_id: botComment.id,
+                  body: body
+                });
+              } else {
+                // Create new comment
+                await github.rest.issues.createComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: pr.number,
+                  body: body
+                });
+              }
+            }
+
+            // Fail check if limits exceeded
+            if (shouldFail) {
+              core.setFailed('PR exceeds size policy limits');
+            }
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# END OF PR REVIEW ENFORCEMENT
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

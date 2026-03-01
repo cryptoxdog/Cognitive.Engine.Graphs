@@ -1,0 +1,107 @@
+---
+domain:
+  id: freight-matching
+  name: FreightOS Load-Carrier Matching
+  description: >
+    Match freight loads to optimal carriers with ELD integration, backhaul
+    optimization, and FMCSA compliance.
+  version: 1.0.0
+
+ontology:
+  nodes:
+    - label: Load
+      managedby: sync
+      queryentity: true
+      properties:
+        - {name: loadid, type: string, required: true}
+        - {name: pickuplat, type: float}
+        - {name: pickuplon, type: float}
+        - {name: deliverylat, type: float}
+        - {name: deliverylon, type: float}
+        - {name: weightlbs, type: float, unit: weight}
+        - {name: equipmenttype, type: enum, values: [van, flatbed, reefer]}
+        - {name: pickupdate, type: datetime}
+        - {name: deliverydate, type: datetime}
+        - {name: ratepermile, type: float, unit: rate_per_distance}
+    
+    - label: Carrier
+      managedby: sync
+      candidate: true
+      properties:
+        - {name: carrierid, type: string, required: true}
+        - {name: currentlat, type: float}
+        - {name: currentlon, type: float}
+        - {name: availabledate, type: datetime}
+        - {name: equipmenttypes, type: string}
+        - {name: maxweightlbs, type: float, unit: weight}
+        - {name: ontimeratingpct, type: float, unit: percentage}
+        - {name: safetyscore, type: float}
+
+  edges:
+    - {type: COMPLETED_LOAD, from: Carrier, to: Load, direction: DIRECTED, category: transaction, managedby: sync}
+    - {type: REJECTED_LOAD, from: Carrier, to: Load, direction: DIRECTED, category: transaction, managedby: sync}
+
+matchentities:
+  candidate:
+    - {label: Carrier, matchdirection: loadtocarrier}
+  queryentity:
+    - {label: Load, matchdirection: loadtocarrier}
+
+queryschema:
+  matchdirections: [loadtocarrier]
+  fields:
+    - {name: loadid, type: string, required: true}
+    - {name: pickuplat, type: float, required: true}
+    - {name: pickuplon, type: float, required: true}
+    - {name: deliverylat, type: float, required: true}
+    - {name: deliverylon, type: float, required: true}
+    - {name: weightlbs, type: float, unit: weight, required: true}
+    - {name: equipmenttype, type: enum, required: true}
+    - {name: pickupdate, type: datetime, required: true}
+    - {name: deliverydate, type: datetime, required: true}
+    - {name: ratepermile, type: float, unit: rate_per_distance}
+
+gates:
+  - name: weight_capacity
+    type: threshold
+    candidateprop: maxweightlbs
+    queryparam: weightlbs
+    operator: ">="
+  - name: equipment_match
+    type: enummap
+    candidateprop: equipmenttypes
+    queryparam: equipmenttype
+  - name: availability_window
+    type: temporalrange
+    candidateprop_start: availabledate
+    candidateprop_end: availabledate
+    queryparam_start: pickupdate
+    queryparam_end: pickupdate
+
+scoring:
+  dimensions:
+    - name: deadhead_distance
+      source: computed
+      computation: geodecay
+      weightkey: wdeadhead
+      defaultweight: 0.40
+    - name: rate_alignment
+      source: computed
+      computation: pricealignment
+      weightkey: wrate
+      defaultweight: 0.25
+    - name: ontime_rating
+      source: candidateproperty
+      candidateprop: ontimeratingpct
+      computation: candidateproperty
+      weightkey: wontime
+      defaultweight: 0.20
+
+compliance:
+  regimes:
+    - {name: FMCSA, description: "Federal Motor Carrier Safety Administration"}
+  audit:
+    enabled: true
+    logmatchrequests: true
+    retentiondays: 180
+

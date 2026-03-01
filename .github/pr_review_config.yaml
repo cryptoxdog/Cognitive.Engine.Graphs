@@ -1,0 +1,75 @@
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# Universal CI/CD Pack — PR Review Configuration
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# VERSION: 1.0.0
+# PURPOSE: Define PR review policies and size limits
+# NOTE: Repository Variables (vars.*) override values here
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+# ──────────────────────────────────────────────────────────────────────────
+# PR Size Limits
+# ──────────────────────────────────────────────────────────────────────────
+size_limits:
+  # Lines changed warning threshold (adds comment, non-blocking)
+  warn_threshold: 300
+  
+  # Lines changed blocking threshold (fails check, blocks merge)
+  block_threshold: 1000
+  
+  # Maximum files changed in a single PR
+  max_files_changed: 50
+
+# ──────────────────────────────────────────────────────────────────────────
+# Protected Files (Require CODEOWNERS approval)
+# ──────────────────────────────────────────────────────────────────────────
+protected_files:
+  - ".github/workflows/*.yml"
+  - ".github/workflows/*.yaml"
+  - "docker-compose.yml"
+  - "Dockerfile"
+  - "pyproject.toml"
+  - "setup.py"
+  # Add your critical files here
+
+# ──────────────────────────────────────────────────────────────────────────
+# Review Audit Scopes (Guidelines for reviewers)
+# ──────────────────────────────────────────────────────────────────────────
+audit_scopes:
+  security:
+    - sql_injection
+    - path_traversal
+    - secret_exposure
+    - unsafe_eval
+    - command_injection
+    - xss_vulnerabilities
+
+  performance:
+    - async_patterns
+    - database_queries
+    - caching_opportunities
+    - memory_usage
+    - connection_pooling
+
+  architecture:
+    - dependency_injection
+    - circular_dependencies
+    - separation_of_concerns
+    - single_responsibility
+
+  testing:
+    - test_coverage
+    - edge_cases
+    - error_handling
+    - integration_tests
+
+# ──────────────────────────────────────────────────────────────────────────
+# CODEOWNERS Settings
+# ──────────────────────────────────────────────────────────────────────────
+codeowners:
+  required_approvals: 1
+  dismiss_stale_reviews: true
+  require_code_owner_reviews: true
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# END OF PR REVIEW CONFIGURATION
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

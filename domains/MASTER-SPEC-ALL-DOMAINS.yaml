@@ -1,0 +1,1137 @@
+# ALL_DOMAINS_CONSOLIDATED.yaml
+#
+# THIS FILE CONTAINS ALL 10 DOMAIN SPECIFICATIONS
+# Extract each domain into: domains/{domain-id}/spec.yaml
+#
+# DOMAINS INCLUDED:
+# 1. plasticos (recycled plastic matching)
+# 2. mortgage-brokerage (loan matching, ECOA-compliant)
+# 3. healthcare-referral (provider matching, HIPAA-compliant)
+# 4. freight-matching (load-carrier matching)
+# 5. roofing-company (contractor-project matching)
+# 6. executive-assistant (task-expert matching)
+# 7. research-agent (paper-dataset matching)
+# 8. aios-god-agent (tool orchestration)
+# 9. repo-as-agent (code-contributor matching)
+# 10. legal-discovery (case-document matching)
+#
+# ============================================================================
+# DOMAIN 1: PLASTICOS (Recycled Plastic Matching)
+# ============================================================================
+# NOTE: Use the previously generated 2116-line plasticos/spec.yaml (artifact 72)
+# That file is the complete, stress-tested version with all features.
+#
+# Key Stats: 29 edge types, 22 gates, 10 scoring dimensions, 9 GDS jobs
+# ============================================================================
+
+# ============================================================================
+# DOMAIN 2: MORTGAGE-BROKERAGE (Loan Product Matching)
+# ============================================================================
+---
+domain:
+  id: mortgage-brokerage
+  name: MortgageOS Borrower-Lender-Product Matching
+  description: >
+    Match borrower profiles to optimal wholesale lender loan products with
+    ECOA-compliant scoring and outcome feedback loops.
+  version: 1.0.0
+  alternatedomains: []
+
+ontology:
+  nodes:
+    - label: BorrowerProfile
+      managedby: sync
+      queryentity: true
+      properties:
+        - {name: borrowerid, type: string, required: true}
+        - {name: creditscore, type: int, required: true}
+        - {name: annualincomeusd, type: float, unit: currency, required: true}
+        - {name: monthlydebtusd, type: float, unit: currency, required: true}
+        - {name: loanamountusd, type: float, unit: currency, required: true}
+        - {name: propertyvalueusd, type: float, unit: currency, required: true}
+        - {name: downpaymentusd, type: float, unit: currency, required: true}
+        - {name: propertytype, type: enum, values: [singlefamily, condo, townhouse, multifamily]}
+        - {name: propertystate, type: string, required: true}
+        - {name: occupancy, type: enum, values: [owneroccupied, secondhome, investment]}
+        - {name: loanpurpose, type: enum, values: [purchase, refinance, cashout, heloc]}
+        - {name: vaeligible, type: bool}
+        - {name: firsttimebuyer, type: bool}
+        - {name: dtipct, type: float, unit: percentage, managedby: computed}
+        - {name: ltvpct, type: float, unit: percentage, managedby: computed}
+    
+    - label: LoanProduct
+      managedby: sync
+      candidate: true
+      properties:
+        - {name: productid, type: string, required: true}
+        - {name: productname, type: string}
+        - {name: lenderid, type: string, required: true}
+        - {name: loancategory, type: enum, values: [conventional, fha, va, jumbo]}
+        - {name: loanpurpose, type: enum, values: [purchase, refinance, cashout]}
+        - {name: mincreditscore, type: int}
+        - {name: maxdtipct, type: float, unit: percentage}
+        - {name: maxltvpct, type: float, unit: percentage}
+        - {name: minloanamountusd, type: float, unit: currency}
+        - {name: maxloanamountusd, type: float, unit: currency}
+        - {name: requiresvaeligibility, type: bool}
+        - {name: baseratepct, type: float, unit: percentage}
+        - {name: avgclosingdays, type: int}
+        - {name: louvaincommunityid, type: int, managedby: gds}
+    
+    - label: Lender
+      managedby: sync
+      auxiliary: true
+      properties:
+        - {name: lenderid, type: string, required: true}
+        - {name: name, type: string}
+        - {name: nmlsid, type: string}
+        - {name: approvalratepct, type: float, unit: percentage, managedby: gds}
+    
+    - label: State
+      managedby: static
+      taxonomy: true
+      properties:
+        - {name: statecode, type: string, required: true}
+        - {name: conforminglimitusd, type: float, unit: currency}
+
+  edges:
+    - {type: OFFEREDBY, from: LoanProduct, to: Lender, direction: DIRECTED, category: capability, managedby: sync}
+    - {type: OPERATESIN, from: Lender, to: State, direction: DIRECTED, category: capability, managedby: sync}
+    - {type: BLACKLISTEDLENDER, from: BorrowerProfile, to: Lender, direction: DIRECTED, category: exclusion, managedby: sync}
+    - {type: APPLICATION, from: BorrowerProfile, to: LoanProduct, direction: DIRECTED, category: transaction, managedby: sync}
+    - {type: PRODUCTSIMILARITY, from: LoanProduct, to: LoanProduct, direction: UNDIRECTED, category: precomputed, managedby: gds}
+
+matchentities:
+  candidate:
+    - {label: LoanProduct, matchdirection: borrowertoproduct}
+  queryentity:
+    - {label: BorrowerProfile, matchdirection: borrowertoproduct}
+
+queryschema:
+  matchdirections: [borrowertoproduct]
+  fields:
+    - {name: borrowerid, type: string, required: true}
+    - {name: creditscore, type: int, required: true}
+    - {name: annualincomeusd, type: float, unit: currency, required: true}
+    - {name: monthlydebtusd, type: float, unit: currency, required: true}
+    - {name: loanamountusd, type: float, unit: currency, required: true}
+    - {name: propertyvalueusd, type: float, unit: currency, required: true}
+    - {name: downpaymentusd, type: float, unit: currency, required: true}
+    - {name: propertytype, type: enum}
+    - {name: propertystate, type: string, required: true}
+    - {name: occupancy, type: enum}
+    - {name: loanpurpose, type: enum, required: true}
+    - {name: vaeligible, type: bool}
+    - {name: firsttimebuyer, type: bool}
+
+derivedparameters:
+  - name: dtipct
+    expression: "monthlydebtusd / (annualincomeusd / 12.0) * 100.0"
+    type: float
+    unit: percentage
+  - name: ltvpct
+    expression: "loanamountusd / propertyvalueusd * 100.0"
+    type: float
+    unit: percentage
+
+traversal:
+  steps:
+    - name: lenderresolve
+      pattern: "candidate-[:OFFEREDBY]->lender:Lender"
+      required: true
+    - name: lenderstatelicensing
+      pattern: "lender-[:OPERATESIN]->st:State {statecode: $query.propertystate}"
+      required: true
+
+gates:
+  - name: creditscore_min
+    type: threshold
+    candidateprop: mincreditscore
+    queryparam: creditscore
+    operator: "<="
+    nullbehavior: pass
+  - name: dti_max
+    type: threshold
+    candidateprop: maxdtipct
+    queryparam: dtipct
+    operator: ">="
+    nullbehavior: pass
+  - name: ltv_max
+    type: threshold
+    candidateprop: maxltvpct
+    queryparam: ltvpct
+    operator: ">="
+    nullbehavior: pass
+  - name: loanamount_range
+    type: range
+    candidateprop: loanamountusd
+    queryparam_min: minloanamountusd
+    queryparam_max: maxloanamountusd
+    nullbehavior: pass
+  - name: va_eligibility
+    type: boolean
+    candidateprop: requiresvaeligibility
+    queryparam: vaeligible
+    nullbehavior: pass
+  - name: loanpurpose_match
+    type: enummap
+    candidateprop: loanpurpose
+    queryparam: loanpurpose
+  - name: blacklist_exclusion
+    type: exclusion
+    edgetype: BLACKLISTEDLENDER
+    fromnode: query
+    tonode: lender
+
+scoring:
+  dimensions:
+    - name: rate_score
+      source: candidateproperty
+      candidateprop: baseratepct
+      computation: inverselinear
+      minvalue: 3.0
+      maxvalue: 8.0
+      weightkey: wrate
+      defaultweight: 0.35
+    - name: approval_rate
+      source: traversalalias
+      alias: lender.approvalratepct
+      computation: candidateproperty
+      weightkey: wapproval
+      defaultweight: 0.25
+    - name: closing_speed
+      source: candidateproperty
+      candidateprop: avgclosingdays
+      computation: inverselinear
+      minvalue: 15
+      maxvalue: 60
+      weightkey: wspeed
+      defaultweight: 0.20
+    - name: community_match
+      source: computed
+      candidateprop: louvaincommunityid
+      queryprop: louvaincommunityid
+      computation: communitymatch
+      weightkey: wcommunity
+      defaultweight: 0.10
+
+compliance:
+  regimes:
+    - {name: ECOA, description: "Equal Credit Opportunity Act"}
+  prohibitedfactors:
+    enabled: true
+    blockedfields: [race, ethnicity, religion, gender, age, maritalstatus, nationalorigin]
+    enforcement: compiletime
+  audit:
+    enabled: true
+    logmatchrequests: true
+    logmatchresults: true
+    retentiondays: 90
+
+# ============================================================================
+# DOMAIN 3: HEALTHCARE-REFERRAL (Provider-Patient Matching)
+# ============================================================================
+---
+domain:
+  id: healthcare-referral
+  name: HealthOS Provider-Patient-Specialist Matching
+  description: >
+    Match patients to optimal providers and specialists with HIPAA-compliant
+    filtering and capacity-aware routing.
+  version: 1.0.0
+
+ontology:
+  nodes:
+    - label: Patient
+      managedby: sync
+      queryentity: true
+      properties:
+        - {name: patientid, type: string, required: true}
+        - {name: age, type: int}
+        - {name: zipcode, type: string}
+        - {name: insuranceplan, type: string}
+        - {name: primarycondition, type: string}
+        - {name: urgency, type: enum, values: [routine, urgent, emergency]}
+    
+    - label: Provider
+      managedby: sync
+      candidate: true
+      properties:
+        - {name: providerid, type: string, required: true}
+        - {name: name, type: string}
+        - {name: specialty, type: string}
+        - {name: acceptsnewpatients, type: bool}
+        - {name: currentpanelsize, type: int, managedby: sync}
+        - {name: maxpanelsize, type: int}
+        - {name: latitude, type: float}
+        - {name: longitude, type: float}
+        - {name: avgwaitdays, type: int}
+        - {name: qualityscore, type: float}
+    
+    - label: Specialty
+      managedby: static
+      taxonomy: true
+      properties:
+        - {name: code, type: string}
+    
+    - label: InsurancePlan
+      managedby: static
+      taxonomy: true
+      properties:
+        - {name: planid, type: string}
+
+  edges:
+    - {type: SPECIALIZES_IN, from: Provider, to: Specialty, direction: DIRECTED, category: taxonomy, managedby: sync}
+    - {type: ACCEPTS_INSURANCE, from: Provider, to: InsurancePlan, direction: DIRECTED, category: capability, managedby: sync}
+    - {type: TREATED_PATIENT, from: Provider, to: Patient, direction: DIRECTED, category: transaction, managedby: sync}
+
+matchentities:
+  candidate:
+    - {label: Provider, matchdirection: patienttoprovider}
+  queryentity:
+    - {label: Patient, matchdirection: patienttoprovider}
+
+queryschema:
+  matchdirections: [patienttoprovider]
+  fields:
+    - {name: patientid, type: string, required: true}
+    - {name: age, type: int}
+    - {name: zipcode, type: string, required: true}
+    - {name: insuranceplan, type: string, required: true}
+    - {name: primarycondition, type: string, required: true}
+    - {name: urgency, type: enum}
+    - {name: maxdistancemiles, type: float}
+
+traversal:
+  steps:
+    - name: insurance_check
+      pattern: "candidate-[:ACCEPTS_INSURANCE]->(ins:InsurancePlan {planid: $query.insuranceplan})"
+      required: true
+    - name: specialty_match
+      pattern: "candidate-[:SPECIALIZES_IN]->(sp:Specialty)<-[:REQUIRES]-(cond:Condition {name: $query.primarycondition})"
+      required: false
+
+gates:
+  - name: accepts_new_patients
+    type: boolean
+    candidateprop: acceptsnewpatients
+    queryparam: true
+    nullbehavior: fail
+  - name: panel_capacity
+    type: selfrange
+    candidateprop_min: currentpanelsize
+    candidateprop_max: maxpanelsize
+    queryparam: 1
+  - name: distance_max
+    type: threshold
+    candidateprop: distance
+    queryparam: maxdistancemiles
+    operator: "<="
+
+scoring:
+  dimensions:
+    - name: distance_score
+      source: computed
+      computation: geodecay
+      weightkey: wdistance
+      defaultweight: 0.35
+    - name: wait_time
+      source: candidateproperty
+      candidateprop: avgwaitdays
+      computation: inverselinear
+      minvalue: 0
+      maxvalue: 30
+      weightkey: wwait
+      defaultweight: 0.25
+    - name: quality_score
+      source: candidateproperty
+      candidateprop: qualityscore
+      computation: candidateproperty
+      weightkey: wquality
+      defaultweight: 0.30
+
+compliance:
+  regimes:
+    - {name: HIPAA, description: "Health Insurance Portability and Accountability Act"}
+  prohibitedfactors:
+    enabled: true
+    blockedfields: [race, ethnicity, religion, geneticinformation, disability]
+    enforcement: compiletime
+  pii:
+    enabled: true
+    fields: [patientid, name, ssn, dob]
+    handling: hash
+
+# ============================================================================
+# DOMAIN 4: FREIGHT-MATCHING (Load-Carrier Matching)
+# ============================================================================
+---
+domain:
+  id: freight-matching
+  name: FreightOS Load-Carrier Matching
+  description: >
+    Match freight loads to optimal carriers with ELD integration, backhaul
+    optimization, and FMCSA compliance.
+  version: 1.0.0
+
+ontology:
+  nodes:
+    - label: Load
+      managedby: sync
+      queryentity: true
+      properties:
+        - {name: loadid, type: string, required: true}
+        - {name: pickuplat, type: float}
+        - {name: pickuplon, type: float}
+        - {name: deliverylat, type: float}
+        - {name: deliverylon, type: float}
+        - {name: weightlbs, type: float, unit: weight}
+        - {name: equipmenttype, type: enum, values: [van, flatbed, reefer]}
+        - {name: pickupdate, type: datetime}
+        - {name: deliverydate, type: datetime}
+        - {name: ratepermile, type: float, unit: rate_per_distance}
+    
+    - label: Carrier
+      managedby: sync
+      candidate: true
+      properties:
+        - {name: carrierid, type: string, required: true}
+        - {name: currentlat, type: float}
+        - {name: currentlon, type: float}
+        - {name: availabledate, type: datetime}
+        - {name: equipmenttypes, type: string}
+        - {name: maxweightlbs, type: float, unit: weight}
+        - {name: ontimeratingpct, type: float, unit: percentage}
+        - {name: safetyscore, type: float}
+
+  edges:
+    - {type: COMPLETED_LOAD, from: Carrier, to: Load, direction: DIRECTED, category: transaction, managedby: sync}
+    - {type: REJECTED_LOAD, from: Carrier, to: Load, direction: DIRECTED, category: transaction, managedby: sync}
+
+matchentities:
+  candidate:
+    - {label: Carrier, matchdirection: loadtocarrier}
+  queryentity:
+    - {label: Load, matchdirection: loadtocarrier}
+
+queryschema:
+  matchdirections: [loadtocarrier]
+  fields:
+    - {name: loadid, type: string, required: true}
+    - {name: pickuplat, type: float, required: true}
+    - {name: pickuplon, type: float, required: true}
+    - {name: deliverylat, type: float, required: true}
+    - {name: deliverylon, type: float, required: true}
+    - {name: weightlbs, type: float, unit: weight, required: true}
+    - {name: equipmenttype, type: enum, required: true}
+    - {name: pickupdate, type: datetime, required: true}
+    - {name: deliverydate, type: datetime, required: true}
+    - {name: ratepermile, type: float, unit: rate_per_distance}
+
+gates:
+  - name: weight_capacity
+    type: threshold
+    candidateprop: maxweightlbs
+    queryparam: weightlbs
+    operator: ">="
+  - name: equipment_match
+    type: enummap
+    candidateprop: equipmenttypes
+    queryparam: equipmenttype
+  - name: availability_window
+    type: temporalrange
+    candidateprop_start: availabledate
+    candidateprop_end: availabledate
+    queryparam_start: pickupdate
+    queryparam_end: pickupdate
+
+scoring:
+  dimensions:
+    - name: deadhead_distance
+      source: computed
+      computation: geodecay
+      weightkey: wdeadhead
+      defaultweight: 0.40
+    - name: rate_alignment
+      source: computed
+      computation: pricealignment
+      weightkey: wrate
+      defaultweight: 0.25
+    - name: ontime_rating
+      source: candidateproperty
+      candidateprop: ontimeratingpct
+      computation: candidateproperty
+      weightkey: wontime
+      defaultweight: 0.20
+
+compliance:
+  regimes:
+    - {name: FMCSA, description: "Federal Motor Carrier Safety Administration"}
+  audit:
+    enabled: true
+    logmatchrequests: true
+    retentiondays: 180
+
+# ============================================================================
+# DOMAIN 5: ROOFING-COMPANY (Contractor-Project Matching)
+# ============================================================================
+---
+domain:
+  id: roofing-company
+  name: RoofOS Contractor-Project-Material Matching
+  description: >
+    Match roofing projects to optimal contractors and materials with weather
+    windows, insurance claims, and permit tracking.
+  version: 1.0.0
+
+ontology:
+  nodes:
+    - label: RoofingProject
+      managedby: sync
+      queryentity: true
+      properties:
+        - {name: projectid, type: string, required: true}
+        - {name: propertyaddress, type: string}
+        - {name: zipcode, type: string}
+        - {name: rooftype, type: enum, values: [asphalt, metal, tile, flat]}
+        - {name: squarefeet, type: int}
+        - {name: urgency, type: enum, values: [emergency, standard, planned]}
+        - {name: hasinsuranceclaim, type: bool}
+        - {name: budgetusd, type: float, unit: currency}
+        - {name: desiredstartdate, type: date}
+    
+    - label: Contractor
+      managedby: sync
+      candidate: true
+      properties:
+        - {name: contractorid, type: string, required: true}
+        - {name: companyname, type: string}
+        - {name: servicezips, type: string}
+        - {name: specialties, type: string}
+        - {name: currentprojectcount, type: int}
+        - {name: maxconcurrentprojects, type: int}
+        - {name: averageprojectratingusd, type: float}
+        - {name: insurancelicensed, type: bool}
+        - {name: emergencyavailable, type: bool}
+        - {name: nextavailabledate, type: date}
+    
+    - label: Material
+      managedby: sync
+      auxiliary: true
+      properties:
+        - {name: materialid, type: string}
+        - {name: rooftype, type: enum}
+        - {name: priceperunit, type: float, unit: currency}
+        - {name: warrantyears, type: int}
+
+  edges:
+    - {type: SERVICES_ZIP, from: Contractor, to: ZipCode, direction: DIRECTED, category: capability, managedby: sync}
+    - {type: USES_MATERIAL, from: Contractor, to: Material, direction: DIRECTED, category: capability, managedby: sync}
+    - {type: COMPLETED_PROJECT, from: Contractor, to: RoofingProject, direction: DIRECTED, category: transaction, managedby: sync}
+
+matchentities:
+  candidate:
+    - {label: Contractor, matchdirection: projecttocontractor}
+  queryentity:
+    - {label: RoofingProject, matchdirection: projecttocontractor}
+
+queryschema:
+  matchdirections: [projecttocontractor]
+  fields:
+    - {name: projectid, type: string, required: true}
+    - {name: zipcode, type: string, required: true}
+    - {name: rooftype, type: enum, required: true}
+    - {name: squarefeet, type: int, required: true}
+    - {name: urgency, type: enum}
+    - {name: hasinsuranceclaim, type: bool}
+    - {name: budgetusd, type: float, unit: currency}
+    - {name: desiredstartdate, type: date}
+
+gates:
+  - name: service_area
+    type: traversal
+    pattern: "candidate-[:SERVICES_ZIP]->(z:ZipCode {code: $query.zipcode})"
+    condition: "z IS NOT NULL"
+  - name: specialty_match
+    type: enummap
+    candidateprop: specialties
+    queryparam: rooftype
+  - name: capacity_check
+    type: selfrange
+    candidateprop_min: currentprojectcount
+    candidateprop_max: maxconcurrentprojects
+    queryparam: 1
+  - name: insurance_license
+    type: boolean
+    candidateprop: insurancelicensed
+    queryparam: hasinsuranceclaim
+  - name: emergency_availability
+    type: boolean
+    candidateprop: emergencyavailable
+    queryparam: true
+    strictwhen: "$query.urgency = 'emergency'"
+  - name: availability_date
+    type: threshold
+    candidateprop: nextavailabledate
+    queryparam: desiredstartdate
+    operator: "<="
+
+scoring:
+  dimensions:
+    - name: project_rating
+      source: candidateproperty
+      candidateprop: averageprojectratingusd
+      computation: candidateproperty
+      weightkey: wrating
+      defaultweight: 0.35
+    - name: capacity_utilization
+      source: computed
+      computation: inverselinear
+      weightkey: wcapacity
+      defaultweight: 0.25
+    - name: price_competitiveness
+      source: computed
+      computation: pricealignment
+      weightkey: wprice
+      defaultweight: 0.25
+
+# ============================================================================
+# DOMAIN 6: EXECUTIVE-ASSISTANT (Task-Expert Matching)
+# ============================================================================
+---
+domain:
+  id: executive-assistant
+  name: ExecOS Task-Expert-Resource Matching
+  description: >
+    AI-first executive assistant matching tasks to optimal experts, resources,
+    and workflows with calendar integration and priority routing.
+  version: 1.0.0
+
+ontology:
+  nodes:
+    - label: Task
+      managedby: api
+      queryentity: true
+      properties:
+        - {name: taskid, type: string, required: true}
+        - {name: title, type: string}
+        - {name: category, type: enum, values: [research, scheduling, travel, communication, analysis]}
+        - {name: priority, type: enum, values: [low, medium, high, urgent]}
+        - {name: estimatedhours, type: float}
+        - {name: deadline, type: datetime}
+        - {name: requiredskills, type: string}
+        - {name: delegatable, type: bool}
+    
+    - label: Expert
+      managedby: sync
+      candidate: true
+      properties:
+        - {name: expertid, type: string, required: true}
+        - {name: name, type: string}
+        - {name: skills, type: string}
+        - {name: availablehours, type: float}
+        - {name: currentutilizationpct, type: float, unit: percentage}
+        - {name: avgresponsetimehours, type: float}
+        - {name: taskcompletionrate, type: float, unit: percentage}
+        - {name: specialization, type: enum}
+    
+    - label: Workflow
+      managedby: static
+      auxiliary: true
+      properties:
+        - {name: workflowid, type: string}
+        - {name: category, type: enum}
+        - {name: steps, type: string}
+
+  edges:
+    - {type: HAS_SKILL, from: Expert, to: Skill, direction: DIRECTED, category: capability, managedby: sync}
+    - {type: COMPLETED_TASK, from: Expert, to: Task, direction: DIRECTED, category: transaction, managedby: api}
+    - {type: FOLLOWS_WORKFLOW, from: Task, to: Workflow, direction: DIRECTED, category: context, managedby: api}
+
+matchentities:
+  candidate:
+    - {label: Expert, matchdirection: tasktoexpert}
+  queryentity:
+    - {label: Task, matchdirection: tasktoexpert}
+
+queryschema:
+  matchdirections: [tasktoexpert]
+  fields:
+    - {name: taskid, type: string, required: true}
+    - {name: category, type: enum, required: true}
+    - {name: priority, type: enum, required: true}
+    - {name: estimatedhours, type: float}
+    - {name: deadline, type: datetime}
+    - {name: requiredskills, type: string}
+
+gates:
+  - name: skill_match
+    type: traversal
+    pattern: "candidate-[:HAS_SKILL]->(s:Skill)<-[:REQUIRES]-(query)"
+    condition: "s IS NOT NULL"
+  - name: availability_check
+    type: threshold
+    candidateprop: availablehours
+    queryparam: estimatedhours
+    operator: ">="
+  - name: deadline_feasibility
+    type: threshold
+    candidateprop: avgresponsetimehours
+    queryparam: deadline
+    operator: "<="
+  - name: utilization_gate
+    type: threshold
+    candidateprop: currentutilizationpct
+    queryparam: 85.0
+    operator: "<="
+
+scoring:
+  dimensions:
+    - name: task_completion_rate
+      source: candidateproperty
+      candidateprop: taskcompletionrate
+      computation: candidateproperty
+      weightkey: wcompletion
+      defaultweight: 0.40
+    - name: response_time
+      source: candidateproperty
+      candidateprop: avgresponsetimehours
+      computation: inverselinear
+      minvalue: 0
+      maxvalue: 48
+      weightkey: wresponse
+      defaultweight: 0.30
+    - name: utilization_score
+      source: candidateproperty
+      candidateprop: currentutilizationpct
+      computation: inverselinear
+      minvalue: 0
+      maxvalue: 100
+      weightkey: wutilization
+      defaultweight: 0.20
+
+# ============================================================================
+# DOMAIN 7: RESEARCH-AGENT (Paper-Dataset Matching)
+# ============================================================================
+---
+domain:
+  id: research-agent
+  name: ResearchOS Query-Paper-Dataset Matching
+  description: >
+    AI-first research agent matching queries to optimal papers, datasets, and
+    code repositories with citation networks and reproducibility tracking.
+  version: 1.0.0
+
+ontology:
+  nodes:
+    - label: ResearchQuery
+      managedby: api
+      queryentity: true
+      properties:
+        - {name: queryid, type: string, required: true}
+        - {name: query, type: string}
+        - {name: domain, type: enum, values: [ml, nlp, cv, robotics, theory]}
+        - {name: mindate, type: date}
+        - {name: requirescode, type: bool}
+        - {name: requiresdataset, type: bool}
+    
+    - label: Paper
+      managedby: sync
+      candidate: true
+      properties:
+        - {name: paperid, type: string, required: true}
+        - {name: title, type: string}
+        - {name: authors, type: string}
+        - {name: publicationdate, type: date}
+        - {name: venue, type: string}
+        - {name: citationcount, type: int}
+        - {name: hascode, type: bool}
+        - {name: hasdataset, type: bool}
+        - {name: reproducibilityscore, type: float}
+    
+    - label: Dataset
+      managedby: sync
+      auxiliary: true
+      properties:
+        - {name: datasetid, type: string}
+        - {name: name, type: string}
+        - {name: size, type: string}
+
+  edges:
+    - {type: CITES, from: Paper, to: Paper, direction: DIRECTED, category: referral, managedby: sync}
+    - {type: USES_DATASET, from: Paper, to: Dataset, direction: DIRECTED, category: capability, managedby: sync}
+    - {type: COCITED_WITH, from: Paper, to: Paper, direction: UNDIRECTED, category: precomputed, managedby: gds}
+
+matchentities:
+  candidate:
+    - {label: Paper, matchdirection: querytopaper}
+  queryentity:
+    - {label: ResearchQuery, matchdirection: querytopaper}
+
+queryschema:
+  matchdirections: [querytopaper]
+  fields:
+    - {name: queryid, type: string, required: true}
+    - {name: query, type: string, required: true}
+    - {name: domain, type: enum}
+    - {name: mindate, type: date}
+    - {name: requirescode, type: bool}
+    - {name: requiresdataset, type: bool}
+
+gates:
+  - name: publication_freshness
+    type: threshold
+    candidateprop: publicationdate
+    queryparam: mindate
+    operator: ">="
+  - name: code_availability
+    type: boolean
+    candidateprop: hascode
+    queryparam: requirescode
+    strictwhen: "$query.requirescode = true"
+  - name: dataset_availability
+    type: boolean
+    candidateprop: hasdataset
+    queryparam: requiresdataset
+    strictwhen: "$query.requiresdataset = true"
+
+scoring:
+  dimensions:
+    - name: citation_score
+      source: candidateproperty
+      candidateprop: citationcount
+      computation: lognormalized
+      maxvalue: 10000
+      weightkey: wcitation
+      defaultweight: 0.35
+    - name: reproducibility
+      source: candidateproperty
+      candidateprop: reproducibilityscore
+      computation: candidateproperty
+      weightkey: wrepro
+      defaultweight: 0.30
+    - name: recency
+      source: computed
+      computation: temporalproximity
+      weightkey: wrecency
+      defaultweight: 0.20
+
+# ============================================================================
+# DOMAIN 8: AIOS-GOD-AGENT (Tool Orchestration)
+# ============================================================================
+---
+domain:
+  id: aios-god-agent
+  name: AIOS Tool-Capability-Workflow Orchestration
+  description: >
+    AI operating system matching user intents to optimal tool chains with
+    capability composition and execution orchestration.
+  version: 1.0.0
+
+ontology:
+  nodes:
+    - label: Intent
+      managedby: api
+      queryentity: true
+      properties:
+        - {name: intentid, type: string, required: true}
+        - {name: userinput, type: string}
+        - {name: category, type: enum, values: [search, compute, create, transform, analyze]}
+        - {name: requiredcapabilities, type: string}
+        - {name: maxexecutiontimeseconds, type: int}
+    
+    - label: Tool
+      managedby: sync
+      candidate: true
+      properties:
+        - {name: toolid, type: string, required: true}
+        - {name: name, type: string}
+        - {name: capabilities, type: string}
+        - {name: inputformat, type: string}
+        - {name: outputformat, type: string}
+        - {name: avgexecutiontimeseconds, type: int}
+        - {name: reliabilityscore, type: float}
+        - {name: costpercall, type: float, unit: currency}
+    
+    - label: Capability
+      managedby: static
+      taxonomy: true
+      properties:
+        - {name: capabilityid, type: string}
+
+  edges:
+    - {type: HAS_CAPABILITY, from: Tool, to: Capability, direction: DIRECTED, category: capability, managedby: sync}
+    - {type: COMPOSES_WITH, from: Tool, to: Tool, direction: DIRECTED, category: capability, managedby: sync}
+    - {type: EXECUTED_FOR, from: Tool, to: Intent, direction: DIRECTED, category: transaction, managedby: api}
+
+matchentities:
+  candidate:
+    - {label: Tool, matchdirection: intenttotool}
+  queryentity:
+    - {label: Intent, matchdirection: intenttotool}
+
+queryschema:
+  matchdirections: [intenttotool]
+  fields:
+    - {name: intentid, type: string, required: true}
+    - {name: userinput, type: string, required: true}
+    - {name: category, type: enum}
+    - {name: requiredcapabilities, type: string}
+    - {name: maxexecutiontimeseconds, type: int}
+
+gates:
+  - name: capability_match
+    type: traversal
+    pattern: "candidate-[:HAS_CAPABILITY]->(c:Capability)<-[:REQUIRES]-(query)"
+    condition: "c IS NOT NULL"
+  - name: execution_time_limit
+    type: threshold
+    candidateprop: avgexecutiontimeseconds
+    queryparam: maxexecutiontimeseconds
+    operator: "<="
+
+scoring:
+  dimensions:
+    - name: reliability
+      source: candidateproperty
+      candidateprop: reliabilityscore
+      computation: candidateproperty
+      weightkey: wreliability
+      defaultweight: 0.40
+    - name: execution_speed
+      source: candidateproperty
+      candidateprop: avgexecutiontimeseconds
+      computation: inverselinear
+      minvalue: 0
+      maxvalue: 300
+      weightkey: wspeed
+      defaultweight: 0.30
+    - name: cost_efficiency
+      source: candidateproperty
+      candidateprop: costpercall
+      computation: inverselinear
+      minvalue: 0
+      maxvalue: 1.0
+      weightkey: wcost
+      defaultweight: 0.20
+
+# ============================================================================
+# DOMAIN 9: REPO-AS-AGENT (Code-Contributor Matching)
+# ============================================================================
+---
+domain:
+  id: repo-as-agent
+  name: RepoOS Code-Contributor-Issue Matching
+  description: >
+    Repository-as-agent matching issues to optimal contributors with code
+    ownership, expertise signals, and collaboration patterns.
+  version: 1.0.0
+
+ontology:
+  nodes:
+    - label: Issue
+      managedby: sync
+      queryentity: true
+      properties:
+        - {name: issueid, type: string, required: true}
+        - {name: title, type: string}
+        - {name: labels, type: string}
+        - {name: affectedfiles, type: string}
+        - {name: priority, type: enum, values: [low, medium, high, critical]}
+        - {name: estimatedcomplexity, type: enum, values: [trivial, easy, medium, hard]}
+    
+    - label: Contributor
+      managedby: sync
+      candidate: true
+      properties:
+        - {name: contributorid, type: string, required: true}
+        - {name: username, type: string}
+        - {name: ownedfiles, type: string}
+        - {name: expertise, type: string}
+        - {name: activeprs, type: int}
+        - {name: avgresolutiontimehours, type: float}
+        - {name: contributionscore, type: float}
+    
+    - label: CodeModule
+      managedby: static
+      taxonomy: true
+      properties:
+        - {name: modulepath, type: string}
+
+  edges:
+    - {type: OWNS_MODULE, from: Contributor, to: CodeModule, direction: DIRECTED, category: capability, managedby: sync}
+    - {type: RESOLVED_ISSUE, from: Contributor, to: Issue, direction: DIRECTED, category: transaction, managedby: sync}
+    - {type: COLLABORATED_WITH, from: Contributor, to: Contributor, direction: UNDIRECTED, category: precomputed, managedby: gds}
+
+matchentities:
+  candidate:
+    - {label: Contributor, matchdirection: issuetocontributor}
+  queryentity:
+    - {label: Issue, matchdirection: issuetocontributor}
+
+queryschema:
+  matchdirections: [issuetocontributor]
+  fields:
+    - {name: issueid, type: string, required: true}
+    - {name: title, type: string}
+    - {name: labels, type: string}
+    - {name: affectedfiles, type: string}
+    - {name: priority, type: enum}
+    - {name: estimatedcomplexity, type: enum}
+
+gates:
+  - name: code_ownership
+    type: traversal
+    pattern: "candidate-[:OWNS_MODULE]->(m:CodeModule)<-[:AFFECTS]-(query)"
+    condition: "m IS NOT NULL"
+  - name: capacity_check
+    type: threshold
+    candidateprop: activeprs
+    queryparam: 5
+    operator: "<="
+
+scoring:
+  dimensions:
+    - name: contribution_score
+      source: candidateproperty
+      candidateprop: contributionscore
+      computation: candidateproperty
+      weightkey: wcontribution
+      defaultweight: 0.35
+    - name: resolution_speed
+      source: candidateproperty
+      candidateprop: avgresolutiontimehours
+      computation: inverselinear
+      minvalue: 0
+      maxvalue: 168
+      weightkey: wspeed
+      defaultweight: 0.30
+    - name: expertise_match
+      source: computed
+      computation: customcypher
+      expression: "size([x IN candidate.expertise WHERE x IN $query.labels]) / size($query.labels)"
+      weightkey: wexpertise
+      defaultweight: 0.25
+
+# ============================================================================
+# DOMAIN 10: LEGAL-DISCOVERY (Case-Document Matching)
+# ============================================================================
+---
+domain:
+  id: legal-discovery
+  name: LegalOS Case-Document-Precedent Matching
+  description: >
+    Legal discovery matching cases to relevant documents and precedents with
+    jurisdiction awareness, privilege filtering, and temporal relevance.
+  version: 1.0.0
+
+ontology:
+  nodes:
+    - label: LegalCase
+      managedby: sync
+      queryentity: true
+      properties:
+        - {name: caseid, type: string, required: true}
+        - {name: casenumber, type: string}
+        - {name: jurisdiction, type: string}
+        - {name: casetype, type: enum, values: [civil, criminal, administrative]}
+        - {name: topics, type: string}
+        - {name: daterangestart, type: date}
+        - {name: daterangeend, type: date}
+    
+    - label: LegalDocument
+      managedby: sync
+      candidate: true
+      properties:
+        - {name: documentid, type: string, required: true}
+        - {name: title, type: string}
+        - {name: documenttype, type: enum, values: [brief, motion, order, evidence, deposition]}
+        - {name: jurisdiction, type: string}
+        - {name: documentdate, type: date}
+        - {name: relevancescore, type: float}
+        - {name: privileged, type: bool}
+        - {name: citationcount, type: int}
+    
+    - label: Precedent
+      managedby: sync
+      auxiliary: true
+      properties:
+        - {name: precedentid, type: string}
+        - {name: citation, type: string}
+
+  edges:
+    - {type: CITES_PRECEDENT, from: LegalDocument, to: Precedent, direction: DIRECTED, category: referral, managedby: sync}
+    - {type: RELEVANT_TO, from: LegalDocument, to: LegalCase, direction: DIRECTED, category: transaction, managedby: sync}
+    - {type: CODOCUMENTED_WITH, from: LegalDocument, to: LegalDocument, direction: UNDIRECTED, category: precomputed, managedby: gds}
+
+matchentities:
+  candidate:
+    - {label: LegalDocument, matchdirection: casetodocument}
+  queryentity:
+    - {label: LegalCase, matchdirection: casetodocument}
+
+queryschema:
+  matchdirections: [casetodocument]
+  fields:
+    - {name: caseid, type: string, required: true}
+    - {name: jurisdiction, type: string, required: true}
+    - {name: casetype, type: enum}
+    - {name: topics, type: string}
+    - {name: daterangestart, type: date}
+    - {name: daterangeend, type: date}
+    - {name: includeprivileged, type: bool}
+
+gates:
+  - name: jurisdiction_match
+    type: boolean
+    candidateprop: jurisdiction
+    queryparam: jurisdiction
+  - name: privilege_filter
+    type: boolean
+    candidateprop: privileged
+    queryparam: false
+    strictwhen: "$query.includeprivileged = false"
+  - name: temporal_relevance
+    type: temporalrange
+    candidateprop_start: documentdate
+    candidateprop_end: documentdate
+    queryparam_start: daterangestart
+    queryparam_end: daterangeend
+
+scoring:
+  dimensions:
+    - name: relevance_score
+      source: candidateproperty
+      candidateprop: relevancescore
+      computation: candidateproperty
+      weightkey: wrelevance
+      defaultweight: 0.40
+    - name: citation_authority
+      source: candidateproperty
+      candidateprop: citationcount
+      computation: lognormalized
+      maxvalue: 1000
+      weightkey: wcitation
+      defaultweight: 0.30
+    - name: temporal_proximity
+      source: computed
+      computation: temporalproximity
+      weightkey: wtemporal
+      defaultweight: 0.20
+
+compliance:
+  regimes:
+    - {name: ATTORNEY_CLIENT_PRIVILEGE, description: "Attorney-client privilege protection"}
+  pii:
+    enabled: true
+    fields: [clientname, ssn, address]
+    handling: redact
+  audit:
+    enabled: true
+    logmatchrequests: true
+    logmatchresults: true
+    retentiondays: 2555  # 7 years
+
+# ============================================================================
+# END OF ALL 10 DOMAIN SPECIFICATIONS
+# ============================================================================

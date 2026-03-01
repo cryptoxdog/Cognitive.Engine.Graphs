@@ -1,0 +1,88 @@
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# DORA META: Documentation-Code Synchronization Validator
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# CREATED: 2026-02-15T21:34:00-04:00
+# AUTHOR: L9 Engineering (cryptoxdog)
+# PURPOSE: Ensure docs and code remain in sync (API signatures, schemas)
+# DEPENDENCIES: scripts/docs_sync/, API introspection
+# DEPLOYMENT: Runs on PR + weekly schedule
+# DORA METRICS: Sync drift <5% | Doc freshness <7 days
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+name: Docs-Code Sync Validation
+
+on:
+  pull_request:
+    paths:
+      - 'api/**'
+      - 'core/**'
+      - 'readme/**'
+      - 'docs/**'
+  schedule:
+    - cron: '0 0 * * 1' # Weekly on Monday
+  workflow_dispatch:
+
+concurrency:
+  group: docs-sync-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  validate-sync:
+    name: Validate Docs Sync
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v5.3.0
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pyyaml
+
+      - name: Check Script Existence
+        run: |
+          if [ ! -f "scripts/docs_sync/validate_api_docs.py" ]; then
+            echo "⚠️  API docs validator script not found. Skipping validation."
+            exit 0
+          fi
+
+      - name: Validate API Documentation
+        run: |
+          if [ -f "scripts/docs_sync/validate_api_docs.py" ]; then
+            python scripts/docs_sync/validate_api_docs.py
+          else
+            echo "Skipping API validation (script not present)"
+          fi
+
+      - name: Check Markdown Links
+        run: |
+          find readme/ docs/ -name "*.md" -type f | while read file; do
+            echo "Checking links in: $file"
+            # Basic link validation (no broken internal links)
+            grep -oP '\[.*?\]\(\K[^)]+' "$file" | while read link; do
+              if [[ "$link" =~ ^\./ ]] || [[ "$link" =~ ^/ ]]; then
+                target="${link#./}"
+                if [ ! -f "$target" ] && [ ! -d "$target" ]; then
+                  echo "❌ Broken link in $file: $link"
+                  exit 1
+                fi
+              fi
+            done
+          done
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# DORA META END
+# LAST_MODIFIED: 2026-02-15T21:34:00-04:00
+# CHANGE_SUMMARY: Script existence check, action version fixes
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

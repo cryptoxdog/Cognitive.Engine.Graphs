@@ -1,0 +1,175 @@
+{
+  "1_COLLABORATIVE_FILTERING_AT_SCALE": {
+    "pattern_name": "Behavioral Graph Collaborative Filtering",
+    "revenue_proof": {
+      "google": "$175B+ - Users who searched X also searched Y (query expansion drives ad targeting)",
+      "amazon": "$200B+ - Customers who bought X also bought Y (35% of revenue from recommendations)",
+      "meta": "$135B+ - Users similar to your customers (lookalike audiences drive 25.6% YoY growth)"
+    },
+    "common_mechanism": "Historical transaction graph reveals hidden affinities between entities that wouldn't be obvious from attribute matching alone",
+    "node_types": {
+      "all_3_share": [
+        "QueryEntity (user/customer initiating search)",
+        "CandidateEntity (product/ad/entity being recommended)",
+        "TransactionHistory (purchase/click/engagement outcome)"
+      ]
+    },
+    "edge_types": {
+      "all_3_share": [
+        "HISTORICAL_SUCCESS (query_entity \u2192 candidate \u2192 positive_outcome)",
+        "SIMILAR_TO (entity \u2194 entity via collaborative signal)",
+        "CO_OCCURRED_WITH (candidate_A \u2194 candidate_B in same transaction context)"
+      ]
+    },
+    "algorithm_pattern": "Item-to-item collaborative filtering: Find entities frequently paired in successful transactions \u2192 recommend B when user engages with A",
+    "plastic_os_application": {
+      "insight": "Facilities that successfully processed material A often successfully process material B",
+      "implementation": "TRANSACTED_WITH edges with outcome='success' \u2192 build material-affinity graph \u2192 recommend facilities to suppliers based on similar historical material types",
+      "revenue_impact": "15-25% increase in transaction success rate (fewer failed matches) + 30% increase in repeat supplier volume (affinity-based suggestions)"
+    },
+    "mortgage_os_application": {
+      "insight": "Borrowers with profile A who closed loans successfully with lender B \u2192 similar borrowers should see lender B prioritized",
+      "implementation": "APPLICATION edges with outcome='closed' \u2192 build borrower-lender-product affinity graph \u2192 rank loan products by historical success with similar borrower profiles",
+      "revenue_impact": "20-30% improvement in loan approval rate + 10-15% increase in broker commission (higher close rate = more volume)"
+    },
+    "leverage_score": "10/10 - Proven across 3 different verticals with $510B total revenue influence"
+  },
+  "2_ENTITY_DISAMBIGUATION_VIA_CONTEXT": {
+    "pattern_name": "Context-Aware Entity Resolution",
+    "revenue_proof": {
+      "google": "$175B+ - 'Apple' query \u2192 disambiguate to Apple Inc. vs apple fruit based on user context (location, search history, device)",
+      "amazon": "$200B+ - 'Battery' search \u2192 disambiguate to car battery vs phone battery vs AA battery based on browsing context",
+      "meta": "$135B+ - 'Running' interest \u2192 disambiguate to marathon running vs running for office based on user profile + engagement"
+    },
+    "common_mechanism": "Ambiguous query + context graph traversal \u2192 precise match target resolution \u2192 higher relevance \u2192 higher conversion",
+    "node_types": {
+      "all_3_share": [
+        "QueryEntity (ambiguous input)",
+        "ContextEntity (session history, location, profile, behavior)",
+        "DisambiguatedEntity (precise match target)"
+      ]
+    },
+    "edge_types": {
+      "all_3_share": [
+        "HAS_CONTEXT (query \u2192 context signals)",
+        "DISAMBIGUATES_TO (query + context \u2192 precise entity)",
+        "IS_A (entity \u2192 category/type hierarchy for classification)"
+      ]
+    },
+    "algorithm_pattern": "Hierarchical classification: Query maps to multiple candidate entities \u2192 context graph traversal prunes to highest-probability entity \u2192 matching proceeds on disambiguated target",
+    "plastic_os_application": {
+      "insight": "Generic 'PE' (polyethylene) must disambiguate to HDPE vs LDPE vs LLDPE based on form (regrind vs bale vs rollstock) and application context",
+      "implementation": "PolymerFamily hierarchy + MaterialForm context + ApplicationClass context \u2192 precise polymer disambiguation \u2192 only match facilities with exact polymer capability",
+      "revenue_impact": "40-50% reduction in failed matches (wrong polymer type sent to facility) + 20% increase in transaction volume (suppliers trust system accuracy)"
+    },
+    "mortgage_os_application": {
+      "insight": "Generic 'refinance' must disambiguate to rate-and-term vs cash-out vs HELOC based on borrower context (loan purpose, property equity, cash need)",
+      "implementation": "LoanPurpose hierarchy + PropertyContext (LTV, equity) + BorrowerIntent (urgency, cash need) \u2192 precise loan product category \u2192 only match products in correct refinance type",
+      "revenue_impact": "30-40% improvement in loan officer efficiency (fewer irrelevant product presentations) + 15-20% higher borrower satisfaction (right product first time)"
+    },
+    "leverage_score": "9/10 - Critical for reducing noise in high-volume matching scenarios"
+  },
+  "3_GRAPH_EMBEDDINGS_FOR_SIMILARITY": {
+    "pattern_name": "Low-Dimensional Similarity via Graph Embeddings",
+    "revenue_proof": {
+      "google": "$175B+ - Entity embeddings enable semantic similarity at scale (billions of entities, sub-100ms query time)",
+      "amazon": "$200B+ - Product embeddings detect substitution/complementary relationships beyond explicit co-purchase edges",
+      "meta": "$135B+ - User embeddings power lookalike audience generation (find customers similar to best customers without explicit connections)"
+    },
+    "common_mechanism": "Graph structure \u2192 embedding space \u2192 similarity search in vector space \u2192 scalable approximate matching",
+    "node_types": {
+      "all_3_share": [
+        "EmbeddableEntity (product, user, entity with vector representation)",
+        "SimilarityCandidate (entities close in embedding space)"
+      ]
+    },
+    "edge_types": {
+      "all_3_share": [
+        "STRUCTURAL_RELATIONSHIP (edges used to train embeddings: co-purchase, co-click, social connection)",
+        "EMBEDDING_SIMILAR (entities close in vector space, not necessarily connected in graph)"
+      ]
+    },
+    "algorithm_pattern": "Graph neural network (GNN) or random walk (Node2Vec/DeepWalk) \u2192 train embeddings \u2192 vector similarity search (cosine/euclidean) \u2192 rank candidates by embedding distance",
+    "plastic_os_application": {
+      "insight": "Facilities with similar equipment + process capabilities + transaction history patterns are structurally compatible even if they've never processed the same exact material",
+      "implementation": "GNN on facility-equipment-process-material graph \u2192 facility embeddings \u2192 when new material type arrives, find nearest facilities in embedding space \u2192 bootstrap recommendations for novel materials",
+      "revenue_impact": "25-35% increase in addressable materials (can match novel/rare materials without historical data) + 10-15% expansion of facility network (activate underutilized facilities)"
+    },
+    "mortgage_os_application": {
+      "insight": "Loan products with similar eligibility criteria + lender behavior + borrower outcome patterns are suitable for similar borrowers even if exact borrower profile hasn't been seen",
+      "implementation": "GNN on loanproduct-lender-borrower-outcome graph \u2192 product embeddings \u2192 when novel borrower profile arrives (e.g., gig worker, crypto income), find nearest products in embedding space",
+      "revenue_impact": "20-30% increase in addressable borrower segments (non-traditional income, non-QM) + 15-20% higher broker revenue (access to underserved niches)"
+    },
+    "leverage_score": "9/10 - Unlocks long-tail/novel scenarios where explicit historical data is sparse"
+  },
+  "4_REAL_TIME_CONTEXT_AWARE_RANKING": {
+    "pattern_name": "Session-Context Dynamic Re-Ranking",
+    "revenue_proof": {
+      "google": "$175B+ - Query intent shifts in real-time (search 'apple' after 'iphone' \u2192 Apple Inc. strongly favored; search 'apple' after 'recipe' \u2192 apple fruit favored)",
+      "amazon": "$200B+ - Cart context adjusts recommendations (added laptop \u2192 prioritize laptop accessories over unrelated products; 20-40% AOV increase)",
+      "meta": "$135B+ - Real-time behavior (scroll speed, hover time, video watch duration) adjusts ad delivery (14% increase in ad impressions via better engagement prediction)"
+    },
+    "common_mechanism": "Base graph relevance score + real-time context signals \u2192 dynamic re-ranking \u2192 higher conversion than static scoring",
+    "node_types": {
+      "all_3_share": [
+        "SessionEntity (current browsing/interaction session with temporal state)",
+        "ContextSignal (recent actions, current location, device, urgency)",
+        "BaseCandidate (entities pre-scored by graph traversal)"
+      ]
+    },
+    "edge_types": {
+      "all_3_share": [
+        "SESSION_ACTION (user \u2192 action in current session with timestamp)",
+        "CONTEXT_INFLUENCES_RANKING (context signal \u2192 candidate score adjustment)",
+        "TEMPORAL_SEQUENCE (action_1 \u2192 action_2 in session timeline)"
+      ]
+    },
+    "algorithm_pattern": "Base graph score (pre-computed traversal/embedding similarity) + real-time context features \u2192 gradient boosted trees or neural network \u2192 re-ranked candidates \u2192 return top-K",
+    "plastic_os_application": {
+      "insight": "Supplier intake urgency + recent facility performance + current facility capacity \u2192 real-time ranking adjustment",
+      "implementation": "Base facility match score (structural compatibility) + real-time signals (facility just completed similar load successfully, facility has immediate capacity, supplier marked 'urgent') \u2192 re-rank facilities \u2192 prioritize high-confidence + available + fast",
+      "revenue_impact": "30-40% reduction in time-to-match (urgency-aware prioritization) + 15-20% increase in transaction value (capacity-aware routing maximizes throughput)"
+    },
+    "mortgage_os_application": {
+      "insight": "Borrower urgency + lender rate sheet freshness + loan officer capacity \u2192 real-time ranking adjustment",
+      "implementation": "Base product match score (credit/DTI/LTV gates) + real-time signals (borrower marked 'closing in 30 days', lender rate sheet updated this morning, LO has pipeline capacity) \u2192 re-rank products \u2192 prioritize available + competitive + fast",
+      "revenue_impact": "25-35% improvement in close rate (urgency-matched products close faster) + 10-15% increase in broker revenue (capacity-aware routing maximizes LO utilization)"
+    },
+    "leverage_score": "8/10 - Critical for time-sensitive/high-urgency scenarios (not all use cases need real-time)"
+  },
+  "5_MULTI_HOP_TRAVERSAL_FOR_ENRICHMENT": {
+    "pattern_name": "Transitive Relationship Discovery via Multi-Hop Traversal",
+    "revenue_proof": {
+      "google": "$175B+ - Entity \u2192 Related Entity \u2192 Ad (2-hop semantic matching captures indirect relevance; e.g., search 'smartphone' \u2192 related entity 'mobile app' \u2192 serve app developer ads)",
+      "amazon": "$200B+ - Customer \u2192 Product A \u2192 Product B \u2190 Other Customers (2-3 hop co-purchase discovery finds non-obvious product pairings; 35% of revenue)",
+      "meta": "$135B+ - User \u2192 Friend \u2192 Page (social proof propagation; 'Your friend likes this page' increases engagement 3-5x vs cold ads)"
+    },
+    "common_mechanism": "Direct 1-hop relationships insufficient \u2192 multi-hop traversal discovers transitive/indirect relationships \u2192 expands addressable candidate space",
+    "node_types": {
+      "all_3_share": [
+        "SourceEntity (query/customer starting point)",
+        "IntermediateEntity (bridge node connecting source to target)",
+        "TargetCandidate (indirectly related entity discovered via traversal)"
+      ]
+    },
+    "edge_types": {
+      "all_3_share": [
+        "DIRECT_RELATIONSHIP (1-hop: customer \u2192 purchased product)",
+        "TRANSITIVE_RELATIONSHIP (2-hop: customer \u2192 product A \u2192 product B)",
+        "BRIDGE_RELATIONSHIP (intermediate entity connects source to target)"
+      ]
+    },
+    "algorithm_pattern": "BFS/DFS with depth limit (2-3 hops) \u2192 accumulate path scores (multiplicative edge weights) \u2192 rank candidates by path strength \u2192 return top-K",
+    "plastic_os_application": {
+      "insight": "Supplier \u2192 Past Facility A \u2192 Material Type B \u2192 Facility C (supplier hasn't worked with Facility C, but Facility A successfully processed Material Type B, and Facility C excels at Material Type B)",
+      "implementation": "3-hop traversal: Intake \u2192 TRANSACTED_WITH \u2192 Facility A \u2192 SUCCESS_WITH \u2192 Material Type B \u2192 CAN_PROCESS \u2190 Facility C \u2192 prioritize Facility C even without direct history",
+      "revenue_impact": "20-30% expansion of facility network reach (connect suppliers to facilities beyond 1-hop history) + 15-20% increase in match success (transitive compatibility signals)"
+    },
+    "mortgage_os_application": {
+      "insight": "Borrower \u2192 Similar Borrower A \u2192 Closed Loan with Lender B \u2192 Lender B Strong in Loan Category C (borrower is in Category C but hasn't worked with Lender B)",
+      "implementation": "3-hop traversal: BorrowerProfile \u2192 SIMILAR_TO \u2192 Borrower A \u2192 APPLICATION {outcome='closed'} \u2192 Lender B \u2192 LENDER_PERFORMANCE \u2192 Loan Category C \u2192 prioritize Lender B products in Category C",
+      "revenue_impact": "15-25% improvement in lender-borrower match quality (historical success signals from similar borrowers) + 10-15% higher approval rate (lenders see better-fit borrowers)"
+    },
+    "leverage_score": "8/10 - Unlocks network effects and transitive trust/compatibility signals"
+  }
+}

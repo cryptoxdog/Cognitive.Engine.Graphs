@@ -1,0 +1,120 @@
+---
+domain:
+  id: roofing-company
+  name: RoofOS Contractor-Project-Material Matching
+  description: >
+    Match roofing projects to optimal contractors and materials with weather
+    windows, insurance claims, and permit tracking.
+  version: 1.0.0
+
+ontology:
+  nodes:
+    - label: RoofingProject
+      managedby: sync
+      queryentity: true
+      properties:
+        - {name: projectid, type: string, required: true}
+        - {name: propertyaddress, type: string}
+        - {name: zipcode, type: string}
+        - {name: rooftype, type: enum, values: [asphalt, metal, tile, flat]}
+        - {name: squarefeet, type: int}
+        - {name: urgency, type: enum, values: [emergency, standard, planned]}
+        - {name: hasinsuranceclaim, type: bool}
+        - {name: budgetusd, type: float, unit: currency}
+        - {name: desiredstartdate, type: date}
+    
+    - label: Contractor
+      managedby: sync
+      candidate: true
+      properties:
+        - {name: contractorid, type: string, required: true}
+        - {name: companyname, type: string}
+        - {name: servicezips, type: string}
+        - {name: specialties, type: string}
+        - {name: currentprojectcount, type: int}
+        - {name: maxconcurrentprojects, type: int}
+        - {name: averageprojectratingusd, type: float}
+        - {name: insurancelicensed, type: bool}
+        - {name: emergencyavailable, type: bool}
+        - {name: nextavailabledate, type: date}
+    
+    - label: Material
+      managedby: sync
+      auxiliary: true
+      properties:
+        - {name: materialid, type: string}
+        - {name: rooftype, type: enum}
+        - {name: priceperunit, type: float, unit: currency}
+        - {name: warrantyears, type: int}
+
+  edges:
+    - {type: SERVICES_ZIP, from: Contractor, to: ZipCode, direction: DIRECTED, category: capability, managedby: sync}
+    - {type: USES_MATERIAL, from: Contractor, to: Material, direction: DIRECTED, category: capability, managedby: sync}
+    - {type: COMPLETED_PROJECT, from: Contractor, to: RoofingProject, direction: DIRECTED, category: transaction, managedby: sync}
+
+matchentities:
+  candidate:
+    - {label: Contractor, matchdirection: projecttocontractor}
+  queryentity:
+    - {label: RoofingProject, matchdirection: projecttocontractor}
+
+queryschema:
+  matchdirections: [projecttocontractor]
+  fields:
+    - {name: projectid, type: string, required: true}
+    - {name: zipcode, type: string, required: true}
+    - {name: rooftype, type: enum, required: true}
+    - {name: squarefeet, type: int, required: true}
+    - {name: urgency, type: enum}
+    - {name: hasinsuranceclaim, type: bool}
+    - {name: budgetusd, type: float, unit: currency}
+    - {name: desiredstartdate, type: date}
+
+gates:
+  - name: service_area
+    type: traversal
+    pattern: "candidate-[:SERVICES_ZIP]->(z:ZipCode {code: $query.zipcode})"
+    condition: "z IS NOT NULL"
+  - name: specialty_match
+    type: enummap
+    candidateprop: specialties
+    queryparam: rooftype
+  - name: capacity_check
+    type: selfrange
+    candidateprop_min: currentprojectcount
+    candidateprop_max: maxconcurrentprojects
+    queryparam: 1
+  - name: insurance_license
+    type: boolean
+    candidateprop: insurancelicensed
+    queryparam: hasinsuranceclaim
+  - name: emergency_availability
+    type: boolean
+    candidateprop: emergencyavailable
+    queryparam: true
+    strictwhen: "$query.urgency = 'emergency'"
+  - name: availability_date
+    type: threshold
+    candidateprop: nextavailabledate
+    queryparam: desiredstartdate
+    operator: "<="
+
+scoring:
+  dimensions:
+    - name: project_rating
+      source: candidateproperty
+      candidateprop: averageprojectratingusd
+      computation: candidateproperty
+      weightkey: wrating
+      defaultweight: 0.35
+    - name: capacity_utilization
+      source: computed
+      computation: inverselinear
+      weightkey: wcapacity
+      defaultweight: 0.25
+    - name: price_competitiveness
+      source: computed
+      computation: pricealignment
+      weightkey: wprice
+      defaultweight: 0.25
+

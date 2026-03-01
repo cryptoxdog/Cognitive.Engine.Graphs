@@ -1,0 +1,338 @@
+{
+  "top_3_systems": {
+    "google_knowledge_graph": {
+      "revenue": 175000000000,
+      "domain": "search_advertising",
+      "core_mechanism": "entity_disambiguation_semantic_matching"
+    },
+    "amazon_product_graph": {
+      "revenue": 200000000000,
+      "domain": "ecommerce_recommendations",
+      "core_mechanism": "collaborative_filtering_discovery"
+    },
+    "meta_social_graph": {
+      "revenue": 135000000000,
+      "domain": "social_advertising",
+      "core_mechanism": "affinity_scoring_audience_generation"
+    }
+  },
+  "pattern_analysis": {
+    "google_knowledge_graph": {
+      "nodes": [
+        "Entity (person, place, thing, concept)",
+        "Query (user search intent)",
+        "Advertiser (business offering)",
+        "AdCreative (ad copy + targeting)",
+        "SearchResult (organic result)",
+        "Category (semantic classification)"
+      ],
+      "edges": [
+        "IS_A (entity \u2192 category)",
+        "RELATED_TO (entity \u2194 entity)",
+        "MATCHES_INTENT (query \u2192 entity)",
+        "TARGETS_ENTITY (advertiser \u2192 entity)",
+        "SERVES_AD_FOR (ad \u2192 entity)",
+        "CLICKED_FROM (user \u2192 result/ad)",
+        "CONVERTED_FROM (user \u2192 ad \u2192 purchase)"
+      ],
+      "critical_algorithms": [
+        "Entity disambiguation (context-aware classification)",
+        "Query expansion (intent \u2192 related entities)",
+        "Semantic ad matching (advertiser product entity \u2192 query entity)",
+        "Relevance scoring (entity-ad-query triangle)"
+      ],
+      "revenue_mechanics": [
+        "Entity resolution increases query understanding \u2192 higher ad relevance",
+        "Semantic matching reduces wasted ad spend \u2192 higher advertiser ROI \u2192 higher CPCs",
+        "Knowledge panels increase SERP engagement \u2192 more ad impressions",
+        "Entity graph enables long-tail keyword capture (billions of entity combinations)"
+      ],
+      "graph_architecture": [
+        "Pre-computed entity embeddings (semantic similarity)",
+        "Real-time query-time traversal (entity expansion)",
+        "Distributed storage (Bigtable-based)",
+        "Sub-100ms query response (indexed traversal)"
+      ],
+      "customer_acquisition": [
+        "Advertisers discover relevant audiences via entity targeting",
+        "Long-tail entity coverage captures niche advertisers",
+        "Entity-based bidding (bid on 'iPhone 15' entity vs keyword)"
+      ],
+      "cross_sell": [
+        "Related entity suggestions expand advertiser targeting",
+        "Category-level upsells (advertise on parent category entities)",
+        "Entity performance analytics drive campaign expansion"
+      ]
+    },
+    "amazon_product_graph": {
+      "nodes": [
+        "Product (SKU with attributes)",
+        "Customer (purchase history, behavior)",
+        "Category (product taxonomy)",
+        "Brand (manufacturer)",
+        "Review (rating, text, sentiment)",
+        "Attribute (color, size, material, feature)",
+        "Session (browsing context)"
+      ],
+      "edges": [
+        "PURCHASED_TOGETHER (product \u2194 product)",
+        "VIEWED_TOGETHER (product \u2194 product)",
+        "SUBSTITUTE (product \u2194 product)",
+        "COMPLEMENTARY (product \u2192 product)",
+        "CUSTOMER_BOUGHT (customer \u2192 product)",
+        "HAS_ATTRIBUTE (product \u2192 attribute)",
+        "IN_CATEGORY (product \u2192 category)",
+        "REVIEWED_BY (customer \u2192 product \u2192 review)"
+      ],
+      "critical_algorithms": [
+        "Item-to-item collaborative filtering (co-purchase graph)",
+        "Substitution detection (attribute similarity + behavior)",
+        "Complementary item prediction (sequence analysis)",
+        "Personalized ranking (customer subgraph \u2192 product similarity)"
+      ],
+      "revenue_mechanics": [
+        "35% of purchases influenced = $200B+ GMV",
+        "6x conversion rate with recommendations (12.29% vs 2.17%)",
+        "20-40% increase in average order value (basket size)",
+        "Recommendation = discovery (pipeline) + cross-sell (expansion) + retention (re-purchase)"
+      ],
+      "graph_architecture": [
+        "Bipartite graph (customer-product)",
+        "Product-product graph (co-purchase, similarity)",
+        "Real-time streaming (purchase \u2192 edge update)",
+        "Pre-computed embeddings + real-time ranking"
+      ],
+      "customer_acquisition": [
+        "Product discovery via recommendation = new customer capture",
+        "Category-level recommendations expose catalog breadth",
+        "Sponsored product placement in recommendation slots"
+      ],
+      "cross_sell": [
+        "Frequently bought together (complementary items)",
+        "Customers also bought (substitute discovery)",
+        "Bundle suggestions (multi-product cross-sell)",
+        "Subscribe & Save upsell on consumables"
+      ]
+    },
+    "meta_social_graph": {
+      "nodes": [
+        "User (member with demographics, interests)",
+        "Post (content with engagement)",
+        "Page (business, brand, influencer)",
+        "Ad (creative with targeting)",
+        "Interest (topic, behavior signal)",
+        "Event (action: like, share, comment)",
+        "Advertiser (business buyer)"
+      ],
+      "edges": [
+        "FRIEND_OF (user \u2194 user)",
+        "LIKES (user \u2192 page/post)",
+        "SHARES (user \u2192 post)",
+        "COMMENTS (user \u2192 post)",
+        "INTERESTED_IN (user \u2192 interest)",
+        "BELONGS_TO_AUDIENCE (user \u2192 ad targeting segment)",
+        "ENGAGED_WITH_AD (user \u2192 ad \u2192 conversion)",
+        "SIMILAR_TO (user \u2194 user via lookalike)"
+      ],
+      "critical_algorithms": [
+        "Social affinity scoring (relationship strength)",
+        "Lookalike audience generation (graph embeddings \u2192 similarity)",
+        "Interest propagation (friend graph \u2192 interest diffusion)",
+        "Advertiser-audience matching (business \u2192 target user subgraph)"
+      ],
+      "revenue_mechanics": [
+        "$135B+ ad revenue (98.6% of total revenue)",
+        "25.6% YoY growth driven by graph-powered targeting",
+        "14% increase in ad impressions (better targeting = more demand)",
+        "10% increase in cost per ad (performance-driven bidding)"
+      ],
+      "graph_architecture": [
+        "TAO (The Associations and Objects) architecture",
+        "96.4% cache hit rate for reads",
+        "Eventual consistency (availability over strong consistency)",
+        "Geographic replication with leader/follower tiers"
+      ],
+      "customer_acquisition": [
+        "Lookalike audiences find new customers similar to best customers",
+        "Interest targeting captures users in relevant affinity groups",
+        "Social proof (friend likes brand) drives discovery"
+      ],
+      "cross_sell": [
+        "Interest graph expansion (user likes A \u2192 target users who like A + B)",
+        "Engagement propagation (friend engaged with product \u2192 show to network)",
+        "Retargeting via pixel (website visitor \u2192 ad audience)",
+        "Dynamic product ads (browsed product \u2192 show related products)"
+      ]
+    }
+  },
+  "common_patterns": {
+    "nodes": {
+      "query_entity": {
+        "description": "The initiating entity seeking a match",
+        "google": "Query / User Intent",
+        "amazon": "Customer / Session",
+        "meta": "User / Advertiser",
+        "plastic_os": "MaterialIntake / SupplierProfile",
+        "mortgage_os": "BorrowerProfile / LoanApplication"
+      },
+      "candidate_entity": {
+        "description": "The target entity being matched to",
+        "google": "Entity / Ad",
+        "amazon": "Product",
+        "meta": "Ad / User (for lookalike)",
+        "plastic_os": "Facility (processor/broker)",
+        "mortgage_os": "LoanProduct \u00d7 Lender"
+      },
+      "attribute_entity": {
+        "description": "Properties/features used for matching",
+        "google": "Category, Semantic tags",
+        "amazon": "Attribute (color, size, feature)",
+        "meta": "Interest, Demographics",
+        "plastic_os": "Polymer, Form, Contamination, Equipment",
+        "mortgage_os": "Credit Score, DTI, Loan Purpose, Property Type"
+      },
+      "auxiliary_entity": {
+        "description": "Supporting entities that influence matching",
+        "google": "Advertiser, SearchResult",
+        "amazon": "Review, Brand, Category",
+        "meta": "Page, Post, Event",
+        "plastic_os": "Lender (provides rating), Market, Certification",
+        "mortgage_os": "Lender (provides product), State (licensing), LoanOfficer"
+      },
+      "transaction_history": {
+        "description": "Historical outcomes used for scoring",
+        "google": "Click, Conversion",
+        "amazon": "Purchase, View",
+        "meta": "Engagement, Ad Conversion",
+        "plastic_os": "Transaction (success/failure)",
+        "mortgage_os": "Application (approved/denied/closed)"
+      }
+    },
+    "edges": {
+      "capability_match": {
+        "description": "Candidate can serve query requirements",
+        "google": "MATCHES_INTENT (query \u2192 entity), SERVES_AD_FOR (ad \u2192 entity)",
+        "amazon": "HAS_ATTRIBUTE (product \u2192 attribute matching customer need)",
+        "meta": "BELONGS_TO_AUDIENCE (user matches ad targeting)",
+        "plastic_os": "ACCEPTS_POLYMER, ACCEPTS_FORM, CAN_RUN (facility meets intake specs)",
+        "mortgage_os": "ACCEPTS_CREDIT_SCORE, ACCEPTS_DTI, LOAN_PURPOSE_MATCH"
+      },
+      "similarity_relationship": {
+        "description": "Entities are similar/related/compatible",
+        "google": "RELATED_TO (entity \u2194 entity semantic similarity)",
+        "amazon": "PURCHASED_TOGETHER, SUBSTITUTE (product similarity)",
+        "meta": "SIMILAR_TO (lookalike users via embeddings)",
+        "plastic_os": "STRUCTURALLY_COMPATIBLE (polymer-to-polymer similarity)",
+        "mortgage_os": "PRODUCT_SIMILARITY (loan product feature similarity)"
+      },
+      "historical_success": {
+        "description": "Past positive outcomes between entities",
+        "google": "CONVERTED_FROM (user \u2192 ad \u2192 purchase)",
+        "amazon": "CUSTOMER_BOUGHT (customer \u2192 product with positive review)",
+        "meta": "ENGAGED_WITH_AD (user \u2192 ad \u2192 conversion)",
+        "plastic_os": "TRANSACTED_WITH, SUCCESS_WITH (intake \u2192 facility \u2192 successful transaction)",
+        "mortgage_os": "APPLICATION (borrower \u2192 product with outcome='closed')"
+      },
+      "exclusion_relationship": {
+        "description": "Negative constraints that block matches",
+        "google": "BLOCKED_ADVERTISER (user blocks ads from brand)",
+        "amazon": "NEVER_SHOW_AGAIN (customer explicitly rejects product)",
+        "meta": "HIDDEN_AD (user hides advertiser)",
+        "plastic_os": "EXCLUDED_FROM (intake \u2192 facility blacklist, PVC_INTOLERANT)",
+        "mortgage_os": "BLACKLISTED_LENDER, SUSPENDED_PRODUCT"
+      },
+      "enrichment_relationship": {
+        "description": "Supporting data that influences scoring",
+        "google": "CLICKED_FROM (engagement signals)",
+        "amazon": "REVIEWED_BY (product \u2192 review quality)",
+        "meta": "LIKES, SHARES, COMMENTS (engagement signals)",
+        "plastic_os": "HAS_CAPABILITY, HAS_CERTIFICATION (facility quality signals)",
+        "mortgage_os": "LENDER_PERFORMANCE, LO_SUCCESS (lender/officer quality)"
+      }
+    },
+    "algorithms": {
+      "entity_disambiguation": {
+        "description": "Resolve query intent to precise match targets",
+        "google": "Query 'Apple' \u2192 Apple Inc. vs apple fruit based on context",
+        "amazon": "Session context (browsing history) disambiguates product intent",
+        "meta": "User profile + behavior disambiguates ad targeting",
+        "plastic_os": "Polymer family hierarchy (PE \u2192 HDPE/LDPE) disambiguates material type",
+        "mortgage_os": "Loan purpose + property type disambiguates product category (VA vs FHA)"
+      },
+      "collaborative_filtering": {
+        "description": "Find matches based on similar entity behavior",
+        "google": "Users who clicked X also clicked Y (query expansion)",
+        "amazon": "Customers who bought X also bought Y (item-to-item CF)",
+        "meta": "Users similar to you engaged with X (lookalike audiences)",
+        "plastic_os": "Facilities that processed X successfully also processed Y (material affinity)",
+        "mortgage_os": "Borrowers similar to you closed with X (loan product affinity)"
+      },
+      "graph_embeddings": {
+        "description": "Low-dimensional representations for similarity",
+        "google": "Entity embeddings for semantic similarity",
+        "amazon": "Product embeddings for substitution/complementary detection",
+        "meta": "User/interest embeddings for lookalike generation",
+        "plastic_os": "Facility embeddings for structural compatibility",
+        "mortgage_os": "LoanProduct embeddings for similarity (KGE via CompoundE3D)"
+      },
+      "multi_hop_traversal": {
+        "description": "Explore indirect relationships",
+        "google": "Entity \u2192 Related Entity \u2192 Ad (2-hop semantic ad matching)",
+        "amazon": "Customer \u2192 Product A \u2192 Product B \u2190 Other Customers (co-purchase)",
+        "meta": "User \u2192 Friend \u2192 Page (social proof propagation)",
+        "plastic_os": "Intake \u2192 Facility \u2192 Successful Transaction \u2192 Similar Intakes",
+        "mortgage_os": "Borrower \u2192 Product \u2192 Lender \u2192 State (licensing validation)"
+      },
+      "real_time_personalization": {
+        "description": "Context-aware ranking at query time",
+        "google": "Query context (location, device, search history) adjusts entity relevance",
+        "amazon": "Session context (cart, browsing) adjusts product ranking",
+        "meta": "Real-time behavior (scroll, hover) adjusts ad delivery",
+        "plastic_os": "Intake urgency, geography, batch size adjust facility ranking",
+        "mortgage_os": "Borrower urgency, rate sensitivity adjust product ranking"
+      }
+    },
+    "revenue_mechanics": {
+      "pipeline_generation": {
+        "description": "Graph discovers new opportunities",
+        "google": "Long-tail entity targeting captures niche advertisers (new customers)",
+        "amazon": "Product discovery via recommendations = new customer acquisition",
+        "meta": "Lookalike audiences find new customers similar to best customers",
+        "plastic_os": "Material-facility matching surfaces processors for new material types",
+        "mortgage_os": "Borrower-product matching surfaces lenders for niche loan types"
+      },
+      "conversion_optimization": {
+        "description": "Graph improves match quality \u2192 higher close rates",
+        "google": "Semantic ad matching reduces wasted spend \u2192 8x ROI for advertisers",
+        "amazon": "6x conversion rate with recommendations (12.29% vs 2.17%)",
+        "meta": "Interest targeting + lookalikes \u2192 25.6% YoY ad revenue growth",
+        "plastic_os": "Equipment-form matching + contamination tolerance \u2192 higher transaction success",
+        "mortgage_os": "Credit-DTI-LTV matching + lender approval history \u2192 higher loan approval rate"
+      },
+      "expansion_cross_sell": {
+        "description": "Graph identifies additional revenue per entity",
+        "google": "Related entity suggestions expand advertiser targeting (cross-sell)",
+        "amazon": "20-40% average order value increase via bundle recommendations",
+        "meta": "Interest expansion (user likes A \u2192 target A + B) = upsell",
+        "plastic_os": "Material affinity (processed PE \u2192 suggest PP) = volume expansion",
+        "mortgage_os": "Product similarity (refinanced \u2192 suggest HELOC) = cross-sell"
+      },
+      "retention_loyalty": {
+        "description": "Graph predicts churn and drives re-engagement",
+        "google": "Entity-based bidding creates advertiser lock-in (switching cost)",
+        "amazon": "Re-purchase recommendations drive repeat customer behavior",
+        "meta": "Engagement graph predicts churn \u2192 re-engagement campaigns",
+        "plastic_os": "Transaction history graph predicts facility churn \u2192 relationship manager alert",
+        "mortgage_os": "Champion tracking (job change) predicts churn \u2192 re-engagement workflow"
+      },
+      "efficiency_scale": {
+        "description": "Graph enables automation at massive scale",
+        "google": "8.5B searches/day, sub-100ms response (impossible without graph index)",
+        "amazon": "Billions of products \u00d7 millions of customers = trillions of edges",
+        "meta": "2B+ DAU, 96.4% cache hit rate (TAO architecture)",
+        "plastic_os": "Thousands of facilities \u00d7 thousands of materials = millions of match scenarios",
+        "mortgage_os": "250+ loan programs \u00d7 50+ lenders \u00d7 thousands of borrowers daily"
+      }
+    }
+  }
+}

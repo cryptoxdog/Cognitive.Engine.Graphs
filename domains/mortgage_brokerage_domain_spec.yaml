@@ -1,0 +1,201 @@
+---
+domain:
+  id: mortgage-brokerage
+  name: MortgageOS Borrower-Lender-Product Matching
+  description: >
+    Match borrower profiles to optimal wholesale lender loan products with
+    ECOA-compliant scoring and outcome feedback loops.
+  version: 1.0.0
+  alternatedomains: []
+
+ontology:
+  nodes:
+    - label: BorrowerProfile
+      managedby: sync
+      queryentity: true
+      properties:
+        - {name: borrowerid, type: string, required: true}
+        - {name: creditscore, type: int, required: true}
+        - {name: annualincomeusd, type: float, unit: currency, required: true}
+        - {name: monthlydebtusd, type: float, unit: currency, required: true}
+        - {name: loanamountusd, type: float, unit: currency, required: true}
+        - {name: propertyvalueusd, type: float, unit: currency, required: true}
+        - {name: downpaymentusd, type: float, unit: currency, required: true}
+        - {name: propertytype, type: enum, values: [singlefamily, condo, townhouse, multifamily]}
+        - {name: propertystate, type: string, required: true}
+        - {name: occupancy, type: enum, values: [owneroccupied, secondhome, investment]}
+        - {name: loanpurpose, type: enum, values: [purchase, refinance, cashout, heloc]}
+        - {name: vaeligible, type: bool}
+        - {name: firsttimebuyer, type: bool}
+        - {name: dtipct, type: float, unit: percentage, managedby: computed}
+        - {name: ltvpct, type: float, unit: percentage, managedby: computed}
+    
+    - label: LoanProduct
+      managedby: sync
+      candidate: true
+      properties:
+        - {name: productid, type: string, required: true}
+        - {name: productname, type: string}
+        - {name: lenderid, type: string, required: true}
+        - {name: loancategory, type: enum, values: [conventional, fha, va, jumbo]}
+        - {name: loanpurpose, type: enum, values: [purchase, refinance, cashout]}
+        - {name: mincreditscore, type: int}
+        - {name: maxdtipct, type: float, unit: percentage}
+        - {name: maxltvpct, type: float, unit: percentage}
+        - {name: minloanamountusd, type: float, unit: currency}
+        - {name: maxloanamountusd, type: float, unit: currency}
+        - {name: requiresvaeligibility, type: bool}
+        - {name: baseratepct, type: float, unit: percentage}
+        - {name: avgclosingdays, type: int}
+        - {name: louvaincommunityid, type: int, managedby: gds}
+    
+    - label: Lender
+      managedby: sync
+      auxiliary: true
+      properties:
+        - {name: lenderid, type: string, required: true}
+        - {name: name, type: string}
+        - {name: nmlsid, type: string}
+        - {name: approvalratepct, type: float, unit: percentage, managedby: gds}
+    
+    - label: State
+      managedby: static
+      taxonomy: true
+      properties:
+        - {name: statecode, type: string, required: true}
+        - {name: conforminglimitusd, type: float, unit: currency}
+
+  edges:
+    - {type: OFFEREDBY, from: LoanProduct, to: Lender, direction: DIRECTED, category: capability, managedby: sync}
+    - {type: OPERATESIN, from: Lender, to: State, direction: DIRECTED, category: capability, managedby: sync}
+    - {type: BLACKLISTEDLENDER, from: BorrowerProfile, to: Lender, direction: DIRECTED, category: exclusion, managedby: sync}
+    - {type: APPLICATION, from: BorrowerProfile, to: LoanProduct, direction: DIRECTED, category: transaction, managedby: sync}
+    - {type: PRODUCTSIMILARITY, from: LoanProduct, to: LoanProduct, direction: UNDIRECTED, category: precomputed, managedby: gds}
+
+matchentities:
+  candidate:
+    - {label: LoanProduct, matchdirection: borrowertoproduct}
+  queryentity:
+    - {label: BorrowerProfile, matchdirection: borrowertoproduct}
+
+queryschema:
+  matchdirections: [borrowertoproduct]
+  fields:
+    - {name: borrowerid, type: string, required: true}
+    - {name: creditscore, type: int, required: true}
+    - {name: annualincomeusd, type: float, unit: currency, required: true}
+    - {name: monthlydebtusd, type: float, unit: currency, required: true}
+    - {name: loanamountusd, type: float, unit: currency, required: true}
+    - {name: propertyvalueusd, type: float, unit: currency, required: true}
+    - {name: downpaymentusd, type: float, unit: currency, required: true}
+    - {name: propertytype, type: enum}
+    - {name: propertystate, type: string, required: true}
+    - {name: occupancy, type: enum}
+    - {name: loanpurpose, type: enum, required: true}
+    - {name: vaeligible, type: bool}
+    - {name: firsttimebuyer, type: bool}
+
+derivedparameters:
+  - name: dtipct
+    expression: "monthlydebtusd / (annualincomeusd / 12.0) * 100.0"
+    type: float
+    unit: percentage
+  - name: ltvpct
+    expression: "loanamountusd / propertyvalueusd * 100.0"
+    type: float
+    unit: percentage
+
+traversal:
+  steps:
+    - name: lenderresolve
+      pattern: "candidate-[:OFFEREDBY]->lender:Lender"
+      required: true
+    - name: lenderstatelicensing
+      pattern: "lender-[:OPERATESIN]->st:State {statecode: $query.propertystate}"
+      required: true
+
+gates:
+  - name: creditscore_min
+    type: threshold
+    candidateprop: mincreditscore
+    queryparam: creditscore
+    operator: "<="
+    nullbehavior: pass
+  - name: dti_max
+    type: threshold
+    candidateprop: maxdtipct
+    queryparam: dtipct
+    operator: ">="
+    nullbehavior: pass
+  - name: ltv_max
+    type: threshold
+    candidateprop: maxltvpct
+    queryparam: ltvpct
+    operator: ">="
+    nullbehavior: pass
+  - name: loanamount_range
+    type: range
+    candidateprop: loanamountusd
+    queryparam_min: minloanamountusd
+    queryparam_max: maxloanamountusd
+    nullbehavior: pass
+  - name: va_eligibility
+    type: boolean
+    candidateprop: requiresvaeligibility
+    queryparam: vaeligible
+    nullbehavior: pass
+  - name: loanpurpose_match
+    type: enummap
+    candidateprop: loanpurpose
+    queryparam: loanpurpose
+  - name: blacklist_exclusion
+    type: exclusion
+    edgetype: BLACKLISTEDLENDER
+    fromnode: query
+    tonode: lender
+
+scoring:
+  dimensions:
+    - name: rate_score
+      source: candidateproperty
+      candidateprop: baseratepct
+      computation: inverselinear
+      minvalue: 3.0
+      maxvalue: 8.0
+      weightkey: wrate
+      defaultweight: 0.35
+    - name: approval_rate
+      source: traversalalias
+      alias: lender.approvalratepct
+      computation: candidateproperty
+      weightkey: wapproval
+      defaultweight: 0.25
+    - name: closing_speed
+      source: candidateproperty
+      candidateprop: avgclosingdays
+      computation: inverselinear
+      minvalue: 15
+      maxvalue: 60
+      weightkey: wspeed
+      defaultweight: 0.20
+    - name: community_match
+      source: computed
+      candidateprop: louvaincommunityid
+      queryprop: louvaincommunityid
+      computation: communitymatch
+      weightkey: wcommunity
+      defaultweight: 0.10
+
+compliance:
+  regimes:
+    - {name: ECOA, description: "Equal Credit Opportunity Act"}
+  prohibitedfactors:
+    enabled: true
+    blockedfields: [race, ethnicity, religion, gender, age, maritalstatus, nationalorigin]
+    enforcement: compiletime
+  audit:
+    enabled: true
+    logmatchrequests: true
+    logmatchresults: true
+    retentiondays: 90
+

@@ -1,0 +1,116 @@
+---
+domain:
+  id: legal-discovery
+  name: LegalOS Case-Document-Precedent Matching
+  description: >
+    Legal discovery matching cases to relevant documents and precedents with
+    jurisdiction awareness, privilege filtering, and temporal relevance.
+  version: 1.0.0
+
+ontology:
+  nodes:
+    - label: LegalCase
+      managedby: sync
+      queryentity: true
+      properties:
+        - {name: caseid, type: string, required: true}
+        - {name: casenumber, type: string}
+        - {name: jurisdiction, type: string}
+        - {name: casetype, type: enum, values: [civil, criminal, administrative]}
+        - {name: topics, type: string}
+        - {name: daterangestart, type: date}
+        - {name: daterangeend, type: date}
+    
+    - label: LegalDocument
+      managedby: sync
+      candidate: true
+      properties:
+        - {name: documentid, type: string, required: true}
+        - {name: title, type: string}
+        - {name: documenttype, type: enum, values: [brief, motion, order, evidence, deposition]}
+        - {name: jurisdiction, type: string}
+        - {name: documentdate, type: date}
+        - {name: relevancescore, type: float}
+        - {name: privileged, type: bool}
+        - {name: citationcount, type: int}
+    
+    - label: Precedent
+      managedby: sync
+      auxiliary: true
+      properties:
+        - {name: precedentid, type: string}
+        - {name: citation, type: string}
+
+  edges:
+    - {type: CITES_PRECEDENT, from: LegalDocument, to: Precedent, direction: DIRECTED, category: referral, managedby: sync}
+    - {type: RELEVANT_TO, from: LegalDocument, to: LegalCase, direction: DIRECTED, category: transaction, managedby: sync}
+    - {type: CODOCUMENTED_WITH, from: LegalDocument, to: LegalDocument, direction: UNDIRECTED, category: precomputed, managedby: gds}
+
+matchentities:
+  candidate:
+    - {label: LegalDocument, matchdirection: casetodocument}
+  queryentity:
+    - {label: LegalCase, matchdirection: casetodocument}
+
+queryschema:
+  matchdirections: [casetodocument]
+  fields:
+    - {name: caseid, type: string, required: true}
+    - {name: jurisdiction, type: string, required: true}
+    - {name: casetype, type: enum}
+    - {name: topics, type: string}
+    - {name: daterangestart, type: date}
+    - {name: daterangeend, type: date}
+    - {name: includeprivileged, type: bool}
+
+gates:
+  - name: jurisdiction_match
+    type: boolean
+    candidateprop: jurisdiction
+    queryparam: jurisdiction
+  - name: privilege_filter
+    type: boolean
+    candidateprop: privileged
+    queryparam: false
+    strictwhen: "$query.includeprivileged = false"
+  - name: temporal_relevance
+    type: temporalrange
+    candidateprop_start: documentdate
+    candidateprop_end: documentdate
+    queryparam_start: daterangestart
+    queryparam_end: daterangeend
+
+scoring:
+  dimensions:
+    - name: relevance_score
+      source: candidateproperty
+      candidateprop: relevancescore
+      computation: candidateproperty
+      weightkey: wrelevance
+      defaultweight: 0.40
+    - name: citation_authority
+      source: candidateproperty
+      candidateprop: citationcount
+      computation: lognormalized
+      maxvalue: 1000
+      weightkey: wcitation
+      defaultweight: 0.30
+    - name: temporal_proximity
+      source: computed
+      computation: temporalproximity
+      weightkey: wtemporal
+      defaultweight: 0.20
+
+compliance:
+  regimes:
+    - {name: ATTORNEY_CLIENT_PRIVILEGE, description: "Attorney-client privilege protection"}
+  pii:
+    enabled: true
+    fields: [clientname, ssn, address]
+    handling: redact
+  audit:
+    enabled: true
+    logmatchrequests: true
+    logmatchresults: true
+    retentiondays: 2555  # 7 years
+

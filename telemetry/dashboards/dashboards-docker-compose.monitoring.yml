@@ -1,0 +1,43 @@
+# ============================================================================
+# Monitoring Stack — Grafana + Prometheus (local dev)
+# ============================================================================
+# Usage: docker compose -f dashboards/docker-compose.monitoring.yml up -d
+# Grafana: http://localhost:3000 (admin/admin)
+# ============================================================================
+
+services:
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: l9-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus-data:/prometheus
+    networks:
+      - l9-net
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: l9-grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH=/var/lib/grafana/dashboards/overview.json
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./grafana-provisioning:/etc/grafana/provisioning
+      - ./grafana-api.json:/var/lib/grafana/dashboards/api.json
+      - ./grafana-neo4j.json:/var/lib/grafana/dashboards/neo4j.json
+      - ./grafana-overview.json:/var/lib/grafana/dashboards/overview.json
+    networks:
+      - l9-net
+
+volumes:
+  prometheus-data:
+  grafana-data:
+
+networks:
+  l9-net:
+    external: true

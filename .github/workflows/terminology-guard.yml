@@ -1,0 +1,89 @@
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# DORA META: Terminology Consistency Guard
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# CREATED: 2026-02-15T21:34:00-04:00
+# AUTHOR: L9 Engineering (cryptoxdog)
+# PURPOSE: Enforce consistent terminology across codebase (PacketEnvelope, not Packet)
+# DEPENDENCIES: grep, terminology dictionary
+# DEPLOYMENT: Runs on all PRs
+# DORA METRICS: Zero terminology drift | Review time saved >2hr/week
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+name: Terminology Guard
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: terminology-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  check-terminology:
+    name: Check Terminology Consistency
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+
+      - name: Check Forbidden Terms
+        run: |
+          # Define forbidden terms (must use canonical versions)
+          FORBIDDEN_TERMS=(
+            "\\bPacket\\b(?!Envelope)"
+            "\\bSubstrate\\b(?!Service)"
+            "\\blog\\.(?!bind)"
+            "\\bprint\\("
+            "\\bOptional\\["
+            "\\bList\\["
+            "\\bDict\\["
+            "\\bTuple\\["
+            "\\bSet\\["
+          )
+          
+          VIOLATIONS=0
+          
+          for term in "${FORBIDDEN_TERMS[@]}"; do
+            echo "Checking for: $term"
+            
+            if grep -rn -E "$term" \
+              --include="*.py" \
+              --exclude-dir=venv \
+              --exclude-dir=.venv \
+              --exclude-dir=__pycache__ \
+              .; then
+              
+              echo "❌ Found forbidden term: $term"
+              VIOLATIONS=$((VIOLATIONS+1))
+            fi
+          done
+          
+          if [ $VIOLATIONS -gt 0 ]; then
+            echo ""
+            echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+            echo "❌ Terminology violations found: $VIOLATIONS"
+            echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+            echo ""
+            echo "Use canonical terms:"
+            echo "  • PacketEnvelope (not Packet)"
+            echo "  • SubstrateService (not Substrate)"
+            echo "  • structlog (not stdlib logging)"
+            echo "  • T | None (not Optional[T])"
+            echo "  • list[T] (not List[T])"
+            echo ""
+            exit 1
+          fi
+          
+          echo "✅ No terminology violations found"
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# DORA META END
+# LAST_MODIFIED: 2026-02-15T21:34:00-04:00
+# CHANGE_SUMMARY: Fixed bash array escaping, action version updates
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

@@ -1,0 +1,112 @@
+---
+domain:
+  id: executive-assistant
+  name: ExecOS Task-Expert-Resource Matching
+  description: >
+    AI-first executive assistant matching tasks to optimal experts, resources,
+    and workflows with calendar integration and priority routing.
+  version: 1.0.0
+
+ontology:
+  nodes:
+    - label: Task
+      managedby: api
+      queryentity: true
+      properties:
+        - {name: taskid, type: string, required: true}
+        - {name: title, type: string}
+        - {name: category, type: enum, values: [research, scheduling, travel, communication, analysis]}
+        - {name: priority, type: enum, values: [low, medium, high, urgent]}
+        - {name: estimatedhours, type: float}
+        - {name: deadline, type: datetime}
+        - {name: requiredskills, type: string}
+        - {name: delegatable, type: bool}
+    
+    - label: Expert
+      managedby: sync
+      candidate: true
+      properties:
+        - {name: expertid, type: string, required: true}
+        - {name: name, type: string}
+        - {name: skills, type: string}
+        - {name: availablehours, type: float}
+        - {name: currentutilizationpct, type: float, unit: percentage}
+        - {name: avgresponsetimehours, type: float}
+        - {name: taskcompletionrate, type: float, unit: percentage}
+        - {name: specialization, type: enum}
+    
+    - label: Workflow
+      managedby: static
+      auxiliary: true
+      properties:
+        - {name: workflowid, type: string}
+        - {name: category, type: enum}
+        - {name: steps, type: string}
+
+  edges:
+    - {type: HAS_SKILL, from: Expert, to: Skill, direction: DIRECTED, category: capability, managedby: sync}
+    - {type: COMPLETED_TASK, from: Expert, to: Task, direction: DIRECTED, category: transaction, managedby: api}
+    - {type: FOLLOWS_WORKFLOW, from: Task, to: Workflow, direction: DIRECTED, category: context, managedby: api}
+
+matchentities:
+  candidate:
+    - {label: Expert, matchdirection: tasktoexpert}
+  queryentity:
+    - {label: Task, matchdirection: tasktoexpert}
+
+queryschema:
+  matchdirections: [tasktoexpert]
+  fields:
+    - {name: taskid, type: string, required: true}
+    - {name: category, type: enum, required: true}
+    - {name: priority, type: enum, required: true}
+    - {name: estimatedhours, type: float}
+    - {name: deadline, type: datetime}
+    - {name: requiredskills, type: string}
+
+gates:
+  - name: skill_match
+    type: traversal
+    pattern: "candidate-[:HAS_SKILL]->(s:Skill)<-[:REQUIRES]-(query)"
+    condition: "s IS NOT NULL"
+  - name: availability_check
+    type: threshold
+    candidateprop: availablehours
+    queryparam: estimatedhours
+    operator: ">="
+  - name: deadline_feasibility
+    type: threshold
+    candidateprop: avgresponsetimehours
+    queryparam: deadline
+    operator: "<="
+  - name: utilization_gate
+    type: threshold
+    candidateprop: currentutilizationpct
+    queryparam: 85.0
+    operator: "<="
+
+scoring:
+  dimensions:
+    - name: task_completion_rate
+      source: candidateproperty
+      candidateprop: taskcompletionrate
+      computation: candidateproperty
+      weightkey: wcompletion
+      defaultweight: 0.40
+    - name: response_time
+      source: candidateproperty
+      candidateprop: avgresponsetimehours
+      computation: inverselinear
+      minvalue: 0
+      maxvalue: 48
+      weightkey: wresponse
+      defaultweight: 0.30
+    - name: utilization_score
+      source: candidateproperty
+      candidateprop: currentutilizationpct
+      computation: inverselinear
+      minvalue: 0
+      maxvalue: 100
+      weightkey: wutilization
+      defaultweight: 0.20
+

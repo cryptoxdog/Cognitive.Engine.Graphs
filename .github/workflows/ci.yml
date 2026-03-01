@@ -1,0 +1,387 @@
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# Universal CI/CD Pack — Main CI Pipeline
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# VERSION: 1.0.0
+# PURPOSE: Production-grade CI for any Python repository
+# ZERO-CONFIG: Works immediately with sensible defaults
+# CONFIGURABLE: Customize via Repository Variables (see env.template)
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+name: CI Pipeline
+
+on:
+  push:
+    branches:
+      - ${{ vars.PRIMARY_BRANCH || 'main' }}
+      - ${{ vars.DEVELOP_BRANCH || 'develop' }}
+  pull_request:
+    branches:
+      - ${{ vars.PRIMARY_BRANCH || 'main' }}
+      - ${{ vars.DEVELOP_BRANCH || 'develop' }}
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  PYTHON_VERSION: ${{ vars.PYTHON_VERSION || '3.12' }}
+  REQUIREMENTS_FILE: ${{ vars.REQUIREMENTS_FILE || 'requirements.txt' }}
+  COVERAGE_THRESHOLD: ${{ vars.COVERAGE_THRESHOLD || '60' }}
+  TEST_DIR: ${{ vars.TEST_DIR || 'tests/' }}
+  SOURCE_DIR: ${{ vars.SOURCE_DIR || '.' }}
+
+jobs:
+  # ────────────────────────────────────────────────────────────────────────
+  # PHASE 1: VALIDATION
+  # ────────────────────────────────────────────────────────────────────────
+  validate:
+    name: Validate Structure
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v5.3.0
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+
+      - name: Install Validation Tools
+        run: |
+          python -m pip install --upgrade pip
+          pip install pyyaml
+
+      - name: Check Python Syntax
+        run: |
+          echo "Checking Python syntax..."
+          find . -name "*.py" \
+            -not -path "./venv/*" \
+            -not -path "./.venv/*" \
+            -not -path "./__pycache__/*" \
+            -not -path "./build/*" \
+            -not -path "./dist/*" \
+            -exec python -m py_compile {} +
+          echo "✅ All Python files have valid syntax"
+
+      - name: Validate YAML Files
+        run: |
+          python3 -c "
+          import yaml
+          from pathlib import Path
+          errors = []
+          for f in Path('.github/workflows').glob('*.yml'):
+              try:
+                  with open(f) as fh:
+                      yaml.safe_load(fh)
+              except yaml.YAMLError as e:
+                  errors.append(f'{f}: {e}')
+          if errors:
+              for e in errors:
+                  print(f'❌ {e}')
+              raise SystemExit(1)
+          print('✅ All YAML workflow files are valid')
+          "
+
+  # ────────────────────────────────────────────────────────────────────────
+  # PHASE 2: LINT & TYPE CHECK
+  # ────────────────────────────────────────────────────────────────────────
+  lint:
+    name: Lint & Type Check
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: validate
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+
+      - name: Set up Python
+        uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v5.3.0
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+
+      - name: Install Linting Tools
+        run: |
+          python -m pip install --upgrade pip
+          pip install ruff mypy
+
+      - name: Run Ruff Linter
+        run: |
+          echo "Running Ruff linter..."
+          ruff check . --output-format=github
+          echo "✅ Ruff checks passed"
+
+      - name: Run Ruff Formatter Check
+        run: |
+          echo "Checking code formatting..."
+          ruff format --check .
+          echo "✅ Code formatting is consistent"
+
+      - name: Run Mypy Type Checker
+        run: |
+          echo "Running type checks..."
+          mypy ${{ env.SOURCE_DIR }} \
+            --show-error-codes \
+            --pretty \
+            --install-types \
+            --non-interactive \
+            || echo "⚠️  Type check warnings (non-blocking)"
+
+  # ────────────────────────────────────────────────────────────────────────
+  # PHASE 3: TEST SUITE
+  # ────────────────────────────────────────────────────────────────────────
+  test:
+    name: Test Suite
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: [validate, lint]
+    permissions:
+      contents: read
+
+    services:
+      postgres:
+        image: ${{ vars.POSTGRES_IMAGE || 'postgres:16' }}
+        env:
+          POSTGRES_USER: ${{ vars.POSTGRES_USER || 'test_user' }}
+          POSTGRES_PASSWORD: test_password
+          POSTGRES_DB: ${{ vars.POSTGRES_DB || 'test_db' }}
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        # Service only runs if POSTGRES_ENABLED=true (GitHub ignores services with falsy conditions)
+
+      redis:
+        image: ${{ vars.REDIS_IMAGE || 'redis:7-alpine' }}
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+
+      - name: Set up Python
+        uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v5.3.0
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          if [ -f "${{ env.REQUIREMENTS_FILE }}" ]; then
+            pip install -r ${{ env.REQUIREMENTS_FILE }}
+          else
+            echo "⚠️  No requirements file found at ${{ env.REQUIREMENTS_FILE }}"
+          fi
+          pip install pytest pytest-cov pytest-xdist pytest-asyncio pytest-timeout
+
+      - name: Run Tests with Coverage
+        env:
+          DATABASE_URL: postgresql://${{ vars.POSTGRES_USER || 'test_user' }}:test_password@localhost:5432/${{ vars.POSTGRES_DB || 'test_db' }}
+          REDIS_URL: redis://localhost:6379/0
+        run: |
+          echo "Running test suite..."
+          pytest ${{ env.TEST_DIR }} \
+            -n auto \
+            --cov=${{ env.SOURCE_DIR }} \
+            --cov-report=xml \
+            --cov-report=term-missing \
+            --cov-fail-under=${{ env.COVERAGE_THRESHOLD }} \
+            --timeout=300 \
+            --tb=short \
+            -v
+          echo "✅ All tests passed with coverage >=${{ env.COVERAGE_THRESHOLD }}%"
+
+      - name: Upload Coverage to Codecov
+        uses: codecov/codecov-action@15f84a87bdc039a8af98c1a9e12c153c15c1d773 # v5.1.2
+        with:
+          files: ./coverage.xml
+          flags: unittests
+          fail_ci_if_error: false
+
+  # ────────────────────────────────────────────────────────────────────────
+  # PHASE 4: SECURITY SCANNING
+  # ────────────────────────────────────────────────────────────────────────
+  security:
+    name: Security Scanning
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: validate
+    permissions:
+      contents: read
+      security-events: write
+      pull-requests: read
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+
+      - name: Set up Python
+        uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v5.3.0
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+
+      - name: Install Security Tools
+        run: |
+          python -m pip install --upgrade pip
+          pip install pip-audit safety bandit
+
+      - name: Run pip-audit (Dependency Vulnerabilities)
+        run: |
+          echo "Scanning dependencies for known vulnerabilities..."
+          pip-audit --desc || echo "⚠️  Vulnerabilities found (non-blocking)"
+
+      - name: Run Safety Check
+        run: |
+          echo "Running Safety vulnerability scanner..."
+          safety check || echo "⚠️  Safety check warnings (non-blocking)"
+
+      - name: Run Bandit (SAST)
+        run: |
+          echo "Running Bandit static security analysis..."
+          bandit -r ${{ env.SOURCE_DIR }} \
+            -ll \
+            -f screen \
+            --exclude ./venv,./.venv,./tests,./build,./dist \
+            || echo "⚠️  Security warnings found (non-blocking)"
+
+      - name: Dependency Review (PR only)
+        if: github.event_name == 'pull_request'
+        uses: actions/dependency-review-action@5aa4f05ee5e9f4f33e5c31e13d7d77c6a07a86e2 # v4.5.0
+        with:
+          fail-on-severity: high
+
+  # ────────────────────────────────────────────────────────────────────────
+  # PHASE 5: SBOM GENERATION
+  # ────────────────────────────────────────────────────────────────────────
+  sbom:
+    name: Generate SBOM
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: validate
+    permissions:
+      contents: write
+      id-token: write
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+
+      - name: Generate Software Bill of Materials
+        uses: anchore/sbom-action@fc46e51fb0e4e3ecf1ea2be3b2e00ee50f1c4e44 # v0.17.7
+        with:
+          format: spdx-json
+          output-file: sbom.spdx.json
+          upload-artifact: true
+          upload-release-assets: false
+
+  # ────────────────────────────────────────────────────────────────────────
+  # PHASE 6: OPENSSF SCORECARD
+  # ────────────────────────────────────────────────────────────────────────
+  scorecard:
+    name: OpenSSF Scorecard
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      security-events: write
+      id-token: write
+      contents: read
+      actions: read
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        with:
+          persist-credentials: false
+
+      - name: Run OpenSSF Scorecard
+        uses: ossf/scorecard-action@62b2cac7ed8198b15735ed49ab1e5cf35480ba46 # v2.4.0
+        with:
+          results_file: scorecard.sarif
+          results_format: sarif
+          publish_results: true
+
+      - name: Upload SARIF to GitHub Security
+        uses: github/codeql-action/upload-sarif@a57c67b89589d2d13d5ac85a9fc4679e7539e94c # v3.27.9
+        with:
+          sarif_file: scorecard.sarif
+
+  # ────────────────────────────────────────────────────────────────────────
+  # PHASE 7: CI GATE (Fan-In)
+  # ────────────────────────────────────────────────────────────────────────
+  ci-gate:
+    name: CI Gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    if: always()
+    needs:
+      - validate
+      - lint
+      - test
+      - security
+      - sbom
+      - scorecard
+    permissions:
+      contents: read
+
+    steps:
+      - name: Evaluate All Results
+        run: |
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "CI Pipeline Results"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo ""
+          echo "Job Results:"
+          echo "  validate:  ${{ needs.validate.result }}"
+          echo "  lint:      ${{ needs.lint.result }}"
+          echo "  test:      ${{ needs.test.result }}"
+          echo "  security:  ${{ needs.security.result }}"
+          echo "  sbom:      ${{ needs.sbom.result }}"
+          echo "  scorecard: ${{ needs.scorecard.result }}"
+          echo ""
+
+          # Check for failures in required jobs
+          if [[ "${{ needs.validate.result }}" == "failure" ]] || \
+             [[ "${{ needs.lint.result }}" == "failure" ]] || \
+             [[ "${{ needs.test.result }}" == "failure" ]]; then
+            echo "❌ CI GATE FAILED — Critical job(s) failed"
+            echo ""
+            echo "Required jobs must pass:"
+            echo "  • validate: syntax and structure checks"
+            echo "  • lint: code quality and formatting"
+            echo "  • test: test suite with coverage"
+            exit 1
+          fi
+
+          echo "✅ CI GATE PASSED"
+          echo "   All required checks completed successfully"
+          echo "   Ready for code review and merge"
+          echo ""
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# END OF CI PIPELINE
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
