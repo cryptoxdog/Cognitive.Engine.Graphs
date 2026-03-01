@@ -75,7 +75,7 @@ async def list_domains() -> list[DomainInfo]:
             version=spec.domain.version,
             node_count=len(spec.ontology.nodes) if spec.ontology else 0,
             edge_count=len(spec.ontology.edges) if spec.ontology else 0,
-            gate_count=len(spec.gates.gates) if spec.gates else 0,
+            gate_count=len(spec.gates) if spec.gates else 0,
         ))
     
     # From filesystem
@@ -93,7 +93,7 @@ async def list_domains() -> list[DomainInfo]:
                         version=spec.domain.version,
                         node_count=len(spec.ontology.nodes) if spec.ontology else 0,
                         edge_count=len(spec.ontology.edges) if spec.ontology else 0,
-                        gate_count=len(spec.gates.gates) if spec.gates else 0,
+                        gate_count=len(spec.gates) if spec.gates else 0,
                     ))
             except Exception as e:
                 logger.warning(f"Failed to load {path}: {e}")
@@ -133,7 +133,7 @@ async def upload_domain(file: UploadFile = File(...)) -> DomainInfo:
         version=spec.domain.version,
         node_count=len(spec.ontology.nodes) if spec.ontology else 0,
         edge_count=len(spec.ontology.edges) if spec.ontology else 0,
-        gate_count=len(spec.gates.gates) if spec.gates else 0,
+        gate_count=len(spec.gates) if spec.gates else 0,
     )
 
 
