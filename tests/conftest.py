@@ -1,484 +1,297 @@
 """
-tests/conftest.py
-
-Shared pytest fixtures and configuration for L9 Graph Cognitive Engine test suite.
+tests/conftest.py — Shared fixtures for the L9 Graph Cognitive Engine test suite.
+Provides Neo4j testcontainer, async driver, domain spec loading, tenant injection,
+seeded graph data, and cleanup orchestration.
 """
+from __future__ import annotations
 
 import asyncio
+import os
+import uuid
 from pathlib import Path
-from typing import Any
-from unittest.mock import AsyncMock, Mock
+from typing import Any, AsyncGenerator, Dict, Generator, List
 
+import httpx
 import pytest
-from faker import Faker
-from neo4j import AsyncGraphDatabase
+import pytest_asyncio
+import yaml
+from fastapi import FastAPI
+from httpx import ASGITransport, AsyncClient
 
-# Configure pytest
-pytest_plugins = ["pytest_asyncio"]
-
-
-# ============================================================================
-# PYTEST CONFIGURATION
-# ============================================================================
-
-
-def pytest_configure(config):
-    """Configure pytest markers."""
-    config.addinivalue_line("markers", "unit: Unit tests (fast, no external dependencies)")
-    config.addinivalue_line("markers", "integration: Integration tests (requires Neo4j)")
-    config.addinivalue_line("markers", "compliance: Compliance tests (ECOA, HIPAA, etc.)")
-    config.addinivalue_line("markers", "performance: Performance benchmarks")
-    config.addinivalue_line("markers", "slow: Slow tests (> 5s execution)")
+from engine.api.app import create_app
+from engine.config.loader import DomainPackLoader
+from engine.config.schema import DomainSpec
+from engine.graph.driver import GraphDriver
+from engine.middleware import TenantResolver
 
 
-# ============================================================================
-# ASYNC FIXTURES
-# ============================================================================
-
+# ── Event Loop ─────────────────────────────────────────────
 
 @pytest.fixture(scope="session")
 def event_loop():
-    """Create event loop for async tests."""
-    loop = asyncio.get_event_loop_policy().new_event_loop()
+    """Session-scoped event loop for all async tests."""
+    loop = asyncio.new_event_loop()
     yield loop
     loop.close()
 
 
-# ============================================================================
-# MOCK NEO4J DRIVER
-# ============================================================================
+# ── Neo4j Testcontainer ───────────────────────────────────
+
+@pytest.fixture(scope="session")
+def neo4j_container():
+    """
+    Session-scoped Neo4j testcontainer.
+    Falls back to NEO4J_TEST_URI env var if testcontainers unavailable.
+    """
+    uri = os.getenv("NEO4J_TEST_URI")
+    user = os.getenv("NEO4J_TEST_USER", "neo4j")
+    password = os.getenv("NEO4J_TEST_PASSWORD", "l9-test-password")
+
+    if uri:
+        yield {"uri": uri, "user": user, "password": password}
+        return
+
+    try:
+        from testcontainers.neo4j import Neo4jContainer
+
+        container = Neo4jContainer("neo4j:5-enterprise")
+        container.with_env("NEO4J_ACCEPT_LICENSE_AGREEMENT", "yes")
+        container.with_env("NEO4J_PLUGINS", '["graph-data-science"]')
+        container.start()
+
+        yield {
+            "uri": container.get_connection_url(),
+            "user": "neo4j",
+            "password": "test",
+        }
+        container.stop()
+
+    except ImportError:
+        pytest.skip("testcontainers not installed and NEO4J_TEST_URI not set")
 
 
-@pytest.fixture
-def mock_neo4j_driver():
-    """Mock Neo4j driver for unit tests."""
-    driver = Mock()
-    session = AsyncMock()
-    result = AsyncMock()
+# ── Graph Driver ──────────────────────────────────────────
 
-    # Configure mock chain
-    driver.session.return_value = session
-    session.run.return_value = result
-    result.data.return_value = []
-
-    return driver
-
-
-@pytest.fixture
-def mock_neo4j_session():
-    """Mock Neo4j async session."""
-    session = AsyncMock()
-    result = AsyncMock()
-
-    session.run.return_value = result
-    result.data.return_value = []
-
-    return session
+@pytest_asyncio.fixture(scope="session")
+async def graph_driver(neo4j_container) -> AsyncGenerator[GraphDriver, None]:
+    """Session-scoped async Neo4j driver."""
+    driver = GraphDriver(
+        uri=neo4j_container["uri"],
+        username=neo4j_container["user"],
+        password=neo4j_container["password"],
+    )
+    await driver.connect()
+    yield driver
+    await driver.close()
 
 
-# ============================================================================
-# TEST DATA GENERATORS
-# ============================================================================
+# ── Domain Spec Fixtures ──────────────────────────────────
 
-
-@pytest.fixture
-def faker_instance():
-    """Faker instance for generating test data."""
-    return Faker()
-
-
-@pytest.fixture
-def sample_query_borrower() -> dict[str, Any]:
-    """Sample borrower query for mortgage domain."""
-    return {
-        "borrowerid": "TEST_BRW_001",
-        "creditscore": 720,
-        "annualincomeusd": 85000.0,
-        "monthlydebtusd": 1500.0,
-        "loanamountusd": 350000.0,
-        "propertyvalueusd": 450000.0,
-        "downpaymentusd": 100000.0,
-        "propertytype": "singlefamily",
-        "propertystate": "NC",
-        "occupancy": "owneroccupied",
-        "loanpurpose": "purchase",
-        "vaeligible": False,
-        "firsttimebuyer": False,
-    }
-
-
-@pytest.fixture
-def sample_query_patient() -> dict[str, Any]:
-    """Sample patient query for healthcare domain."""
-    return {
-        "patientid": "TEST_PAT_001",
-        "age": 45,
-        "zipcode": "28202",
-        "insuranceplan": "BCBS_PPO",
-        "primarycondition": "Type2Diabetes",
-        "urgency": "routine",
-        "maxdistancemiles": 15.0,
-    }
-
-
-@pytest.fixture
-def sample_candidates_loanproducts() -> list:
-    """Sample loan product candidates."""
-    return [
-        {
-            "productid": "PROD_001",
-            "productname": "30-Year Fixed Conventional",
-            "lenderid": "LENDER_A",
-            "loancategory": "conventional",
-            "mincreditscore": 680,
-            "maxdtipct": 43.0,
-            "maxltvpct": 80.0,
-            "baseratepct": 6.5,
-        },
-        {
-            "productid": "PROD_002",
-            "productname": "15-Year Fixed Jumbo",
-            "lenderid": "LENDER_B",
-            "loancategory": "jumbo",
-            "mincreditscore": 740,
-            "maxdtipct": 36.0,
-            "maxltvpct": 75.0,
-            "baseratepct": 6.25,
-        },
+@pytest.fixture(scope="session")
+def domain_spec_path() -> Path:
+    """Path to the PlasticOS test domain spec."""
+    candidates = [
+        Path("domains/plasticos/spec.yaml"),
+        Path("domains/plasticos_spec.yaml"),
+        Path("tests/fixtures/test_domain_spec.yaml"),
     ]
+    for p in candidates:
+        if p.exists():
+            return p
+    pytest.skip("No domain spec YAML found in expected locations")
 
 
-# ============================================================================
-# DOMAIN SPEC FIXTURES
-# ============================================================================
+@pytest.fixture(scope="session")
+def domain_spec(domain_spec_path: Path) -> DomainSpec:
+    """Loaded and validated PlasticOS DomainSpec."""
+    loader = DomainPackLoader(search_paths=[domain_spec_path.parent])
+    return loader.load_domain(domain_spec_path.stem.replace("_spec", "").replace("spec", "plasticos"))
 
 
 @pytest.fixture
-def minimal_domain_spec() -> dict[str, Any]:
-    """Minimal valid domain specification for testing."""
-    return {
-        "domain": {"id": "test-domain", "name": "Test Domain", "version": "1.0.0"},
+def minimal_domain_spec() -> DomainSpec:
+    """Minimal in-memory domain spec for unit tests that don't need full YAML."""
+    raw = {
+        "domain": {"id": "test", "name": "Test Domain", "version": "0.0.1"},
         "ontology": {
             "nodes": [
-                {
-                    "label": "Candidate",
-                    "managedby": "sync",
-                    "candidate": True,
-                    "properties": [
-                        {"name": "id", "type": "string", "required": True},
-                        {"name": "score", "type": "float"},
-                    ],
-                },
-                {
-                    "label": "Query",
-                    "managedby": "api",
-                    "queryentity": True,
-                    "properties": [{"name": "queryid", "type": "string", "required": True}],
-                },
+                {"label": "Facility", "managed_by": "sync", "candidate": True,
+                 "match_direction": "intake_to_buyer", "properties": [
+                     {"name": "facility_id", "type": "int", "required": True},
+                     {"name": "name", "type": "string"},
+                     {"name": "lat", "type": "float"},
+                     {"name": "lon", "type": "float"},
+                     {"name": "credit_score", "type": "float"},
+                     {"name": "min_density", "type": "float"},
+                     {"name": "max_density", "type": "float"},
+                 ]},
+                {"label": "MaterialIntake", "managed_by": "api", "query_entity": True,
+                 "match_direction": "intake_to_buyer", "properties": [
+                     {"name": "intake_id", "type": "int", "required": True},
+                 ]},
             ],
-            "edges": [],
+            "edges": [
+                {"type": "EXCLUDED_FROM", "from": "Facility", "to": "Facility",
+                 "direction": "DIRECTED", "category": "exclusion", "managed_by": "sync"},
+            ],
         },
-        "matchentities": {
-            "candidate": [{"label": "Candidate", "matchdirection": "querytocandidate"}],
-            "queryentity": [{"label": "Query", "matchdirection": "querytocandidate"}],
+        "match_entities": {
+            "candidate": [{"label": "Facility", "match_direction": "intake_to_buyer"}],
+            "query_entity": [{"label": "MaterialIntake", "match_direction": "intake_to_buyer"}],
         },
-        "queryschema": {
-            "matchdirections": ["querytocandidate"],
-            "fields": [{"name": "queryid", "type": "string", "required": True}],
-        },
+        "query_schema": {"match_directions": ["intake_to_buyer"], "fields": []},
         "traversal": {"steps": []},
         "gates": [],
         "scoring": {"dimensions": []},
     }
+    return DomainSpec(**raw)
+
+
+# ── Tenant Fixtures ───────────────────────────────────────
+
+@pytest.fixture
+def test_tenant() -> str:
+    """Unique tenant ID for test isolation."""
+    return f"test-{uuid.uuid4().hex[:8]}"
 
 
 @pytest.fixture
-def mortgage_domain_spec() -> dict[str, Any]:
-    """Mortgage domain specification for integration tests."""
-    return {
-        "domain": {"id": "mortgage-test", "name": "Mortgage Test Domain", "version": "1.0.0"},
-        "ontology": {
-            "nodes": [
-                {
-                    "label": "BorrowerProfile",
-                    "managedby": "sync",
-                    "queryentity": True,
-                    "properties": [
-                        {"name": "borrowerid", "type": "string", "required": True},
-                        {"name": "creditscore", "type": "int", "required": True},
-                        {"name": "annualincomeusd", "type": "float", "required": True},
-                        {"name": "dtipct", "type": "float", "unit": "percentage"},
-                    ],
-                },
-                {
-                    "label": "LoanProduct",
-                    "managedby": "sync",
-                    "candidate": True,
-                    "properties": [
-                        {"name": "productid", "type": "string", "required": True},
-                        {"name": "mincreditscore", "type": "int"},
-                        {"name": "maxdtipct", "type": "float"},
-                        {"name": "baseratepct", "type": "float"},
-                    ],
-                },
-            ],
-            "edges": [],
-        },
-        "matchentities": {
-            "candidate": [{"label": "LoanProduct", "matchdirection": "borrowertoproduct"}],
-            "queryentity": [{"label": "BorrowerProfile", "matchdirection": "borrowertoproduct"}],
-        },
-        "queryschema": {
-            "matchdirections": ["borrowertoproduct"],
-            "fields": [
-                {"name": "borrowerid", "type": "string", "required": True},
-                {"name": "creditscore", "type": "int", "required": True},
-                {"name": "annualincomeusd", "type": "float", "required": True},
-            ],
-        },
-        "derivedparameters": [
-            {"name": "dtipct", "expression": "monthlydebtusd / (annualincomeusd / 12.0) * 100.0", "type": "float"}
-        ],
-        "traversal": {"steps": []},
-        "gates": [
-            {
-                "name": "credit_min",
-                "type": "threshold",
-                "candidateprop": "mincreditscore",
-                "queryparam": "creditscore",
-                "operator": "<=",
-                "nullbehavior": "pass",
-            },
-            {
-                "name": "dti_max",
-                "type": "threshold",
-                "candidateprop": "maxdtipct",
-                "queryparam": "dtipct",
-                "operator": ">=",
-                "nullbehavior": "pass",
-            },
-        ],
-        "scoring": {
-            "dimensions": [
-                {
-                    "name": "rate_score",
-                    "source": "candidateproperty",
-                    "candidateprop": "baseratepct",
-                    "computation": "inverselinear",
-                    "minvalue": 3.0,
-                    "maxvalue": 8.0,
-                    "weightkey": "wrate",
-                    "defaultweight": 1.0,
-                }
-            ]
-        },
-        "compliance": {
-            "regimes": [{"name": "ECOA"}],
-            "prohibitedfactors": {
-                "enabled": True,
-                "blockedfields": ["race", "ethnicity", "gender"],
-                "enforcement": "compiletime",
-            },
-        },
-    }
+def tenant_resolver() -> TenantResolver:
+    """TenantResolver configured for testing."""
+    return TenantResolver(
+        known_tenants={"plasticos", "mortgageos", "test"},
+        allow_unknown=True,
+        default_tenant="test",
+    )
 
 
-# ============================================================================
-# COMPLIANCE FIXTURES
-# ============================================================================
+# ── FastAPI Test Client ───────────────────────────────────
+
+@pytest_asyncio.fixture
+async def app() -> FastAPI:
+    """FastAPI application instance."""
+    return create_app()
 
 
-@pytest.fixture
-def ecoa_prohibited_fields() -> list:
-    """ECOA prohibited factor fields."""
-    return ["race", "ethnicity", "religion", "gender", "age", "maritalstatus", "nationalorigin"]
-
-
-@pytest.fixture
-def hipaa_prohibited_fields() -> list:
-    """HIPAA prohibited factor fields."""
-    return ["race", "ethnicity", "religion", "geneticinformation", "disability"]
-
-
-@pytest.fixture
-def hipaa_pii_fields() -> list:
-    """HIPAA PII fields requiring protection."""
-    return ["patientid", "ssn", "dob", "medicalrecordnumber", "name", "address", "email", "phone"]
-
-
-# ============================================================================
-# GATE CONFIG FIXTURES
-# ============================================================================
-
-
-@pytest.fixture
-def threshold_gate_config() -> dict[str, Any]:
-    """Sample threshold gate configuration."""
-    return {
-        "name": "credit_min",
-        "type": "threshold",
-        "candidateprop": "mincreditscore",
-        "queryparam": "creditscore",
-        "operator": "<=",
-        "nullbehavior": "pass",
-        "invertible": True,
-    }
-
-
-@pytest.fixture
-def range_gate_config() -> dict[str, Any]:
-    """Sample range gate configuration."""
-    return {
-        "name": "price_range",
-        "type": "range",
-        "candidateprop": "priceperlb",
-        "queryparam_min": "minpriceperlb",
-        "queryparam_max": "maxpriceperlb",
-        "nullbehavior": "fail",
-    }
-
-
-@pytest.fixture
-def boolean_gate_config() -> dict[str, Any]:
-    """Sample boolean gate configuration."""
-    return {
-        "name": "accepts_new_patients",
-        "type": "boolean",
-        "candidateprop": "acceptsnewpatients",
-        "queryparam": True,
-        "nullbehavior": "fail",
-    }
-
-
-@pytest.fixture
-def exclusion_gate_config() -> dict[str, Any]:
-    """Sample exclusion gate configuration."""
-    return {
-        "name": "blacklist",
-        "type": "exclusion",
-        "edgetype": "BLACKLISTED",
-        "fromnode": "query",
-        "tonode": "candidate",
-        "nullbehavior": "pass",
-    }
-
-
-# ============================================================================
-# SCORING FIXTURES
-# ============================================================================
-
-
-@pytest.fixture
-def scoring_dimension_geodecay() -> dict[str, Any]:
-    """Sample geodecay scoring dimension."""
-    return {
-        "name": "distance_score",
-        "source": "computed",
-        "computation": "geodecay",
-        "decayconstant": 50.0,
-        "weightkey": "wgeo",
-        "defaultweight": 0.35,
-        "directionscoped": ["buyertosupplier"],
-    }
-
-
-@pytest.fixture
-def scoring_dimension_inverselinear() -> dict[str, Any]:
-    """Sample inverselinear scoring dimension."""
-    return {
-        "name": "price_score",
-        "source": "candidateproperty",
-        "candidateprop": "priceperlb",
-        "computation": "inverselinear",
-        "minvalue": 0.5,
-        "maxvalue": 2.0,
-        "weightkey": "wprice",
-        "defaultweight": 0.30,
-    }
-
-
-# ============================================================================
-# FILE PATH FIXTURES
-# ============================================================================
-
-
-@pytest.fixture
-def test_fixtures_dir() -> Path:
-    """Path to test fixtures directory."""
-    return Path(__file__).parent / "fixtures"
-
-
-@pytest.fixture
-def test_domains_dir(test_fixtures_dir) -> Path:
-    """Path to test domain specifications."""
-    return test_fixtures_dir / "domains"
-
-
-@pytest.fixture
-def test_queries_dir(test_fixtures_dir) -> Path:
-    """Path to test query payloads."""
-    return test_fixtures_dir / "queries"
-
-
-# ============================================================================
-# ENVIRONMENT FIXTURES
-# ============================================================================
-
-
-@pytest.fixture(autouse=True)
-def test_env_vars(monkeypatch):
-    """Set test environment variables."""
-    monkeypatch.setenv("NEO4J_URI", "bolt://localhost:7687")
-    monkeypatch.setenv("NEO4J_USERNAME", "neo4j")
-    monkeypatch.setenv("NEO4J_PASSWORD", "testpassword")
-    monkeypatch.setenv("DOMAINS_ROOT", "./tests/fixtures/domains")
-    monkeypatch.setenv("LOG_LEVEL", "DEBUG")
-
-
-# ============================================================================
-# TESTCONTAINERS FIXTURES (INTEGRATION TESTS)
-# ============================================================================
-
-
-@pytest.fixture(scope="session")
-async def neo4j_container():
+@pytest_asyncio.fixture
+async def async_client(app: FastAPI) -> AsyncGenerator[AsyncClient, None]:
     """
-    Start Neo4j container for integration tests.
-    Requires: pip install testcontainers[neo4j]
+    Async HTTP test client using ASGITransport (httpx >=0.28).
     """
-    try:
-        from testcontainers.neo4j import Neo4jContainer
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        yield client
 
-        container = Neo4jContainer("neo4j:5.15")
-        container.with_env("NEO4J_AUTH", "neo4j/testpassword")
-        container.start()
 
-        yield container
+# ── Seed Data ─────────────────────────────────────────────
 
-        container.stop()
-    except ImportError:
-        pytest.skip("testcontainers not installed")
+SEED_FACILITIES = [
+    {"facility_id": 1, "name": "Alpha Recycling", "lat": 34.05, "lon": -118.24,
+     "process_type": "extrusion", "facility_role": "processor",
+     "min_density": 0.90, "max_density": 0.97, "min_mfi": 2.0, "max_mfi": 25.0,
+     "contamination_tolerance": 0.03, "pvc_tolerant": False, "food_grade_certified": True,
+     "has_extruder": True, "has_wash_line": True, "handles_regrind": True, "handles_flake": True,
+     "gate_mode": "strict"},
+    {"facility_id": 2, "name": "Beta Compounding", "lat": 33.77, "lon": -118.19,
+     "process_type": "injection", "facility_role": "compounder",
+     "min_density": 0.85, "max_density": 1.05, "min_mfi": 5.0, "max_mfi": 50.0,
+     "contamination_tolerance": 0.05, "pvc_tolerant": True, "food_grade_certified": False,
+     "has_granulator": True, "has_extruder": True, "handles_regrind": True, "handles_flake": False,
+     "gate_mode": "strict"},
+    {"facility_id": 3, "name": "Gamma MRF", "lat": 40.71, "lon": -74.01,
+     "process_type": "sorting", "facility_role": "mrf",
+     "min_density": 0.80, "max_density": 1.20, "min_mfi": 0.5, "max_mfi": 100.0,
+     "contamination_tolerance": 0.10, "pvc_tolerant": True, "food_grade_certified": False,
+     "has_sorting_line": True, "has_shredder": True, "handles_regrind": True,
+     "handles_flake": True, "handles_rollstock": True, "gate_mode": "relaxed"},
+]
 
+
+@pytest_asyncio.fixture
+async def seeded_graph(graph_driver: GraphDriver, test_tenant: str) -> AsyncGenerator[Dict[str, Any], None]:
+    """
+    Seed deterministic test data into Neo4j. Returns metadata about what was seeded.
+    Cleans up after test completes.
+    """
+    db = "neo4j"
+
+    # Seed facilities
+    await graph_driver.execute_query(
+        """
+        UNWIND $batch AS row
+        MERGE (f:Facility {facility_id: row.facility_id})
+        SET f += row, f.tenant = $tenant, f.updated_at = datetime()
+        """,
+        parameters={"batch": SEED_FACILITIES, "tenant": test_tenant},
+        database=db,
+    )
+
+    # Seed taxonomy
+    for polymer in ["HDPE", "PP", "PET", "LDPE"]:
+        await graph_driver.execute_query(
+            "MERGE (p:PolymerFamily {code: $code})",
+            parameters={"code": polymer},
+            database=db,
+        )
+
+    for form in ["regrind", "flake", "pellet", "bale", "rollstock"]:
+        await graph_driver.execute_query(
+            "MERGE (f:MaterialForm {code: $code})",
+            parameters={"code": form},
+            database=db,
+        )
+
+    # Seed capability edges
+    await graph_driver.execute_query(
+        """
+        MATCH (f:Facility {facility_id: 1})
+        MATCH (p:PolymerFamily {code: 'HDPE'})
+        MERGE (f)-[:ACCEPTS_POLYMER]->(p)
+        """,
+        database=db,
+    )
+
+    # Seed exclusion edge for testing
+    await graph_driver.execute_query(
+        """
+        MATCH (a:Facility {facility_id: 1}), (b:Facility {facility_id: 2})
+        MERGE (a)-[:EXCLUDED_FROM]->(b)
+        """,
+        database=db,
+    )
+
+    yield {
+        "tenant": test_tenant,
+        "facility_ids": [f["facility_id"] for f in SEED_FACILITIES],
+        "polymers": ["HDPE", "PP", "PET", "LDPE"],
+        "forms": ["regrind", "flake", "pellet", "bale", "rollstock"],
+        "database": db,
+    }
+
+    # Cleanup: remove all test data for this tenant
+    await graph_driver.execute_query(
+        "MATCH (n {tenant: $tenant}) DETACH DELETE n",
+        parameters={"tenant": test_tenant},
+        database=db,
+    )
+    # Cleanup taxonomy nodes created during test
+    await graph_driver.execute_query(
+        "MATCH (n) WHERE n:PolymerFamily OR n:MaterialForm DETACH DELETE n",
+        database=db,
+    )
+
+
+# ── Helpers ───────────────────────────────────────────────
 
 @pytest.fixture
-async def neo4j_driver(neo4j_container):
-    """Async Neo4j driver connected to test container."""
-    uri = neo4j_container.get_connection_url()
-    driver = AsyncGraphDatabase.driver(uri, auth=("neo4j", "testpassword"))
-
-    yield driver
-
-    await driver.close()
-
-
-# ============================================================================
-# CLEANUP FIXTURES
-# ============================================================================
-
-
-@pytest.fixture(autouse=True)
-async def cleanup_test_data(mock_neo4j_session):
-    """Clean up test data after each test."""
-    yield
-    # Cleanup logic here (if needed)
-    pass
+def make_headers(test_tenant: str):
+    """Factory for request headers with tenant injection."""
+    def _make(tenant: str = None, extra: dict = None) -> dict:
+        headers = {
+            "Content-Type": "application/json",
+            "X-Domain-Key": tenant or test_tenant,
+        }
+        if extra:
+            headers.update(extra)
+        return headers
+    return _make
