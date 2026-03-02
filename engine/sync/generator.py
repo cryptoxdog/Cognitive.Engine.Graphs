@@ -7,6 +7,7 @@ import logging
 from typing import Any
 
 from engine.config.schema import DomainSpec, SyncEndpointSpec, SyncStrategy
+from engine.utils.security import sanitize_label
 
 logger = logging.getLogger(__name__)
 
@@ -56,21 +57,26 @@ class SyncGenerator:
         if not spec.idproperty:
             raise ValueError(f"Endpoint '{spec.path}': idproperty required for MERGE")
 
+        # SECURITY: Sanitize labels to prevent Cypher injection
+        sanitized_target = sanitize_label(spec.targetnode)
+
         cypher_parts = [
             "UNWIND $batch AS row",
-            f"MERGE (n:{spec.targetnode} {{{spec.idproperty}: row.{spec.idproperty}}})",
+            f"MERGE (n:{sanitized_target} {{{spec.idproperty}: row.{spec.idproperty}}})",
             "SET n += row",
         ]
 
         # Add taxonomy edge creation
         if spec.taxonomyedges:
             for tax_edge in spec.taxonomyedges:
+                sanitized_tax_label = sanitize_label(tax_edge.targetlabel)
+                sanitized_edge_type = sanitize_label(tax_edge.edgetype)
                 cypher_parts.extend(
                     [
                         "WITH n, row",
-                        f"OPTIONAL MATCH (tax:{tax_edge.targetlabel} {{{tax_edge.targetid}: row.{tax_edge.field}}})",
+                        f"OPTIONAL MATCH (tax:{sanitized_tax_label} {{{tax_edge.targetid}: row.{tax_edge.field}}})",
                         "FOREACH (_ IN CASE WHEN tax IS NOT NULL THEN [1] ELSE [] END |",
-                        f"  MERGE (n)-[:{tax_edge.edgetype}]->(tax)",
+                        f"  MERGE (n)-[:{sanitized_edge_type}]->(tax)",
                         ")",
                     ]
                 )
@@ -78,14 +84,16 @@ class SyncGenerator:
         # Add child sync
         if spec.childsync:
             for child in spec.childsync:
+                sanitized_child_node = sanitize_label(child.targetnode)
+                sanitized_child_edge = sanitize_label(child.edgetype)
                 direction = "->" if child.edgedirection == "parenttochild" else "<-"
                 cypher_parts.extend(
                     [
                         "WITH n, row",
                         f"UNWIND coalesce(row.{child.field}, []) AS child_row",
-                        f"MERGE (c:{child.targetnode} {{{child.targetid}: child_row.{child.targetid}}})",
+                        f"MERGE (c:{sanitized_child_node} {{{child.targetid}: child_row.{child.targetid}}})",
                         "SET c += child_row",
-                        f"MERGE (n)-[:{child.edgetype}]{direction}(c)",
+                        f"MERGE (n)-[:{sanitized_child_edge}]{direction}(c)",
                     ]
                 )
 
@@ -106,9 +114,12 @@ class SyncGenerator:
         if not spec.idproperty:
             raise ValueError(f"Endpoint '{spec.path}': idproperty required")
 
+        # SECURITY: Sanitize labels to prevent Cypher injection
+        sanitized_target = sanitize_label(spec.targetnode)
+
         cypher_parts = [
             "UNWIND $batch AS row",
-            f"MATCH (n:{spec.targetnode} {{{spec.idproperty}: row.{spec.idproperty}}})",
+            f"MATCH (n:{sanitized_target} {{{spec.idproperty}: row.{spec.idproperty}}})",
         ]
 
         # Build SET clause from fieldsupdated

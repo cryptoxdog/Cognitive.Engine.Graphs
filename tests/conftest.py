@@ -2,6 +2,8 @@
 tests/conftest.py — Shared fixtures for the L9 Graph Cognitive Engine test suite.
 Provides Neo4j testcontainer, async driver, domain spec loading, tenant injection,
 seeded graph data, and cleanup orchestration.
+
+Note: FastAPI routes removed — engine now uses chassis integration via handlers.py.
 """
 from __future__ import annotations
 
@@ -9,20 +11,15 @@ import asyncio
 import os
 import uuid
 from pathlib import Path
-from typing import Any, AsyncGenerator, Dict, Generator, List
+from typing import Any, AsyncGenerator, Dict
 
-import httpx
 import pytest
 import pytest_asyncio
-import yaml
-from fastapi import FastAPI
-from httpx import ASGITransport, AsyncClient
 
-from engine.api.app import create_app
 from engine.config.loader import DomainPackLoader
 from engine.config.schema import DomainSpec
 from engine.graph.driver import GraphDriver
-from engine.middleware import TenantResolver
+from engine.handlers import init_dependencies
 
 
 # ── Event Loop ─────────────────────────────────────────────
@@ -147,40 +144,27 @@ def minimal_domain_spec() -> DomainSpec:
     return DomainSpec(**raw)
 
 
+@pytest.fixture(scope="session")
+def domain_loader(domain_spec_path: Path) -> DomainPackLoader:
+    """Session-scoped domain loader."""
+    return DomainPackLoader(search_paths=[domain_spec_path.parent])
+
+
+# ── Handler Dependencies ──────────────────────────────────
+
+@pytest_asyncio.fixture(scope="session")
+async def initialized_handlers(graph_driver: GraphDriver, domain_loader: DomainPackLoader):
+    """Initialize engine handlers with dependencies for testing."""
+    init_dependencies(graph_driver, domain_loader)
+    yield
+
+
 # ── Tenant Fixtures ───────────────────────────────────────
 
 @pytest.fixture
 def test_tenant() -> str:
     """Unique tenant ID for test isolation."""
     return f"test-{uuid.uuid4().hex[:8]}"
-
-
-@pytest.fixture
-def tenant_resolver() -> TenantResolver:
-    """TenantResolver configured for testing."""
-    return TenantResolver(
-        known_tenants={"plasticos", "mortgageos", "test"},
-        allow_unknown=True,
-        default_tenant="test",
-    )
-
-
-# ── FastAPI Test Client ───────────────────────────────────
-
-@pytest_asyncio.fixture
-async def app() -> FastAPI:
-    """FastAPI application instance."""
-    return create_app()
-
-
-@pytest_asyncio.fixture
-async def async_client(app: FastAPI) -> AsyncGenerator[AsyncClient, None]:
-    """
-    Async HTTP test client using ASGITransport (httpx >=0.28).
-    """
-    transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url="http://test") as client:
-        yield client
 
 
 # ── Seed Data ─────────────────────────────────────────────

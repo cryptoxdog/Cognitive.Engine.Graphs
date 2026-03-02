@@ -1,8 +1,10 @@
 """
 tests/integration/test_multi_tenant.py
 Integration tests for multi-tenant isolation in the L9 Graph Cognitive Engine.
-Validates that tenants cannot see each other's data at the graph level,
-API level, and middleware resolution level.
+Validates that tenants cannot see each other's data at the graph level.
+
+Note: Tenant resolution is now a chassis responsibility. These tests focus on
+graph-level isolation only.
 """
 from __future__ import annotations
 
@@ -10,7 +12,6 @@ import pytest
 import pytest_asyncio
 
 from engine.graph.driver import GraphDriver
-from engine.middleware import TenantResolver
 
 
 @pytest.mark.integration
@@ -143,44 +144,3 @@ class TestGraphLevelTenantIsolation:
             "MATCH (f:Facility {tenant: 'sync_tenant'}) DETACH DELETE f",
             database=db,
         )
-
-
-@pytest.mark.integration
-class TestMiddlewareTenantResolution:
-    """Validate TenantResolver strategies end-to-end."""
-
-    @pytest.mark.asyncio
-    async def test_resolver_rejects_unknown_tenant_when_strict(self):
-        """Strict mode rejects tenants not in the known set."""
-        from fastapi import HTTPException
-        from unittest.mock import AsyncMock, MagicMock
-
-        resolver = TenantResolver(
-            known_tenants={"plasticos", "mortgageos"},
-            allow_unknown=False,
-        )
-
-        request = MagicMock()
-        request.headers = {"x-domain-key": "hacker-tenant", "host": "localhost"}
-        request.method = "GET"
-
-        with pytest.raises(HTTPException) as exc_info:
-            await resolver.resolve(request)
-        assert exc_info.value.status_code == 403
-
-    @pytest.mark.asyncio
-    async def test_resolver_tracks_resolution_stats(self):
-        """Resolution stats count per-tenant resolution events."""
-        from unittest.mock import MagicMock
-
-        resolver = TenantResolver(allow_unknown=True)
-
-        for tenant_id in ["plasticos", "plasticos", "mortgageos"]:
-            request = MagicMock()
-            request.headers = {"x-domain-key": tenant_id, "host": "localhost"}
-            request.method = "GET"
-            await resolver.resolve(request)
-
-        stats = resolver.resolution_stats
-        assert stats["plasticos"] == 2
-        assert stats["mortgageos"] == 1

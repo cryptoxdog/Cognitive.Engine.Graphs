@@ -7,7 +7,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from typing import Any
 
-from packet_envelope import (
+from engine.packet.packet_envelope import (
     Action,
     HopEntry,
     PacketAddress,
@@ -107,7 +107,7 @@ def delegate_to_node(
     Called when one constellation node delegates work to another.
     Creates a DELEGATION packet with proper tenant context + auth chain.
     """
-    from packet_envelope import DelegationLink
+    from engine.packet.packet_envelope import DelegationLink
 
     now = datetime.now(UTC)
 
