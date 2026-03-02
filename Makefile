@@ -85,18 +85,27 @@ local-api:                 ## Run API locally against Dockerized DBs
 clean:                     ## Remove volumes + containers
 	docker compose down -v --remove-orphans
 
-# ── L9_TEMPLATE Audit & Coverage ──────────────────────────
+# ── L9_TEMPLATE Audit Harness ─────────────────────────────
 
-.PHONY: audit audit-strict coverage
+.PHONY: harness harness-strict audit audit-strict coverage
 
-audit:                     ## Run full architecture audit + spec coverage
-	python3 tools/audit_engine.py
-	python3 tools/spec_extract.py --fail-on NONE
+harness:                   ## Run full audit harness (recommended)
+	python3 tools/audit_harness.py
 	@echo "Reports in artifacts/"
 
-audit-strict:              ## Audit with strict failure (blocks on MISSING spec features)
+harness-strict:            ## Audit harness + fail on MISSING spec features
+	python3 tools/audit_harness.py --strict
+
+harness-json:              ## Audit harness with JSON output (for CI)
+	python3 tools/audit_harness.py --json
+
+audit:                     ## Run architecture audit only (legacy)
+	python3 tools/audit_engine.py
+	@echo "Report: artifacts/audit_report.md"
+
+audit-strict:              ## Architecture audit + spec coverage strict (legacy)
 	python3 tools/audit_engine.py
 	python3 tools/spec_extract.py --fail-on MISSING
 
-coverage:                  ## Spec coverage matrix only (no architecture audit)
+coverage:                  ## Spec coverage matrix only
 	python3 tools/spec_extract.py --fail-on NONE
