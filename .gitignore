@@ -13,6 +13,9 @@ venv/
 
 # IDE / Cursor / Staging
 .cursor/
+!.cursor/rules/
+.cursor/rules/*
+!.cursor/rules/*.mdc
 .cursor-commands
 .harvest-staging/
 .vscode/
@@ -38,6 +41,9 @@ venv/
 .ruff_cache/
 .coverage
 htmlcov/
+
+# Current work (scratch / WIP)
+current work/
 
 # Temporary
 *.tmp
