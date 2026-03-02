@@ -160,7 +160,9 @@ class GDSScheduler:
     async def _run_louvain(self, job_spec: GDSJobSpec) -> dict:
         """Run Louvain community detection via GDS."""
         db = self.domain_spec.domain.id
-        graph_name = f"{job_spec.name}_graph"
+        # Sanitize job name for use in graph projection name
+        safe_job_name = sanitize_label(job_spec.name)
+        graph_name = f"{safe_job_name}_graph"
 
         # Pre-cleanup: drop stale projection if it exists (fixes crash on re-run)
         pre_drop = f"""
@@ -177,7 +179,8 @@ class GDSScheduler:
         # Use json.dumps for proper Cypher array syntax
         node_labels = json.dumps(job_spec.projection.nodelabels)
         edge_types = json.dumps(job_spec.projection.edgetypes)
-        write_prop = job_spec.writeproperty or "communityId"
+        # Sanitize write property name
+        write_prop = sanitize_label(job_spec.writeproperty or "communityId")
 
         project_cypher = f"""
         CALL gds.graph.project('{graph_name}', {node_labels}, {edge_types})
@@ -207,12 +210,14 @@ class GDSScheduler:
         """Build co-occurrence edges from bipartite projection."""
         if not job_spec.sourceedge or not job_spec.writeedge:
             raise ValueError(f"Job {job_spec.name}: sourceedge and writeedge required")
+        source_edge = sanitize_label(job_spec.sourceedge)
+        write_edge = sanitize_label(job_spec.writeedge)
         cypher = f"""
-        MATCH (a)-[:{job_spec.sourceedge}]->(common)<-[:{job_spec.sourceedge}]-(b)
+        MATCH (a)-[:{source_edge}]->(common)<-[:{source_edge}]-(b)
         WHERE id(a) < id(b)
         WITH a, b, count(common) AS weight
         WHERE weight >= 2
-        MERGE (a)-[r:{job_spec.writeedge}]->(b)
+        MERGE (a)-[r:{write_edge}]->(b)
         SET r.weight = weight, r.updated_at = datetime()
         RETURN count(r) AS edges_created
         """

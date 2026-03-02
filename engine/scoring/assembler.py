@@ -7,11 +7,62 @@ Compiles scoring dimensions into Cypher WITH clause with weighted aggregation.
 from __future__ import annotations
 
 import logging
+import re
 
 from engine.config.schema import ComputationType, DomainSpec, ScoringDimensionSpec
 from engine.utils.security import sanitize_label
 
 logger = logging.getLogger(__name__)
+
+# Dangerous Cypher keywords that must be blocked in CUSTOMCYPHER expressions
+_DANGEROUS_CYPHER_KEYWORDS = frozenset([
+    "call",
+    "create",
+    "merge",
+    "delete",
+    "remove",
+    "set",
+    "match",
+    "return",
+    "with",
+    "unwind",
+    "foreach",
+    "load",
+    "using",
+    "detach",
+    "optional",
+    "union",
+    "apoc",
+    "gds",
+    "dbms",
+])
+
+
+def _validate_custom_expression(expression: str, dim_name: str) -> str:
+    """
+    Validate CUSTOMCYPHER expression for dangerous patterns.
+    Raises ValueError if expression contains potentially dangerous Cypher keywords.
+    """
+    expr_lower = expression.lower()
+
+    # Check for dangerous keywords as word boundaries
+    for keyword in _DANGEROUS_CYPHER_KEYWORDS:
+        keyword_re = re.compile(rf"\b{re.escape(keyword)}\b", re.IGNORECASE)
+        if keyword_re.search(expression):
+            msg = f"Dimension '{dim_name}': CUSTOMCYPHER expression contains forbidden keyword '{keyword}'"
+            raise ValueError(msg)
+
+    # Block comment injection
+    if "//" in expression or "/*" in expression:
+        msg = f"Dimension '{dim_name}': CUSTOMCYPHER expression contains comment syntax"
+        raise ValueError(msg)
+
+    # Block shell/template injection patterns
+    if "$$" in expression or "${" in expression:
+        msg = f"Dimension '{dim_name}': CUSTOMCYPHER expression contains injection pattern"
+        raise ValueError(msg)
+
+    return expression
 
 
 class ScoringAssembler:
@@ -64,7 +115,7 @@ class ScoringAssembler:
         if dim.computation == ComputationType.CUSTOMCYPHER:
             if not dim.expression:
                 raise ValueError(f"Dimension '{dim.name}': customcypher requires 'expression'")
-            return dim.expression
+            return _validate_custom_expression(dim.expression, dim.name)
 
         compiler = dispatch.get(dim.computation)
         if compiler is None:
