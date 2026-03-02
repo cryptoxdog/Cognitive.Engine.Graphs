@@ -1,34 +1,73 @@
+# --- L9_META ---
+# l9_schema: 1
+# origin: l9-template
+# engine: graph
+# layer: [docker]
+# tags: [L9_TEMPLATE, docker, prod]
+# owner: platform
+# status: active
+# --- /L9_META ---
 #
---- L9_META ---
-l9_schema: 1
-origin: l9-template
-engine: graph
-layer: [docker]
-tags: [L9_TEMPLATE, docker, prod]
-owner: platform
-status: active
---- /L9_META ---
-============================================================================
-L9 Engine — Local Development Stack
-============================================================================
-Usage: docker compose up -d
-============================================================================
+# L9 Graph Cognitive Engine — Production Docker Compose
+# Usage: docker compose -f docker-compose.prod.yml up -d
+# Requires: NEO4J_PASSWORD and API_SECRET_KEY env vars set (no defaults in prod)
 
 services:
+
+  # ── API Server (Production) ──────────────────────────────
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.prod
+    container_name: l9-graph-api-prod
+    ports:
+      - "8000:8000"
+    environment:
+      L9_ENV: prod
+      NEO4J_URI: bolt://neo4j:7687
+      NEO4J_USERNAME: ${NEO4J_USERNAME:-neo4j}
+      NEO4J_PASSWORD: ${NEO4J_PASSWORD:?NEO4J_PASSWORD must be set for production}
+      NEO4J_POOL_SIZE: "50"
+      REDIS_URL: redis://redis:6379/0
+      API_SECRET_KEY: ${API_SECRET_KEY:?API_SECRET_KEY must be set for production}
+      LOG_LEVEL: info
+      CORS_ORIGINS: ${CORS_ORIGINS:-[]}
+      DOMAINS_ROOT: domains
+    depends_on:
+      neo4j:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/v1/health')"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    restart: always
+    networks:
+      - l9-net
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+
+  # ── Neo4j 5.x Enterprise + GDS ──────────────────────────
   neo4j:
     image: neo4j:5.15-enterprise
-    container_name: l9-neo4j
+    container_name: l9-neo4j-prod
     ports:
       - "7474:7474"
       - "7687:7687"
     environment:
-      - NEO4J_AUTH=${NEO4J_USERNAME:-neo4j}/${NEO4J_PASSWORD:-devpassword}
-      - NEO4J_ACCEPT_LICENSE_AGREEMENT=yes
-      - NEO4J_PLUGINS=["graph-data-science"]
-      - NEO4J_dbms_security_procedures_unrestricted=gds.*
-      - NEO4J_dbms_memory_heap_initial__size=512m
-      - NEO4J_dbms_memory_heap_max__size=1g
-      - NEO4J_dbms_memory_pagecache_size=512m
+      NEO4J_AUTH: ${NEO4J_USERNAME:-neo4j}/${NEO4J_PASSWORD:?NEO4J_PASSWORD must be set}
+      NEO4J_ACCEPT_LICENSE_AGREEMENT: "yes"
+      NEO4J_PLUGINS: '["graph-data-science"]'
+      NEO4J_dbms_security_procedures_unrestricted: gds.*
+      NEO4J_dbms_security_procedures_allowlist: gds.*
+      NEO4J_dbms_memory_heap_initial__size: 1g
+      NEO4J_dbms_memory_heap_max__size: 2g
+      NEO4J_dbms_memory_pagecache_size: 1g
     volumes:
       - neo4j-data:/data
       - neo4j-logs:/logs
@@ -39,12 +78,15 @@ services:
       interval: 10s
       timeout: 5s
       retries: 10
+    restart: always
 
+  # ── Redis 7.x ───────────────────────────────────────────
   redis:
     image: redis:7-alpine
-    container_name: l9-redis
+    container_name: l9-redis-prod
     ports:
       - "6379:6379"
+    command: redis-server --maxmemory 256mb --maxmemory-policy allkeys-lru
     volumes:
       - redis-data:/data
     networks:
@@ -54,6 +96,7 @@ services:
       interval: 10s
       timeout: 3s
       retries: 5
+    restart: always
 
 volumes:
   neo4j-data:

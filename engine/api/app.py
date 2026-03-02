@@ -24,6 +24,7 @@ from contextlib import asynccontextmanager
 from typing import Any
 
 from fastapi import FastAPI, HTTPException, Request
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
@@ -92,6 +93,18 @@ def create_app() -> FastAPI:
         lifespan=lifespan,
     )
 
+    # Add CORS middleware
+    # Note: settings.cors_origins defaults to [] (deny all) for security
+    # Override via CORS_ORIGINS env var for specific allowed origins
+    if settings.cors_origins:
+        application.add_middleware(
+            CORSMiddleware,
+            allow_origins=settings.cors_origins,
+            allow_credentials=False,  # Never True with wildcard origins
+            allow_methods=["POST", "GET"],
+            allow_headers=["*"],
+        )
+
     @application.post("/v1/execute", response_model=ExecuteResponse)
     async def execute(request: ExecuteRequest) -> ExecuteResponse:
         """
@@ -116,7 +129,17 @@ def create_app() -> FastAPI:
                 tenant=request.tenant,
                 trace_id=trace_id,
             )
+            # Check if chassis returned a failure status (error was caught internally)
+            if result.get("status") == "failed":
+                error_detail = result.get("data", {}).get("error", "Handler execution failed")
+                # Determine appropriate status code based on error type
+                # ValidationError-type errors get 422, others get 500
+                if "validation" in error_detail.lower() or "invalid" in error_detail.lower():
+                    raise HTTPException(status_code=422, detail=error_detail)
+                raise HTTPException(status_code=500, detail=error_detail)
             return ExecuteResponse(**result)
+        except HTTPException:
+            raise  # Re-raise HTTPExceptions as-is
         except ValueError as e:
             raise HTTPException(status_code=400, detail=str(e)) from e
         except Exception as e:

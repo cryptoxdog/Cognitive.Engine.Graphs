@@ -55,7 +55,7 @@ class Settings(BaseSettings):
     api_port: int = 8000
     api_workers: int = 4
     api_secret_key: str = "change-me-in-production"
-    cors_origins: list[str] = ["*"]
+    cors_origins: list[str] = []  # Default deny-all; set via CORS_ORIGINS env var
 
     # --- Domain Packs ---
     domains_root: Path = Path("./domains")
