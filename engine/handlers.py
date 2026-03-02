@@ -387,12 +387,82 @@ async def handle_health(tenant: str, payload: dict[str, Any]) -> dict[str, Any]:
     return {"status": overall, "checks": checks}
 
 
+async def handle_healthcheck(tenant: str, payload: dict[str, Any]) -> dict[str, Any]:
+    """Alias for handle_health (spec compatibility)."""
+    return await handle_health(tenant, payload)
+
+
+async def handle_enrich(tenant: str, payload: dict[str, Any]) -> dict[str, Any]:
+    """
+    Enrich action: add computed properties to graph entities.
+    
+    Payload schema:
+      - entity_type: str       # Node label to enrich
+      - entity_ids: list[str]  # Optional: specific entities (all if omitted)
+      - enrichments: list[dict] # Each: {property: str, expression: str}
+    
+    Returns:
+      - enriched_count: int
+      - entity_type: str
+      - tenant: str
+    """
+    graph_driver, domain_loader = _require_deps()
+    domain_spec = domain_loader.load_domain(tenant)
+    
+    entity_type = payload.get("entity_type")
+    if not entity_type:
+        raise ValidationError("entity_type required", action="enrich", tenant=tenant)
+    
+    entity_ids = payload.get("entity_ids", [])
+    enrichments = payload.get("enrichments", [])
+    
+    if not enrichments:
+        return {"enriched_count": 0, "entity_type": entity_type, "tenant": tenant}
+    
+    label = sanitize_label(entity_type)
+    
+    set_clauses = []
+    for enrich in enrichments:
+        prop = enrich.get("property", "")
+        expr = enrich.get("expression", "")
+        if prop and expr:
+            set_clauses.append(f"n.{sanitize_label(prop)} = {expr}")
+    
+    if not set_clauses:
+        return {"enriched_count": 0, "entity_type": entity_type, "tenant": tenant}
+    
+    if entity_ids:
+        cypher = f"""
+        MATCH (n:{label})
+        WHERE n.entity_id IN $entity_ids
+        SET {', '.join(set_clauses)}
+        RETURN count(n) AS enriched_count
+        """
+        params = {"entity_ids": entity_ids}
+    else:
+        cypher = f"""
+        MATCH (n:{label})
+        SET {', '.join(set_clauses)}
+        RETURN count(n) AS enriched_count
+        """
+        params = {}
+    
+    result = await graph_driver.execute_query(
+        cypher=cypher, parameters=params, database=domain_spec.domain.id,
+    )
+    
+    count = result[0]["enriched_count"] if result else 0
+    return {"enriched_count": count, "entity_type": entity_type, "tenant": tenant}
+
+
 def register_all(chassis_router: Any) -> None:
-    """Register all 6 action handlers with the chassis."""
+    """Register all 8 action handlers with the chassis."""
     chassis_router.register_handler("match", handle_match)
     chassis_router.register_handler("sync", handle_sync)
     chassis_router.register_handler("admin", handle_admin)
     chassis_router.register_handler("outcomes", handle_outcomes)
     chassis_router.register_handler("resolve", handle_resolve)
     chassis_router.register_handler("health", handle_health)
-    logger.info("Registered 6 action handlers: match, sync, admin, outcomes, resolve, health")
+    chassis_router.register_handler("healthcheck", handle_healthcheck)
+    chassis_router.register_handler("enrich", handle_enrich)
+    logger.info("Registered 8 action handlers: match, sync, admin, outcomes, resolve, health, healthcheck, enrich")

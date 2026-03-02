@@ -15,6 +15,10 @@
     "status": "IMPLEMENTED",
     "evidence_files": [
       "UniversalDevelopmentPack.yaml",
+      "current work/3D KG Embedding - HyperGraphs/beam_search.py",
+      "current work/3D KG Embedding - HyperGraphs/ensemble.py",
+      "current work/3D KG Embedding - HyperGraphs/kge_orchestrator_integration.py",
+      "current work/3D KG Embedding - HyperGraphs/test_compound_e3d.py",
       "docs/PlasticOS Graph Cognitive Engine.yaml",
       "docs/plasticos_domain_spec_v0.3.0.yaml",
       "docs/plasticos_domain_spec_v0.4.yaml",
@@ -39,10 +43,10 @@
       "tools/spec_extract.py"
     ],
     "evidence_lines": [
-      "tools/spec_extract.py:115",
-      "tools/spec_extract.py:116",
-      "tools/spec_extract.py:117",
-      "tools/audit_engine.py:66",
+      "tools/spec_extract.py:125",
+      "tools/spec_extract.py:126",
+      "tools/spec_extract.py:127",
+      "tools/audit_engine.py:75",
       "tests/unit/test_gates_all_types.py:17",
       "tests/unit/test_gates_all_types.py:21",
       "tests/unit/test_gates_all_types.py:23",
@@ -68,6 +72,8 @@
     "evidence_files": [
       ".github/pr_review_config.yaml",
       "UniversalDevelopmentPack.yaml",
+      "current work/3D KG Embedding - HyperGraphs/beam_search.py",
+      "current work/3D KG Embedding - HyperGraphs/test_compound_e3d.py",
       "docs/PlasticOS Graph Cognitive Engine.yaml",
       "docs/plasticos_domain_spec_v0.3.0.yaml",
       "docs/plasticos_domain_spec_v0.4.yaml",
@@ -95,7 +101,7 @@
       "tools/spec_extract.py"
     ],
     "evidence_lines": [
-      "tools/spec_extract.py:115",
+      "tools/spec_extract.py:125",
       "tests/unit/test_gates_all_types.py:18",
       "tests/unit/test_gates_all_types.py:34",
       "tests/unit/test_gates_all_types.py:78",
@@ -144,7 +150,7 @@
       "tools/spec_extract.py"
     ],
     "evidence_lines": [
-      "tools/spec_extract.py:115",
+      "tools/spec_extract.py:125",
       "tests/unit/test_gates_all_types.py:16",
       "tests/unit/test_gates_all_types.py:94",
       "tests/unit/test_gates_all_types.py:95",
@@ -171,6 +177,7 @@
     ],
     "status": "IMPLEMENTED",
     "evidence_files": [
+      "current work/3D KG Embedding - HyperGraphs/beam_search.py",
       "docs/plasticos_domain_spec_v0.3.0.yaml",
       "engine/config/schema.py",
       "engine/gates/compiler.py",
@@ -183,16 +190,16 @@
       "tools/spec_extract.py"
     ],
     "evidence_lines": [
-      "tools/spec_extract.py:115",
+      "tools/spec_extract.py:125",
       "tests/unit/test_gates_all_types.py:25",
-      "engine/gates/compiler.py:34",
-      "engine/gates/compiler.py:138",
-      "engine/gates/compiler.py:197",
-      "engine/gates/compiler.py:199",
-      "engine/gates/null_semantics.py:22",
-      "engine/gates/registry.py:4",
-      "engine/gates/registry.py:12",
-      "engine/gates/registry.py:31"
+      "current work/3D KG Embedding - HyperGraphs/beam_search.py:126",
+      "engine/gates/compiler.py:44",
+      "engine/gates/compiler.py:148",
+      "engine/gates/compiler.py:207",
+      "engine/gates/compiler.py:209",
+      "engine/gates/null_semantics.py:31",
+      "engine/gates/registry.py:14",
+      "engine/gates/registry.py:22"
     ]
   },
   {
@@ -226,16 +233,16 @@
       "tools/spec_extract.py"
     ],
     "evidence_lines": [
-      "tools/spec_extract.py:115",
+      "tools/spec_extract.py:125",
       "tests/unit/test_gates_all_types.py:19",
       "tests/unit/test_gates_all_types.py:126",
       "tests/unit/test_gates_all_types.py:127",
       "tests/unit/test_gates_all_types.py:130",
-      "engine/gates/compiler.py:136",
-      "engine/gates/null_semantics.py:23",
-      "engine/gates/registry.py:13",
-      "engine/gates/registry.py:32",
-      "engine/config/schema.py:67"
+      "engine/gates/compiler.py:146",
+      "engine/gates/null_semantics.py:32",
+      "engine/gates/registry.py:23",
+      "engine/gates/registry.py:42",
+      "engine/config/schema.py:76"
     ]
   },
   {
@@ -271,9 +278,9 @@
       "tools/spec_extract.py"
     ],
     "evidence_lines": [
-      "tools/spec_extract.py:116",
-      "tests/conftest.py:132",
-      "tests/conftest.py:238",
+      "tools/spec_extract.py:126",
+      "tests/conftest.py:142",
+      "tests/conftest.py:248",
       "tests/unit/test_gates_all_types.py:20",
       "tests/unit/test_gates_all_types.py:141",
       "tests/unit/test_gates_all_types.py:142",
@@ -313,16 +320,16 @@
       "tools/spec_extract.py"
     ],
     "evidence_lines": [
-      "tools/spec_extract.py:116",
+      "tools/spec_extract.py:126",
       "tests/unit/test_gates_all_types.py:21",
       "tests/unit/test_gates_all_types.py:156",
       "tests/unit/test_gates_all_types.py:157",
       "tests/unit/test_gates_all_types.py:160",
-      "engine/gates/compiler.py:35",
-      "engine/gates/compiler.py:139",
-      "engine/gates/compiler.py:223",
-      "engine/gates/null_semantics.py:25",
-      "engine/gates/registry.py:17"
+      "engine/gates/compiler.py:45",
+      "engine/gates/compiler.py:149",
+      "engine/gates/compiler.py:233",
+      "engine/gates/null_semantics.py:34",
+      "engine/gates/registry.py:27"
     ]
   },
   {
@@ -357,7 +364,7 @@
       "tools/spec_extract.py"
     ],
     "evidence_lines": [
-      "tools/spec_extract.py:116",
+      "tools/spec_extract.py:126",
       "tests/unit/test_gates_all_types.py:22",
       "tests/unit/test_gates_all_types.py:173",
       "tests/unit/test_gates_all_types.py:174",
@@ -366,7 +373,7 @@
       "tests/unit/test_gates_all_types.py:399",
       "tests/unit/test_gates_all_types.py:406",
       "tests/integration/test_null_semantics.py:179",
-      "engine/gates/compiler.py:36"
+      "engine/gates/compiler.py:46"
     ]
   },
   {
@@ -399,16 +406,16 @@
       "tools/spec_extract.py"
     ],
     "evidence_lines": [
-      "tools/spec_extract.py:116",
+      "tools/spec_extract.py:126",
       "tests/unit/test_gates_all_types.py:23",
       "tests/unit/test_gates_all_types.py:190",
       "tests/unit/test_gates_all_types.py:191",
       "tests/unit/test_gates_all_types.py:194",
-      "engine/gates/compiler.py:37",
-      "engine/gates/compiler.py:141",
-      "engine/gates/compiler.py:250",
-      "engine/gates/null_semantics.py:27",
-      "engine/gates/registry.py:18"
+      "engine/gates/compiler.py:47",
+      "engine/gates/compiler.py:151",
+      "engine/gates/compiler.py:260",
+      "engine/gates/null_semantics.py:36",
+      "engine/gates/registry.py:28"
     ]
   },
   {
@@ -427,6 +434,12 @@
     "status": "IMPLEMENTED",
     "evidence_files": [
       ".github/pr_review_config.yaml",
+      "current work/l9_audit_fixes/engine/config/loader.py",
+      "current work/l9_audit_fixes/engine/handlers.py",
+      "current work/l9_audit_fixes/engine/scoring/assembler.py",
+      "current work/l9_audit_fixes/tests/test_config_loader.py",
+      "current work/l9_audit_fixes/tests/test_handlers.py",
+      "current work/l9_audit_fixes/tests/test_scoring_extended.py",
       "docs/plasticos_domain_spec_v0.3.0.yaml",
       "docs/plasticos_domain_spec_v0.4.yaml",
       "domains/MASTER-SPEC-ALL-DOMAINS.yaml",
@@ -437,6 +450,7 @@
       "domains/repo_as_agent_domain_spec.yaml",
       "domains/roofing_company_domain_spec.yaml",
       "engine/config/__init__.py",
+      "engine/config/loader.py",
       "engine/config/schema.py",
       "engine/gates/compiler.py",
       "engine/gates/null_semantics.py",
@@ -444,27 +458,33 @@
       "engine/gates/types/__init__.py",
       "engine/gates/types/all_gates.py",
       "engine/handlers.py",
+      "engine/scoring/assembler.py",
       "engine/traversal/__init__.py",
       "engine/traversal/assembler.py",
+      "engine/traversal/resolver.py",
       "graph-cognitive-engine-spec-v1.1.0.yaml",
       "tests/conftest.py",
       "tests/integration/test_null_semantics.py",
       "tests/performance/test_query_latency.py",
+      "tests/test_config_loader.py",
+      "tests/test_handlers.py",
+      "tests/test_scoring_extended.py",
       "tests/unit/test_gates_all_types.py",
       "tools/audit_rules.yaml",
+      "tools/l9_meta_injector.py",
       "tools/spec_extract.py"
     ],
     "evidence_lines": [
-      "tools/spec_extract.py:117",
-      "tests/conftest.py:140",
-      "engine/handlers.py:21",
-      "engine/handlers.py:22",
-      "engine/handlers.py:41",
-      "engine/handlers.py:83",
-      "engine/handlers.py:84",
-      "engine/handlers.py:85",
-      "engine/handlers.py:104",
-      "tests/unit/test_gates_all_types.py:24"
+      "tools/spec_extract.py:127",
+      "tools/l9_meta_injector.py:162",
+      "tools/l9_meta_injector.py:163",
+      "tools/l9_meta_injector.py:164",
+      "tests/conftest.py:150",
+      "tests/test_config_loader.py:30",
+      "tests/test_config_loader.py:63",
+      "tests/test_handlers.py:46",
+      "tests/test_scoring_extended.py:2",
+      "tests/test_scoring_extended.py:35"
     ]
   },
   {
@@ -481,6 +501,7 @@
     ],
     "status": "IMPLEMENTED",
     "evidence_files": [
+      "current work/l9_audit_fixes/engine/scoring/assembler.py",
       "docs/plasticos_domain_spec_v0.3.0.yaml",
       "docs/plasticos_domain_spec_v0.4.yaml",
       "domains/MASTER-SPEC-ALL-DOMAINS.yaml",
@@ -494,16 +515,16 @@
       "tools/spec_extract.py"
     ],
     "evidence_lines": [
-      "tools/spec_extract.py:159",
+      "tools/spec_extract.py:169",
       "tests/unit/test_scoring.py:46",
       "tests/unit/test_scoring.py:47",
       "tests/unit/test_scoring.py:51",
-      "engine/config/settings.py:60",
-      "engine/config/schema.py:85",
-      "engine/config/schema.py:296",
-      "engine/scoring/assembler.py:61",
-      "engine/scoring/assembler.py:62",
-      "engine/scoring/assembler.py:83"
+      "current work/l9_audit_fixes/engine/scoring/assembler.py:47",
+      "current work/l9_audit_fixes/engine/scoring/assembler.py:71",
+      "engine/config/settings.py:70",
+      "engine/config/schema.py:94",
+      "engine/config/schema.py:307",
+      "engine/scoring/assembler.py:47"
     ]
   },
   {
@@ -520,6 +541,7 @@
     ],
     "status": "IMPLEMENTED",
     "evidence_files": [
+      "current work/l9_audit_fixes/engine/scoring/assembler.py",
       "docs/plasticos_domain_spec_v0.3.0.yaml",
       "domains/MASTER-SPEC-ALL-DOMAINS.yaml",
       "domains/legal_discovery_domain_spec.yaml",
@@ -530,16 +552,16 @@
       "tools/spec_extract.py"
     ],
     "evidence_lines": [
-      "tools/spec_extract.py:159",
-      "engine/config/schema.py:86",
-      "engine/scoring/assembler.py:63",
-      "engine/scoring/assembler.py:64",
-      "engine/scoring/assembler.py:95",
-      "graph-cognitive-engine-spec-v1.1.0.yaml:195",
-      "domains/legal_discovery_domain_spec.yaml:94",
-      "domains/MASTER-SPEC-ALL-DOMAINS.yaml:803",
-      "domains/MASTER-SPEC-ALL-DOMAINS.yaml:1112",
-      "domains/research_agent_domain_spec.yaml:88"
+      "tools/spec_extract.py:169",
+      "current work/l9_audit_fixes/engine/scoring/assembler.py:48",
+      "current work/l9_audit_fixes/engine/scoring/assembler.py:81",
+      "engine/config/schema.py:95",
+      "engine/scoring/assembler.py:48",
+      "engine/scoring/assembler.py:81",
+      "graph-cognitive-engine-spec-v1.1.0.yaml:204",
+      "domains/legal_discovery_domain_spec.yaml:103",
+      "domains/MASTER-SPEC-ALL-DOMAINS.yaml:812",
+      "domains/MASTER-SPEC-ALL-DOMAINS.yaml:1121"
     ]
   },
   {
@@ -556,6 +578,7 @@
     ],
     "status": "IMPLEMENTED",
     "evidence_files": [
+      "current work/l9_audit_fixes/engine/scoring/assembler.py",
       "docs/plasticos_domain_spec_v0.3.0.yaml",
       "domains/MASTER-SPEC-ALL-DOMAINS.yaml",
       "domains/mortgage_brokerage_domain_spec.yaml",
@@ -565,16 +588,16 @@
       "tools/spec_extract.py"
     ],
     "evidence_lines": [
-      "tools/spec_extract.py:159",
-      "engine/config/schema.py:87",
-      "engine/config/schema.py:297",
-      "engine/scoring/assembler.py:65",
-      "engine/scoring/assembler.py:66",
-      "engine/scoring/assembler.py:100",
-      "graph-cognitive-engine-spec-v1.1.0.yaml:201",
-      "domains/MASTER-SPEC-ALL-DOMAINS.yaml:210",
-      "domains/mortgage_brokerage_domain_spec.yaml:181",
-      "docs/plasticos_domain_spec_v0.3.0.yaml:1437"
+      "tools/spec_extract.py:169",
+      "current work/l9_audit_fixes/engine/scoring/assembler.py:49",
+      "current work/l9_audit_fixes/engine/scoring/assembler.py:85",
+      "engine/config/schema.py:96",
+      "engine/config/schema.py:308",
+      "engine/scoring/assembler.py:49",
+      "engine/scoring/assembler.py:85",
+      "graph-cognitive-engine-spec-v1.1.0.yaml:210",
+      "domains/MASTER-SPEC-ALL-DOMAINS.yaml:219",
+      "domains/mortgage_brokerage_domain_spec.yaml:190"
     ]
   },
   {
@@ -591,6 +614,7 @@
     ],
     "status": "IMPLEMENTED",
     "evidence_files": [
+      "current work/l9_audit_fixes/engine/scoring/assembler.py",
       "docs/plasticos_domain_spec_v0.3.0.yaml",
       "domains/MASTER-SPEC-ALL-DOMAINS.yaml",
       "domains/aios_god_agent_domain_spec.yaml",
@@ -606,16 +630,16 @@
       "tools/spec_extract.py"
     ],
     "evidence_lines": [
-      "tools/spec_extract.py:160",
+      "tools/spec_extract.py:170",
       "tests/unit/test_scoring.py:65",
       "tests/unit/test_scoring.py:71",
-      "engine/config/schema.py:88",
-      "engine/scoring/assembler.py:67",
-      "engine/scoring/assembler.py:68",
-      "engine/scoring/assembler.py:105",
-      "graph-cognitive-engine-spec-v1.1.0.yaml:209",
-      "domains/repo_as_agent_domain_spec.yaml:84",
-      "domains/healthcare_referral_domain_spec.yaml:108"
+      "current work/l9_audit_fixes/engine/scoring/assembler.py:50",
+      "current work/l9_audit_fixes/engine/scoring/assembler.py:92",
+      "engine/config/schema.py:97",
+      "engine/scoring/assembler.py:50",
+      "engine/scoring/assembler.py:92",
+      "graph-cognitive-engine-spec-v1.1.0.yaml:218",
+      "domains/repo_as_agent_domain_spec.yaml:93"
     ]
   },
   {
@@ -632,6 +656,8 @@
     ],
     "status": "IMPLEMENTED",
     "evidence_files": [
+      "current work/l9_audit_fixes/engine/scoring/assembler.py",
+      "current work/l9_audit_fixes/tests/test_scoring_extended.py",
       "docs/plasticos_domain_spec_v0.3.0.yaml",
       "domains/MASTER-SPEC-ALL-DOMAINS.yaml",
       "domains/aios_god_agent_domain_spec.yaml",
@@ -647,20 +673,21 @@
       "engine/scoring/assembler.py",
       "graph-cognitive-engine-spec-v1.1.0.yaml",
       "tests/integration/test_null_semantics.py",
+      "tests/test_scoring_extended.py",
       "tests/unit/test_scoring.py",
       "tools/spec_extract.py"
     ],
     "evidence_lines": [
-      "tools/spec_extract.py:160",
+      "tools/spec_extract.py:170",
+      "tests/test_scoring_extended.py:2",
+      "tests/test_scoring_extended.py:65",
+      "tests/test_scoring_extended.py:66",
+      "tests/test_scoring_extended.py:67",
       "tests/unit/test_scoring.py:28",
       "tests/unit/test_scoring.py:93",
       "tests/unit/test_scoring.py:100",
       "tests/unit/test_scoring.py:123",
-      "tests/unit/test_scoring.py:157",
-      "tests/unit/test_scoring.py:158",
-      "tests/unit/test_scoring.py:163",
-      "tests/integration/test_null_semantics.py:20",
-      "engine/config/schema.py:89"
+      "tests/unit/test_scoring.py:157"
     ]
   },
   {
@@ -677,6 +704,7 @@
     ],
     "status": "IMPLEMENTED",
     "evidence_files": [
+      "current work/l9_audit_fixes/engine/scoring/assembler.py",
       "docs/plasticos_domain_spec_v0.3.0.yaml",
       "domains/MASTER-SPEC-ALL-DOMAINS.yaml",
       "domains/repo_as_agent_domain_spec.yaml",
@@ -686,16 +714,16 @@
       "tools/spec_extract.py"
     ],
     "evidence_lines": [
-      "tools/spec_extract.py:160",
-      "engine/config/schema.py:93",
-      "engine/config/schema.py:291",
-      "engine/scoring/assembler.py:71",
-      "graph-cognitive-engine-spec-v1.1.0.yaml:245",
-      "domains/repo_as_agent_domain_spec.yaml:91",
-      "domains/MASTER-SPEC-ALL-DOMAINS.yaml:1011",
-      "docs/plasticos_domain_spec_v0.3.0.yaml:1426",
-      "docs/plasticos_domain_spec_v0.3.0.yaml:2092",
-      "docs/plasticos_domain_spec_v0.3.0.yaml:2097"
+      "tools/spec_extract.py:170",
+      "current work/l9_audit_fixes/engine/scoring/assembler.py:60",
+      "current work/l9_audit_fixes/engine/scoring/assembler.py:62",
+      "engine/config/schema.py:102",
+      "engine/config/schema.py:302",
+      "engine/scoring/assembler.py:60",
+      "engine/scoring/assembler.py:62",
+      "graph-cognitive-engine-spec-v1.1.0.yaml:254",
+      "domains/repo_as_agent_domain_spec.yaml:100",
+      "domains/MASTER-SPEC-ALL-DOMAINS.yaml:1020"
     ]
   },
   {
@@ -716,9 +744,9 @@
       "tools/spec_extract.py"
     ],
     "evidence_lines": [
-      "tools/spec_extract.py:161",
-      "tools/spec_extract.py:209",
-      "graph-cognitive-engine-spec-v1.1.0.yaml:1958"
+      "tools/spec_extract.py:171",
+      "tools/spec_extract.py:219",
+      "graph-cognitive-engine-spec-v1.1.0.yaml:1967"
     ]
   },
   {
@@ -736,14 +764,17 @@
     ],
     "status": "IMPLEMENTED",
     "evidence_files": [
+      "current work/l9_audit_fixes/engine/handlers.py",
       "docs/plasticos_domain_spec_v0.4.yaml",
       "engine/handlers.py",
       "tools/spec_extract.py"
     ],
     "evidence_lines": [
-      "tools/spec_extract.py:206",
-      "engine/handlers.py:221",
-      "engine/handlers.py:238",
+      "tools/spec_extract.py:216",
+      "engine/handlers.py:275",
+      "engine/handlers.py:292",
+      "current work/l9_audit_fixes/engine/handlers.py:275",
+      "current work/l9_audit_fixes/engine/handlers.py:292",
       "docs/plasticos_domain_spec_v0.4.yaml:523",
       "docs/plasticos_domain_spec_v0.4.yaml:1028",
       "docs/plasticos_domain_spec_v0.4.yaml:1634"
@@ -768,7 +799,7 @@
       "tools/spec_extract.py"
     ],
     "evidence_lines": [
-      "tools/spec_extract.py:206",
+      "tools/spec_extract.py:216",
       "docs/plasticos_domain_spec_v0.4.yaml:546",
       "docs/plasticos_domain_spec_v0.4.yaml:1039",
       "docs/plasticos_domain_spec_v0.4.yaml:1634"
@@ -789,14 +820,17 @@
     ],
     "status": "IMPLEMENTED",
     "evidence_files": [
+      "current work/l9_audit_fixes/engine/handlers.py",
       "docs/plasticos_domain_spec_v0.4.yaml",
       "engine/handlers.py",
       "tools/spec_extract.py"
     ],
     "evidence_lines": [
-      "tools/spec_extract.py:207",
-      "engine/handlers.py:221",
-      "engine/handlers.py:250",
+      "tools/spec_extract.py:217",
+      "engine/handlers.py:275",
+      "engine/handlers.py:300",
+      "current work/l9_audit_fixes/engine/handlers.py:275",
+      "current work/l9_audit_fixes/engine/handlers.py:300",
       "docs/plasticos_domain_spec_v0.4.yaml:1026",
       "docs/plasticos_domain_spec_v0.4.yaml:1635"
     ]
@@ -816,11 +850,17 @@
     ],
     "status": "IMPLEMENTED",
     "evidence_files": [
+      "current work/l9_audit_fixes/engine/handlers.py",
       "docs/plasticos_domain_spec_v0.4.yaml",
+      "engine/handlers.py",
       "tools/spec_extract.py"
     ],
     "evidence_lines": [
-      "tools/spec_extract.py:207",
+      "tools/spec_extract.py:217",
+      "engine/handlers.py:326",
+      "engine/handlers.py:342",
+      "current work/l9_audit_fixes/engine/handlers.py:326",
+      "current work/l9_audit_fixes/engine/handlers.py:342",
       "docs/plasticos_domain_spec_v0.4.yaml:1037",
       "docs/plasticos_domain_spec_v0.4.yaml:1635"
     ]
@@ -844,8 +884,8 @@
       "engine/handlers.py"
     ],
     "evidence_lines": [
-      "engine/handlers.py:219",
-      "engine/handlers.py:302"
+      "engine/handlers.py:274",
+      "engine/handlers.py:463"
     ]
   },
   {
@@ -867,11 +907,8 @@
       "engine/handlers.py"
     ],
     "evidence_lines": [
-      "engine/handlers.py:22",
-      "engine/handlers.py:75",
-      "engine/handlers.py:76",
-      "engine/handlers.py:77",
-      "engine/handlers.py:117"
+      "engine/handlers.py:325",
+      "engine/handlers.py:464"
     ]
   },
   {
@@ -892,9 +929,9 @@
       "tools/spec_extract.py"
     ],
     "evidence_lines": [
-      "tools/spec_extract.py:161",
-      "tools/spec_extract.py:209",
-      "graph-cognitive-engine-spec-v1.1.0.yaml:1958"
+      "tools/spec_extract.py:171",
+      "tools/spec_extract.py:219",
+      "graph-cognitive-engine-spec-v1.1.0.yaml:1967"
     ]
   },
   {
@@ -914,8 +951,8 @@
       "tools/spec_extract.py"
     ],
     "evidence_lines": [
-      "tools/spec_extract.py:161",
-      "tools/spec_extract.py:209"
+      "tools/spec_extract.py:171",
+      "tools/spec_extract.py:219"
     ]
   },
   {
@@ -935,8 +972,8 @@
       "engine/handlers.py"
     ],
     "evidence_lines": [
-      "engine/handlers.py:39",
-      "engine/handlers.py:299"
+      "engine/handlers.py:73",
+      "engine/handlers.py:460"
     ]
   },
   {
@@ -956,8 +993,8 @@
       "engine/handlers.py"
     ],
     "evidence_lines": [
-      "engine/handlers.py:132",
-      "engine/handlers.py:300"
+      "engine/handlers.py:157",
+      "engine/handlers.py:461"
     ]
   },
   {
@@ -977,8 +1014,8 @@
       "engine/handlers.py"
     ],
     "evidence_lines": [
-      "engine/handlers.py:182",
-      "engine/handlers.py:301"
+      "engine/handlers.py:203",
+      "engine/handlers.py:462"
     ]
   },
   {
@@ -998,8 +1035,8 @@
       "engine/handlers.py"
     ],
     "evidence_lines": [
-      "engine/handlers.py:60",
-      "engine/handlers.py:117"
+      "engine/handlers.py:78",
+      "engine/handlers.py:133"
     ]
   },
   {
@@ -1014,9 +1051,14 @@
     "search_files": [
       "engine/handlers.py"
     ],
-    "status": "MISSING",
-    "evidence_files": [],
-    "evidence_lines": []
+    "status": "PARTIAL",
+    "evidence_files": [
+      "engine/handlers.py"
+    ],
+    "evidence_lines": [
+      "engine/handlers.py:395",
+      "engine/handlers.py:467"
+    ]
   },
   {
     "category": "action_handler",
@@ -1030,9 +1072,14 @@
     "search_files": [
       "engine/handlers.py"
     ],
-    "status": "MISSING",
-    "evidence_files": [],
-    "evidence_lines": []
+    "status": "PARTIAL",
+    "evidence_files": [
+      "engine/handlers.py"
+    ],
+    "evidence_lines": [
+      "engine/handlers.py:390",
+      "engine/handlers.py:466"
+    ]
   },
   {
     "category": "gds_algorithm",
@@ -1048,7 +1095,6 @@
     ],
     "status": "IMPLEMENTED",
     "evidence_files": [
-      ".coderabbit.yaml",
       "docs/plasticos_domain_spec_v0.3.0.yaml",
       "docs/plasticos_domain_spec_v0.4.yaml",
       "domains/MASTER-SPEC-ALL-DOMAINS.yaml",
@@ -1056,19 +1102,20 @@
       "engine/gds/scheduler.py",
       "graph-cognitive-engine-spec-v1.1.0.yaml",
       "tools/audit_rules.yaml",
+      "tools/l9_meta_injector.py",
       "tools/spec_extract.py"
     ],
     "evidence_lines": [
-      "tools/spec_extract.py:266",
-      "engine/gds/scheduler.py:4",
-      "engine/gds/scheduler.py:30",
-      "engine/gds/scheduler.py:75",
-      "engine/gds/scheduler.py:76",
-      "engine/gds/scheduler.py:110",
-      "engine/gds/scheduler.py:111",
-      "engine/gds/scheduler.py:127",
-      "engine/gds/scheduler.py:128",
-      "engine/gds/scheduler.py:132"
+      "tools/spec_extract.py:276",
+      "tools/l9_meta_injector.py:168",
+      "engine/gds/scheduler.py:7",
+      "engine/gds/scheduler.py:14",
+      "engine/gds/scheduler.py:40",
+      "engine/gds/scheduler.py:85",
+      "engine/gds/scheduler.py:86",
+      "engine/gds/scheduler.py:120",
+      "engine/gds/scheduler.py:121",
+      "engine/gds/scheduler.py:150"
     ]
   },
   {
@@ -1085,7 +1132,6 @@
     ],
     "status": "IMPLEMENTED",
     "evidence_files": [
-      ".coderabbit.yaml",
       "docs/plasticos_domain_spec_v0.3.0.yaml",
       "engine/gds/scheduler.py",
       "graph-cognitive-engine-spec-v1.1.0.yaml",
@@ -1093,16 +1139,16 @@
       "tools/spec_extract.py"
     ],
     "evidence_lines": [
-      "tools/spec_extract.py:266",
-      "engine/gds/scheduler.py:31",
-      "engine/gds/scheduler.py:77",
-      "engine/gds/scheduler.py:78",
-      "engine/gds/scheduler.py:143",
-      "graph-cognitive-engine-spec-v1.1.0.yaml:605",
-      "graph-cognitive-engine-spec-v1.1.0.yaml:644",
-      "graph-cognitive-engine-spec-v1.1.0.yaml:645",
-      "graph-cognitive-engine-spec-v1.1.0.yaml:652",
-      "graph-cognitive-engine-spec-v1.1.0.yaml:663"
+      "tools/spec_extract.py:276",
+      "engine/gds/scheduler.py:41",
+      "engine/gds/scheduler.py:87",
+      "engine/gds/scheduler.py:88",
+      "engine/gds/scheduler.py:166",
+      "graph-cognitive-engine-spec-v1.1.0.yaml:614",
+      "graph-cognitive-engine-spec-v1.1.0.yaml:653",
+      "graph-cognitive-engine-spec-v1.1.0.yaml:654",
+      "graph-cognitive-engine-spec-v1.1.0.yaml:661",
+      "graph-cognitive-engine-spec-v1.1.0.yaml:672"
     ]
   },
   {
@@ -1128,16 +1174,16 @@
       "tools/spec_extract.py"
     ],
     "evidence_lines": [
-      "tools/spec_extract.py:266",
-      "engine/config/settings.py:58",
-      "engine/gds/scheduler.py:4",
-      "engine/gds/scheduler.py:32",
-      "engine/gds/scheduler.py:79",
-      "engine/gds/scheduler.py:80",
-      "engine/gds/scheduler.py:163",
-      "engine/gds/scheduler.py:168",
-      "engine/gds/scheduler.py:227",
-      "engine/gds/scheduler.py:254"
+      "tools/spec_extract.py:276",
+      "engine/config/settings.py:68",
+      "engine/gds/scheduler.py:14",
+      "engine/gds/scheduler.py:42",
+      "engine/gds/scheduler.py:89",
+      "engine/gds/scheduler.py:90",
+      "engine/gds/scheduler.py:186",
+      "engine/gds/scheduler.py:191",
+      "engine/gds/scheduler.py:250",
+      "engine/gds/scheduler.py:277"
     ]
   },
   {
@@ -1162,13 +1208,13 @@
       "tools/spec_extract.py"
     ],
     "evidence_lines": [
-      "tools/spec_extract.py:266",
-      "engine/gds/scheduler.py:82",
-      "engine/gds/scheduler.py:262",
-      "graph-cognitive-engine-spec-v1.1.0.yaml:575",
-      "graph-cognitive-engine-spec-v1.1.0.yaml:612",
-      "graph-cognitive-engine-spec-v1.1.0.yaml:693",
-      "tools/audit_rules.yaml:79",
+      "tools/spec_extract.py:276",
+      "engine/gds/scheduler.py:92",
+      "engine/gds/scheduler.py:285",
+      "graph-cognitive-engine-spec-v1.1.0.yaml:584",
+      "graph-cognitive-engine-spec-v1.1.0.yaml:621",
+      "graph-cognitive-engine-spec-v1.1.0.yaml:702",
+      "tools/audit_rules.yaml:88",
       "docs/plasticos_domain_spec_v0.4.yaml:855",
       "docs/plasticos_domain_spec_v0.4.yaml:1396",
       "docs/plasticos_domain_spec_v0.4.yaml:1397"
@@ -1188,25 +1234,28 @@
     ],
     "status": "IMPLEMENTED",
     "evidence_files": [
+      "current work/3D KG Embedding - HyperGraphs/beam_search.py",
+      "current work/l9_audit_fixes/engine/scoring/assembler.py",
       "docs/plasticos_domain_spec_v0.3.0.yaml",
       "docs/plasticos_domain_spec_v0.4.yaml",
       "domains/MASTER-SPEC-ALL-DOMAINS.yaml",
       "domains/mortgage_brokerage_domain_spec.yaml",
       "engine/config/schema.py",
+      "engine/scoring/assembler.py",
       "graph-cognitive-engine-spec-v1.1.0.yaml",
       "tools/spec_extract.py"
     ],
     "evidence_lines": [
-      "tools/spec_extract.py:267",
-      "engine/config/schema.py:427",
-      "graph-cognitive-engine-spec-v1.1.0.yaml:4",
-      "graph-cognitive-engine-spec-v1.1.0.yaml:446",
-      "graph-cognitive-engine-spec-v1.1.0.yaml:448",
-      "graph-cognitive-engine-spec-v1.1.0.yaml:493",
-      "graph-cognitive-engine-spec-v1.1.0.yaml:503",
-      "graph-cognitive-engine-spec-v1.1.0.yaml:646",
-      "graph-cognitive-engine-spec-v1.1.0.yaml:648",
-      "graph-cognitive-engine-spec-v1.1.0.yaml:654"
+      "tools/spec_extract.py:277",
+      "current work/3D KG Embedding - HyperGraphs/beam_search.py:315",
+      "current work/3D KG Embedding - HyperGraphs/beam_search.py:326",
+      "current work/3D KG Embedding - HyperGraphs/beam_search.py:327",
+      "current work/3D KG Embedding - HyperGraphs/beam_search.py:328",
+      "current work/3D KG Embedding - HyperGraphs/beam_search.py:332",
+      "current work/3D KG Embedding - HyperGraphs/beam_search.py:374",
+      "current work/3D KG Embedding - HyperGraphs/beam_search.py:380",
+      "current work/3D KG Embedding - HyperGraphs/beam_search.py:396",
+      "current work/3D KG Embedding - HyperGraphs/beam_search.py:398"
     ]
   }
 ]

@@ -38,8 +38,8 @@
     },
     "action_handler": {
       "IMPLEMENTED": 0,
-      "PARTIAL": 4,
-      "MISSING": 2,
+      "PARTIAL": 6,
+      "MISSING": 0,
       "total": 6
     },
     "gds_algorithm": {
@@ -51,9 +51,9 @@
   },
   "totals": {
     "IMPLEMENTED": 27,
-    "PARTIAL": 7,
-    "MISSING": 2,
+    "PARTIAL": 9,
+    "MISSING": 0,
     "total": 36
   },
-  "generated_at": "2026-03-02T01:38:06.563711+00:00"
+  "generated_at": "2026-03-02T03:59:08.120168+00:00"
 }
