@@ -17,8 +17,8 @@ pyyaml = "^6.0"
 redis = "^5.2.0"
 apscheduler = "^3.10.0"
 httpx = "^0.28.0"
-structlog = "^24.4.0"
-prometheus-client = "^0.21.0"
+structlog = "^25.5.0"
+prometheus-client = "^0.24.1"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.3.0"
