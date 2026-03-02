@@ -72,9 +72,8 @@ def _require_key(payload: dict[str, Any], key: str, action: str, tenant: str) ->
     return payload[key]
 
 
-# Allowed Cypher expression patterns for enrich action (whitelist approach)
-_SAFE_EXPR_PATTERNS = frozenset([
-    "n.",  # Property access
+# Allowed Cypher function patterns for enrich action (whitelist approach)
+_SAFE_CYPHER_FUNCTIONS = frozenset([
     "coalesce(",
     "toInteger(",
     "toFloat(",
@@ -99,46 +98,111 @@ _SAFE_EXPR_PATTERNS = frozenset([
     "distance(",
 ])
 
+# Dangerous Cypher keywords that must be blocked
+_DANGEROUS_PATTERNS = frozenset([
+    "call",
+    "create",
+    "merge",
+    "delete",
+    "remove",
+    "set",
+    "match",
+    "return",
+    "with",
+    "unwind",
+    "foreach",
+    "load",
+    "using",
+    "detach",
+    "optional",
+    "union",
+    "apoc",
+    "gds",
+    "dbms",
+    "db.",
+    "//",
+    "/*",
+    "$$",
+    "${",
+])
+
+# Valid property name pattern (alphanumeric + underscore, must start with letter/underscore)
+import re
+_PROPERTY_NAME_RE = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_]*$")
+
 
 def _sanitize_expression(expr: str) -> str:
     """
     Sanitize Cypher expression for enrich action.
-    Uses whitelist approach: only allow known-safe patterns.
+    Uses strict whitelist approach: only allow known-safe patterns.
     Raises ValidationError if expression contains potentially dangerous patterns.
     """
-    expr_lower = expr.lower().strip()
+    expr_stripped = expr.strip()
+    expr_lower = expr_stripped.lower()
 
-    # Block dangerous patterns
-    dangerous = ["call ", "create ", "merge ", "delete ", "remove ", "set ", "match ", "return ", "//", "/*"]
-    for pattern in dangerous:
-        if pattern in expr_lower:
-            msg = f"Forbidden pattern '{pattern.strip()}' in expression"
-            raise ValidationError(msg, action="enrich", tenant="unknown")
+    # Block dangerous patterns (check as word boundaries where appropriate)
+    for pattern in _DANGEROUS_PATTERNS:
+        # For keywords, check word boundaries to avoid false positives
+        if pattern in ("//", "/*", "$$", "${", "db."):
+            if pattern in expr_lower:
+                msg = f"Forbidden pattern '{pattern}' in expression"
+                raise ValidationError(msg, action="enrich", tenant="unknown")
+        else:
+            # Check for keyword as word (not part of property name)
+            keyword_re = re.compile(rf"\b{re.escape(pattern)}\b", re.IGNORECASE)
+            if keyword_re.search(expr_stripped):
+                msg = f"Forbidden keyword '{pattern}' in expression"
+                raise ValidationError(msg, action="enrich", tenant="unknown")
 
-    # Check if expression uses only safe patterns
-    # Allow literals (numbers, strings, booleans)
+    # Allow literals (numbers, strings, booleans, null)
     if expr_lower in ("true", "false", "null"):
-        return expr
+        return expr_stripped
 
     # Allow numeric literals
     try:
-        float(expr)
-        return expr
+        float(expr_stripped)
+        return expr_stripped
     except ValueError:
         pass
 
-    # Allow string literals
-    if (expr.startswith("'") and expr.endswith("'")) or (expr.startswith('"') and expr.endswith('"')):
-        return expr
+    # Allow string literals (single or double quoted)
+    if (expr_stripped.startswith("'") and expr_stripped.endswith("'") and expr_stripped.count("'") == 2) or \
+       (expr_stripped.startswith('"') and expr_stripped.endswith('"') and expr_stripped.count('"') == 2):
+        # Check for injection attempts within string
+        inner = expr_stripped[1:-1]
+        if "'" in inner or '"' in inner or "\\" in inner:
+            msg = "String literals cannot contain quotes or escapes"
+            raise ValidationError(msg, action="enrich", tenant="unknown")
+        return expr_stripped
 
-    # Check for safe function/property patterns
-    has_safe_pattern = any(expr_lower.startswith(p) or f" {p}" in expr_lower or f"({p}" in expr_lower for p in _SAFE_EXPR_PATTERNS)
-    if not has_safe_pattern:
-        # Allow simple arithmetic on properties: n.prop + 1, n.prop * 2, etc.
-        if "n." in expr_lower:
-            return expr
-        msg = f"Expression '{expr}' does not match allowed patterns"
+    # Check for safe function calls
+    has_safe_function = any(expr_lower.startswith(f) or f" {f}" in expr_lower or f"({f}" in expr_lower for f in _SAFE_CYPHER_FUNCTIONS)
+
+    # Check for property access pattern: n.property_name
+    has_property_access = "n." in expr_lower
+
+    if not has_safe_function and not has_property_access:
+        msg = f"Expression '{expr_stripped}' does not match allowed patterns"
         raise ValidationError(msg, action="enrich", tenant="unknown")
+
+    # Validate property names in n.property patterns
+    property_refs = re.findall(r"n\.([a-zA-Z_][a-zA-Z0-9_]*)", expr_stripped)
+    for prop in property_refs:
+        if not _PROPERTY_NAME_RE.match(prop):
+            msg = f"Invalid property name '{prop}' in expression"
+            raise ValidationError(msg, action="enrich", tenant="unknown")
+
+    # Only allow safe arithmetic operators
+    allowed_operators = {"+", "-", "*", "/", "%", "(", ")", ",", ".", " "}
+    allowed_chars = set("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_")
+    allowed_chars.update(allowed_operators)
+
+    for char in expr_stripped:
+        if char not in allowed_chars:
+            msg = f"Disallowed character '{char}' in expression"
+            raise ValidationError(msg, action="enrich", tenant="unknown")
+
+    return expr_stripped
 
 
 async def handle_match(tenant: str, payload: dict[str, Any]) -> dict[str, Any]:

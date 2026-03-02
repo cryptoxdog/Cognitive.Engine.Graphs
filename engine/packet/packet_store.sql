@@ -166,7 +166,7 @@ CREATE INDEX idx_ps_envelope         ON packet_store USING GIN (envelope jsonb_p
 CREATE INDEX idx_ht_packet           ON hop_trace (packet_id, seq);
 CREATE INDEX idx_dc_packet           ON delegation_chain (packet_id, seq);
 CREATE INDEX idx_pal_packet          ON packet_audit_log (packet_id);
-CREATE INDEX idx_pal_tenant          ON packet_audit_log (actor_tenant, performed_at DESC);
+CREATE INDEX idx_pal_tenant          ON packet_audit_log (tenant, timestamp DESC);
 CREATE INDEX idx_lg_child            ON lineage_graph (child_id);
 
 -- ════════════════════════════════════════════════════════════════
@@ -222,7 +222,7 @@ CREATE POLICY deleg_tenant ON delegation_chain
 -- Audit log: tenant sees only its own audit entries
 CREATE POLICY audit_tenant ON packet_audit_log
     FOR SELECT USING (
-        actor_tenant = current_setting('app.current_tenant', true)
+        tenant = current_setting('app.current_tenant', true)
     );
 
 -- Audit log: insert-only, no delete/update
@@ -291,8 +291,8 @@ BEGIN
     WHERE content_hash = v_hash AND actor_tenant = v_tenant;
 
     IF v_id IS NOT NULL THEN
-        INSERT INTO packet_audit_log (packet_id, actor_tenant, action, performed_by)
-        VALUES (v_id, v_tenant, 'DEDUP_SKIP', p_envelope->'address'->>'source_node');
+        INSERT INTO packet_audit_log (packet_id, tenant, action, actor, detail)
+        VALUES (v_id, v_tenant, 'DEDUP_SKIP', p_envelope->'address'->>'source_node', 'Duplicate content hash');
         RETURN v_id;
     END IF;
 
@@ -385,7 +385,7 @@ BEGIN
     FROM jsonb_array_elements(COALESCE(p_envelope->'delegation_chain', '[]'::JSONB)) AS elem;
 
     -- audit log
-    INSERT INTO packet_audit_log (packet_id, actor_tenant, action, performed_by)
+    INSERT INTO packet_audit_log (packet_id, tenant, action, actor)
     VALUES (v_id, v_tenant, 'INSERT', p_envelope->'address'->>'source_node');
 
     RETURN v_id;
@@ -399,8 +399,9 @@ DECLARE
     v_count INT;
 BEGIN
     -- Log before delete (audit survives)
-    INSERT INTO packet_audit_log (packet_id, actor_tenant, action, performed_by, detail)
+    INSERT INTO packet_audit_log (packet_id, tenant, action, actor, detail, metadata)
     SELECT packet_id, actor_tenant, 'GDPR_DELETE', p_performed_by,
+           'Right to erasure request',
            jsonb_build_object('data_subject_id', p_subject_id, 'reason', 'right_to_erasure')
     FROM packet_store WHERE data_subject_id = p_subject_id;
 
@@ -415,8 +416,8 @@ CREATE OR REPLACE FUNCTION prune_expired_packets()
 RETURNS INT LANGUAGE plpgsql AS $$
 DECLARE v_count INT;
 BEGIN
-    INSERT INTO packet_audit_log (packet_id, actor_tenant, action, performed_by)
-    SELECT packet_id, actor_tenant, 'TTL_PRUNE', 'system'
+    INSERT INTO packet_audit_log (packet_id, tenant, action, actor, detail)
+    SELECT packet_id, actor_tenant, 'TTL_PRUNE', 'system', 'Expired packet pruned'
     FROM packet_store WHERE ttl < now();
 
     DELETE FROM packet_store WHERE ttl < now();

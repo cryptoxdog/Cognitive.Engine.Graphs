@@ -239,10 +239,11 @@ class GDSScheduler:
         Half-life: 180 days for acceptance, 90 days for rejection (shorter = faster decay)
         """
         db = self.domain_spec.domain.id
+        node_label = self._get_candidate_label(job_spec)
 
         # Phase 1: Build ACCEPTED_MATERIAL_FROM edges
-        accepted_cypher = """
-        MATCH (buyer:Facility)-[t:TRANSACTED_WITH]->(seller:Facility)
+        accepted_cypher = f"""
+        MATCH (buyer:{node_label})-[t:TRANSACTED_WITH]->(seller:{node_label})
         WHERE t.outcome IS NOT NULL
         WITH buyer, seller,
              sum(CASE WHEN t.outcome = 'success' THEN 1 ELSE 0 END) AS accepted,
@@ -266,8 +267,8 @@ class GDSScheduler:
         """
 
         # Phase 2: Build REJECTED_MATERIAL_FROM edges
-        rejected_cypher = """
-        MATCH (buyer:Facility)-[t:TRANSACTED_WITH]->(seller:Facility)
+        rejected_cypher = f"""
+        MATCH (buyer:{node_label})-[t:TRANSACTED_WITH]->(seller:{node_label})
         WHERE t.outcome = 'failure'
         WITH buyer, seller,
              count(t) AS rejected,
@@ -329,10 +330,11 @@ class GDSScheduler:
         RECENTLY_TRANSACTED_WITH is the hot temporal overlay.
         """
         db = self.domain_spec.domain.id
+        node_label = self._get_candidate_label(job_spec)
 
         # Create/update recency edges
-        create_cypher = """
-        MATCH (buyer:Facility)-[t:TRANSACTED_WITH]->(seller:Facility)
+        create_cypher = f"""
+        MATCH (buyer:{node_label})-[t:TRANSACTED_WITH]->(seller:{node_label})
         WHERE t.last_date IS NOT NULL
         WITH buyer, seller, t,
              duration.inDays(t.last_date, datetime()).days AS age_days
@@ -400,30 +402,58 @@ class GDSScheduler:
         return {"edges_created": edges}
 
     async def _run_equipment_sync(self, job_spec: GDSJobSpec) -> dict:
-        """Materialize boolean Facility props as HAS_EQUIPMENT edges."""
+        """Materialize boolean entity props as HAS_EQUIPMENT edges."""
         db = self.domain_spec.domain.id
-        cypher = """
-        MATCH (f:Facility)
+        node_label = self._get_candidate_label(job_spec)
+
+        # Get equipment properties from ontology or use defaults
+        equipment_props = self._get_equipment_properties(job_spec)
+
+        # Build dynamic CASE statements for equipment detection
+        case_statements = [
+            f"CASE WHEN f.{prop} = true THEN '{name}' END"
+            for prop, name in equipment_props
+        ]
+        case_list = ",\n            ".join(case_statements)
+
+        cypher = f"""
+        MATCH (f:{node_label})
         WITH f, [
-            CASE WHEN f.has_shredder = true THEN 'shredder' END,
-            CASE WHEN f.has_granulator = true THEN 'granulator' END,
-            CASE WHEN f.has_wash_line = true THEN 'washline' END,
-            CASE WHEN f.has_extruder = true THEN 'extruder' END,
-            CASE WHEN f.has_sorting_line = true THEN 'sortingline' END,
-            CASE WHEN f.handles_regrind = true THEN 'regrindhandler' END,
-            CASE WHEN f.handles_flake = true THEN 'flakehandler' END,
-            CASE WHEN f.handles_rollstock = true THEN 'rollstockhandler' END
+            {case_list}
         ] AS equipment_names
         UNWIND equipment_names AS eq_name
         WITH f, eq_name WHERE eq_name IS NOT NULL
-        MATCH (e:EquipmentType {name: eq_name})
+        MATCH (e:EquipmentType {{name: eq_name}})
         MERGE (f)-[:HAS_EQUIPMENT]->(e)
         RETURN count(*) AS edges_created
         """
         result = await self.graph_driver.execute_query(cypher, database=db)
         edges = result[0]["edges_created"] if result else 0
-        logger.info(f"Equipment sync: {edges} HAS_EQUIPMENT edges")
+        logger.info(f"Equipment sync: {edges} HAS_EQUIPMENT edges for {node_label}")
         return {"edges_created": edges}
+
+    def _get_equipment_properties(self, job_spec: GDSJobSpec) -> list[tuple[str, str]]:
+        """
+        Get equipment boolean properties from job spec or ontology.
+        Returns list of (property_name, equipment_type_name) tuples.
+        """
+        # Check if job spec has explicit equipment mappings
+        if job_spec.writeproperties:
+            for prop in job_spec.writeproperties:
+                if "equipment_mappings" in prop:
+                    return [(k, v) for k, v in prop["equipment_mappings"].items()]
+
+        # Default equipment mappings (plastics domain)
+        return [
+            ("has_shredder", "shredder"),
+            ("has_granulator", "granulator"),
+            ("has_wash_line", "washline"),
+            ("has_extruder", "extruder"),
+            ("has_sorting_line", "sortingline"),
+            ("handles_regrind", "regrindhandler"),
+            ("handles_flake", "flakehandler"),
+            ("handles_rollstock", "rollstockhandler"),
+        ]
 
     # ── Lifecycle ──────────────────────────────────────────
 

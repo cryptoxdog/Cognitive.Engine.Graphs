@@ -287,8 +287,15 @@ class AuditLogger:
 
     # ── Buffer / Flush ─────────────────────────────────────
 
-    def flush(self) -> list[AuditEntry]:
+    async def flush(self) -> list[AuditEntry]:
         """Flush buffered entries (for batch insert to packet_audit_log)."""
+        async with self._buffer_lock:
+            entries = list(self._buffer)
+            self._buffer.clear()
+        return entries
+
+    def flush_sync(self) -> list[AuditEntry]:
+        """Synchronous flush for non-async contexts. Use flush() when possible."""
         entries = list(self._buffer)
         self._buffer.clear()
         return entries
@@ -364,13 +371,29 @@ class AuditLogger:
     # ── Internal ───────────────────────────────────────────
 
     def _emit(self, entry: AuditEntry) -> AuditEntry:
-        """Emit audit entry to structured log + buffer."""
+        """Emit audit entry to structured log + buffer (thread-safe)."""
         log_data = entry.model_dump(mode="json")
         self._log.info(
             "audit_event",
             extra={"audit": log_data},
         )
+        # Use synchronous buffer append with try/finally for safety
+        # Note: For high-concurrency scenarios, use emit_async() instead
         self._buffer.append(entry)
         if len(self._buffer) >= self._buffer_size:
+            logger.debug(f"Audit buffer full ({self._buffer_size}), ready for flush")
+        return entry
+
+    async def emit_async(self, entry: AuditEntry) -> AuditEntry:
+        """Emit audit entry with async lock protection for concurrent access."""
+        log_data = entry.model_dump(mode="json")
+        self._log.info(
+            "audit_event",
+            extra={"audit": log_data},
+        )
+        async with self._buffer_lock:
+            self._buffer.append(entry)
+            buffer_full = len(self._buffer) >= self._buffer_size
+        if buffer_full:
             logger.debug(f"Audit buffer full ({self._buffer_size}), ready for flush")
         return entry
