@@ -17,6 +17,9 @@ Each domain pack is a complete, self-contained specification that the engine loa
 
 ## Domain Pack Structure
 
+Two structures are supported:
+
+### Subdirectory Structure (Recommended for complex domains)
 ```
 domains/
 ├── {domain-id}/
@@ -24,6 +27,15 @@ domains/
 │   └── queries/           # Optional custom Cypher overrides
 │       └── {gate-name}.cypher
 ```
+
+### Flat File Structure (Simple domains)
+```
+domains/
+├── {domain_id}_domain_spec.yaml    # Self-contained spec file
+```
+
+The loader checks both patterns. Use subdirectory structure when you need
+custom Cypher overrides or additional domain-specific resources.
 
 ## Available Domains
 
