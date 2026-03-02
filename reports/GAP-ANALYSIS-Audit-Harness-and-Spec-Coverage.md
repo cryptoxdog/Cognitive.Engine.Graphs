@@ -2,6 +2,7 @@
 
 **Scope:** Audit harness explanation, spec coverage extractor, and “what the harness does / doesn’t do” (from `current work/yes that sounds like the logical next step - i ena.md`).  
 **Date:** 2026-03-02  
+**Status:** Gaps 1 and 2 closed (0 MISSING; harness doc complete in repo).
 
 ---
 
@@ -25,7 +26,7 @@
 | **Harness behavior** | `audit_engine.py` + `spec_extract.py` present; `make audit` runs both | Same | None |
 | **Harness explanation** | `docs/Audit Harness-Explained.md` has “what it does/doesn’t” and “when to run” | Full explanation in repo | Doc in repo is abbreviated; full version only in `current work/` |
 | **Spec extractor** | `tools/spec_extract.py` exists; manifest + Makefile + CI wired | Same | None |
-| **Spec coverage results** | 27 implemented, 7 partial, **2 missing** (of 36) | 0 MISSING | 2 MISSING action handlers |
+| **Spec coverage results** | 27 implemented, 9 partial, **0 missing** (of 36) | 0 MISSING | **Closed** — enrich/healthcheck handlers present |
 | **CI strictness** | `audit.yml` uses `--fail-on NONE` | Optional: `--fail-on MISSING` when ready | Optional gap |
 | **Pre-commit** | Contract scanner + verify_contracts run on commit | Doc suggests “make audit” before commit | Optional: no `make audit` in pre-commit |
 
@@ -35,8 +36,8 @@
 
 | # | Gap | Priority | Impact | Effort | Fix |
 |---|-----|----------|--------|--------|-----|
-| 1 | **2 MISSING spec features** | High | Spec coverage gate can’t be strict; `make audit-strict` fails | Medium | Add `handle_enrich` and `handle_healthcheck` (or register stubs) in `engine/handlers.py`; or adjust spec_extract search tokens so existing wiring counts as IMPLEMENTED. |
-| 2 | **Full harness doc not in repo** | Medium | Team/Cursor see abbreviated “what it does”; full “two tools together”, “when/how”, and spec_extract description live only in `current work/` | Low | Copy or merge the full explanation from `current work/yes that sounds like...md` into `docs/Audit Harness-Explained.md` (or add `docs/Audit-Harness-and-Spec-Coverage.md`). |
+| 1 | ~~2 MISSING spec features~~ | **CLOSED** | Spec coverage gate can’t be strict; `make audit-strict` fails | Medium | Add `handle_enrich` and `handle_healthcheck` (or register stubs) in `engine/handlers.py`; or adjust spec_extract search tokens so existing wiring counts as IMPLEMENTED. |
+| 2 | ~~Full harness doc not in repo~~ | **CLOSED** | Team/Cursor see abbreviated “what it does”; full “two tools together”, “when/how”, and spec_extract description live only in `current work/` | Low | Copy or merge the full explanation from `current work/yes that sounds like...md` into `docs/Audit Harness-Explained.md` (or add `docs/Audit-Harness-and-Spec-Coverage.md`). |
 | 3 | **7 PARTIAL features** | Medium | Spec matrix shows partial for v1.1 actions, outcome_weighted, and some action_handler hits (single file) | Low–Medium | Either implement to 2+ evidence files per feature, or relax spec_extract “IMPLEMENTED” rule (e.g. 1 file = IMPLEMENTED for handlers). |
 | 4 | **CI uses --fail-on NONE** | Low | Merge not blocked by MISSING spec features | Trivial | When ready: in `.github/workflows/audit.yml`, change spec_extract to `--fail-on MISSING`. |
 | 5 | **No pre-commit for make audit** | Low | Developers can commit without running full audit | Low | Add a pre-commit local hook that runs `make audit` (or only `audit_engine.py` + `spec_extract.py`); consider time cost. |
@@ -70,8 +71,8 @@
 ## Summary
 
 - **Harness and spec extractor:** Implemented and wired (audit_engine, Makefile, CI, manifest).  
-- **Main gaps:** 2 MISSING spec features (enrich, healthcheck) and the full harness explanation living only in `current work/`.  
-- **Next:** Prefer closing the 2 MISSING and putting the full explanation in repo docs; then tighten CI and pre-commit if desired.
+- **Gaps 1 and 2 closed:** 0 MISSING (enrich/healthcheck handlers present); harness doc complete in `docs/Audit Harness-Explained.md`.  
+- **Remaining (optional):** CI `--fail-on MISSING`, pre-commit for `make audit`, reduce PARTIALs if desired.
 
 ---
 

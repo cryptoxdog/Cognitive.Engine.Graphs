@@ -1,5 +1,9 @@
 # L9 Audit Harness & Spec Coverage Extractor
 
+Run **`make audit`** for full architecture compliance + spec coverage. Reports go to `artifacts/`.
+
+---
+
 ## What the Audit Harness Does (and Doesn't)
 
 ### ✅ What It Does
@@ -112,4 +116,4 @@ The `.github/workflows/audit.yml` workflow runs both tools on every PR and push 
 2. Spec coverage (`python tools/spec_extract.py --fail-on NONE`)
 3. Upload reports to artifacts
 
-Use `--fail-on MISSING` when you're ready to enforce full spec coverage. Use `--fail-on NONE` during active development so you can see the matrix without blocking.
+Use `--fail-on MISSING` when you're ready to enforce full spec coverage (CI will block merge if any feature is MISSING). Use `--fail-on NONE` during active development so you can see the matrix without blocking. When all features are IMPLEMENTED or PARTIAL, switch to `--fail-on MISSING` to gate merges on spec coverage.
