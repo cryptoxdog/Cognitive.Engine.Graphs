@@ -1,4 +1,62 @@
 """
+--- L9_META ---
+l9_schema: 1
+origin: engine-specific
+engine: graph
+layer: [config]
+tags: [compliance, prohibited-factors]
+owner: engine-team
+status: active
+--- /L9_META ---
+
+Prohibited factor enforcement.
+Blocks protected attributes at compile-time (ECOA, HIPAA, etc.).
+"""
+
+import logging
+
+from engine.config.schema import DomainSpec, GateSpec
+
+logger = logging.getLogger(__name__)
 
 
---- L9_META ---l9_schema: 1origin: engine-specificengine: graphlayer: [config]tags: [compliance, prohibited-factors]owner: engine-teamstatus: active--- /L9_META ---Prohibited factor enforcement.Blocks protected attributes at compile-time (ECOA, HIPAA, etc.)."""import loggingfrom engine.config.schema import DomainSpec, GateSpeclogger = logging.getLogger(__name__)class ProhibitedFactorValidator:    """Validates gates don't use prohibited factors."""    def __init__(self, domain_spec: DomainSpec):        self.domain_spec = domain_spec        self.blocked_fields: set[str] = set()        if domain_spec.compliance and domain_spec.compliance.prohibitedfactors:            pf_config = domain_spec.compliance.prohibitedfactors            if pf_config.enabled:                self.blocked_fields = set(pf_config.blockedfields)    def validate_gate(self, gate_spec: GateSpec) -> None:        """        Validate gate doesn't reference prohibited fields.        Checks ALL property reference fields:        - candidateprop, candidateprop_min, candidateprop_max        - queryparam, queryparam_start, queryparam_end        - fromnode, tonode        - pattern (for field references within patterns)        Args:            gate_spec: Gate specification        Raises:            ValueError: If gate references prohibited field        """        if not self.blocked_fields:            return  # No prohibited factors configured        # All property reference fields to check        fields_to_check = [            ("candidateprop", getattr(gate_spec, "candidateprop", None)),            ("candidateprop_min", getattr(gate_spec, "candidateprop_min", None)),            ("candidateprop_max", getattr(gate_spec, "candidateprop_max", None)),            ("queryparam", getattr(gate_spec, "queryparam", None)),            ("queryparam_start", getattr(gate_spec, "queryparam_start", None)),            ("queryparam_end", getattr(gate_spec, "queryparam_end", None)),            ("fromnode", getattr(gate_spec, "fromnode", None)),            ("tonode", getattr(gate_spec, "tonode", None)),        ]        for field_name, field_value in fields_to_check:            if field_value and field_value in self.blocked_fields:                raise ValueError(                    f"Gate '{gate_spec.name}' references prohibited field '{field_value}' "                    f"via '{field_name}'. Blocked fields: {self.blocked_fields}"                )        # Check pattern for embedded field references (e.g., "n.race", "n.gender")        pattern = getattr(gate_spec, "pattern", None)        if pattern:            for blocked in self.blocked_fields:                # Check for .field_name patterns                if f".{blocked}" in pattern or f"['{blocked}']" in pattern:                    raise ValueError(                        f"Gate '{gate_spec.name}' references prohibited field '{blocked}' "                        f"in pattern. Blocked fields: {self.blocked_fields}"                    )        logger.debug(f"Gate '{gate_spec.name}' passed prohibited factor validation")
+class ProhibitedFactorValidator:
+    """Validates gates don't use prohibited factors."""
+
+    def __init__(self, domain_spec: DomainSpec):
+        self.domain_spec = domain_spec
+        self.blocked_fields: set[str] = set()
+
+        if domain_spec.compliance and domain_spec.compliance.prohibitedfactors:
+            pf_config = domain_spec.compliance.prohibitedfactors
+            if pf_config.enabled:
+                self.blocked_fields = set(pf_config.blockedfields)
+
+    def validate_gate(self, gate_spec: GateSpec) -> None:
+        """
+        Validate gate doesn't reference prohibited fields.
+
+        Args:
+            gate_spec: Gate specification
+
+        Raises:
+            ValueError: If gate references prohibited field
+        """
+        if not self.blocked_fields:
+            return  # No prohibited factors configured
+
+        # Check candidate property
+        if gate_spec.candidateprop and gate_spec.candidateprop in self.blocked_fields:
+            raise ValueError(
+                f"Gate '{gate_spec.name}' references prohibited field '{gate_spec.candidateprop}'. "
+                f"Blocked fields: {self.blocked_fields}"
+            )
+
+        # Check query parameter
+        if gate_spec.queryparam and gate_spec.queryparam in self.blocked_fields:
+            raise ValueError(
+                f"Gate '{gate_spec.name}' references prohibited field '{gate_spec.queryparam}'. "
+                f"Blocked fields: {self.blocked_fields}"
+            )
+
+        logger.debug(f"Gate '{gate_spec.name}' passed prohibited factor validation")

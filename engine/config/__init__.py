@@ -1,2 +1,35 @@
-#
---- L9_META ---l9_schema: 1origin: engine-specificengine: graphlayer: [config]tags: [config]owner: engine-teamstatus: active--- /L9_META ---engine/config/__init__.py"""Configuration loading and validation for domain packs."""from engine.config.loader import DomainPackLoaderfrom engine.config.schema import (    DomainSpec,    EdgeSpec,    GateSpec,    NodeSpec,    OntologySpec,    ScoringSpec,    TraversalSpec,)from engine.config.units import UnitConverter__all__ = [    "DomainPackLoader",    "DomainSpec",    "EdgeSpec",    "GateSpec",    "NodeSpec",    "OntologySpec",    "ScoringSpec",    "TraversalSpec",    "UnitConverter",]
+# --- L9_META ---
+# l9_schema: 1
+# origin: engine-specific
+# engine: graph
+# layer: [config]
+# tags: [config]
+# owner: engine-team
+# status: active
+# --- /L9_META ---
+# engine/config/__init__.py
+"""Configuration loading and validation for domain packs."""
+
+from engine.config.loader import DomainPackLoader
+from engine.config.schema import (
+    DomainSpec,
+    EdgeSpec,
+    GateSpec,
+    NodeSpec,
+    OntologySpec,
+    ScoringSpec,
+    TraversalSpec,
+)
+from engine.config.units import UnitConverter
+
+__all__ = [
+    "DomainPackLoader",
+    "DomainSpec",
+    "EdgeSpec",
+    "GateSpec",
+    "NodeSpec",
+    "OntologySpec",
+    "ScoringSpec",
+    "TraversalSpec",
+    "UnitConverter",
+]

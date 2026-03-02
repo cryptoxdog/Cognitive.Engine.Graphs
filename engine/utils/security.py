@@ -1,4 +1,34 @@
 """
+--- L9_META ---
+l9_schema: 1
+origin: engine-specific
+engine: graph
+layer: [config]
+tags: [utils, security, sanitize]
+owner: engine-team
+status: active
+--- /L9_META ---
+
+engine/utils/security.py
+Security utilities for the L9 Graph Cognitive Engine.
+"""
+
+from __future__ import annotations
+
+import re
 
 
---- L9_META ---l9_schema: 1origin: engine-specificengine: graphlayer: [config]tags: [utils, security, sanitize]owner: engine-teamstatus: active--- /L9_META ---engine/utils/security.pySecurity utilities for the L9 Graph Cognitive Engine."""from __future__ import annotationsimport redef sanitize_label(label: str) -> str:    """    Validate Neo4j label/relationship type to prevent Cypher injection.    SECURITY: Labels are interpolated into Cypher queries. User-uploaded    domain specs could contain malicious labels with injection payloads.    Valid labels: [A-Za-z_][A-Za-z0-9_]*    Raises ValueError if invalid.    """    if not re.match(r"^[A-Za-z_][A-Za-z0-9_]*$", label):        raise ValueError(f"Invalid label or type: {label!r}")    return label# Cypher injection patterns to block_CYPHER_INJECTION_PATTERNS = [    r"(?i)\b(MATCH|MERGE|CREATE|DELETE|DETACH|SET|REMOVE|CALL|RETURN|WITH|UNWIND|FOREACH|LOAD|CSV)\b",    r"[;{}]",  # Statement terminators and blocks    r"//",  # Comments    r"/\*",  # Block comments    r"\$\{",  # Variable interpolation attempts    r"apoc\.",  # APOC procedure calls    r"gds\.",  # GDS procedure calls    r"dbms\.",  # DBMS procedure calls]# Allowed Cypher expression patterns for enrichment_ALLOWED_EXPRESSION_PATTERNS = [    r"^[a-zA-Z_][a-zA-Z0-9_]*$",  # Simple property reference    r"^[a-zA-Z_][a-zA-Z0-9_]*\.[a-zA-Z_][a-zA-Z0-9_]*$",  # Qualified property (n.prop)    r"^[\d.]+$",  # Numeric literal    r'^"[^"]*"$',  # String literal (double quotes)    r"^'[^']*'$",  # String literal (single quotes)    r"^coalesce\([^)]+\)$",  # coalesce function    r"^toInteger\([^)]+\)$",  # Type conversion    r"^toFloat\([^)]+\)$",  # Type conversion    r"^toString\([^)]+\)$",  # Type conversion    r"^datetime\(\)$",  # Current datetime    r"^date\(\)$",  # Current date    r"^timestamp\(\)$",  # Current timestamp    r"^\$[a-zA-Z_][a-zA-Z0-9_]*$",  # Parameter reference]def validate_cypher_expression(expression: str) -> str:    """    Validate a Cypher expression for safe interpolation.    SECURITY: Expressions from user input (e.g., enrich action) are interpolated    into SET clauses. This function blocks injection attempts.    Allowed:    - Property references: prop, n.prop    - Numeric/string literals: 42, 3.14, "hello", 'world'    - Safe functions: coalesce(), toInteger(), toFloat(), toString()    - Temporal: datetime(), date(), timestamp()    - Parameters: $param_name    Blocked:    - Cypher keywords: MATCH, MERGE, CREATE, DELETE, etc.    - Statement terminators: ; { }    - Comments: // /* */    - Procedure calls: apoc.*, gds.*, dbms.*    Raises ValueError if expression contains injection patterns.    """    expr = expression.strip()    if not expr:        raise ValueError("Empty expression not allowed")    if len(expr) > 500:        raise ValueError(f"Expression too long ({len(expr)} chars, max 500)")    # Check for injection patterns    for pattern in _CYPHER_INJECTION_PATTERNS:        if re.search(pattern, expr):            raise ValueError(f"Cypher injection pattern detected in expression: {expr!r}")    # Check if expression matches any allowed pattern    for pattern in _ALLOWED_EXPRESSION_PATTERNS:        if re.match(pattern, expr):            return expr    # For complex expressions, do additional validation    # Allow simple arithmetic: n.prop + 1, n.prop * 2, etc.    if re.match(r"^[a-zA-Z_][a-zA-Z0-9_.]*\s*[+\-*/]\s*[\d.]+$", expr):        return expr    # Allow property + property: n.prop1 + n.prop2    if re.match(r"^[a-zA-Z_][a-zA-Z0-9_.]*\s*[+\-*/]\s*[a-zA-Z_][a-zA-Z0-9_.]*$", expr):        return expr    raise ValueError(f"Expression not in allowed format: {expr!r}")
+def sanitize_label(label: str) -> str:
+    """
+    Validate Neo4j label/relationship type to prevent Cypher injection.
+
+    SECURITY: Labels are interpolated into Cypher queries. User-uploaded
+    domain specs could contain malicious labels with injection payloads.
+
+    Valid labels: [A-Za-z_][A-Za-z0-9_]*
+
+    Raises ValueError if invalid.
+    """
+    if not re.match(r"^[A-Za-z_][A-Za-z0-9_]*$", label):
+        raise ValueError(f"Invalid label or type: {label!r}")
+    return label

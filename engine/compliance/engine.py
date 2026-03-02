@@ -26,17 +26,7 @@ class ComplianceEngine:
     def __init__(self, domain_spec: DomainSpec) -> None:
         self._spec = domain_spec
         self._prohibited = ProhibitedFactorValidator(domain_spec)
-
-        # Extract domain-specific PII fields if configured
-        additional_pii = None
-        if (
-            domain_spec.compliance
-            and domain_spec.compliance.pii
-            and hasattr(domain_spec.compliance.pii, "additional_fields")
-        ):
-            additional_pii = domain_spec.compliance.pii.additional_fields
-
-        self._pii = PIIHandler(additional_pii_fields=additional_pii)
+        self._pii = PIIHandler()  # Uses default PII field hints
         self._audit = AuditLogger()  # Uses default retention policies
         self._enabled = bool(
             domain_spec.compliance
@@ -88,22 +78,10 @@ class ComplianceEngine:
         *,
         tenant: str,
         entity_type: str,
-        batch: list[dict[str, Any]],
+        batch_size: int,
         trace_id: str | None = None,
-    ) -> list[dict[str, Any]]:
-        """
-        Run pre-sync compliance checks.
-
-        1. Audit the sync operation
-        2. Scan batch for PII fields
-        3. Mask PII in batch data before sync
-
-        Returns:
-            Sanitized batch with PII masked
-        """
-        batch_size = len(batch)
-
-        # Audit the sync operation
+    ) -> None:
+        """Audit sync operations."""
         self._audit.log_mutation(
             actor=tenant,
             tenant=tenant,
@@ -111,36 +89,6 @@ class ComplianceEngine:
             detail=f"Sync {entity_type} batch_size={batch_size}",
             trace_id=trace_id,
         )
-
-        if not self._enabled or not batch:
-            return batch
-
-        # Scan and mask PII in each batch item
-        sanitized_batch = []
-        pii_detected = False
-
-        for item in batch:
-            pii_fields = self._pii.get_pii_field_paths(item)
-            if pii_fields:
-                pii_detected = True
-                # Log PII access for audit trail
-                self._audit.log_access(
-                    actor=tenant,
-                    tenant=tenant,
-                    resource=f"{entity_type}:{item.get('entity_id', 'unknown')}",
-                    resource_type=entity_type,
-                    trace_id=trace_id,
-                    pii_fields_accessed=list(pii_fields),
-                )
-                # Mask PII before sync
-                sanitized_batch.append(self._pii.mask_fields(item, list(pii_fields)))
-            else:
-                sanitized_batch.append(item)
-
-        if pii_detected:
-            logger.warning(f"PII detected and masked in sync batch for {entity_type}")
-
-        return sanitized_batch
 
     def redact_response(
         self,

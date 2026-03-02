@@ -1,4 +1,16 @@
 """
+--- L9_META ---
+l9_schema: 1
+origin: engine-specific
+engine: graph
+layer: [config]
+tags: [scoring]
+owner: engine-team
+status: active
+--- /L9_META ---
 
+Scoring system."""
 
---- L9_META ---l9_schema: 1origin: engine-specificengine: graphlayer: [config]tags: [scoring]owner: engine-teamstatus: active--- /L9_META ---Scoring system."""from engine.scoring.assembler import ScoringAssembler__all__ = ["ScoringAssembler"]
+from engine.scoring.assembler import ScoringAssembler
+
+__all__ = ["ScoringAssembler"]
