@@ -1,0 +1,47 @@
+# Graph Cognitive Engine Rules
+
+## Core Principles
+- This is an L9 constellation engine. The chassis handles HTTP/auth/observability; engines handle domain logic only.
+- Engine NEVER imports FastAPI, Starlette, or any HTTP library.
+- Engine NEVER implements tenant resolution, auth, rate limiting, or CORS.
+- Engine NEVER creates routes. Only action handlers: `async def handle_X(tenant: str, payload: dict) -> dict`.
+
+## File Structure (Immutable)
+- `engine/handlers.py`: ONLY file that registers with chassis (register_all)
+- `engine/config/`: Domain spec schema + loader
+- `engine/gates/`: Gate compiler + types
+- `engine/scoring/`: Scoring assembler
+- `engine/traversal/`: Traversal assembler
+- `engine/sync/`: Sync generator
+- `engine/gds/`: GDS scheduler
+- `engine/graph/`: Neo4j driver wrapper
+- `engine/compliance/`: PII + prohibited factors
+- `engine/packet/`: PacketEnvelope bridge (chassis_contract.py)
+- `domains/`: {domain_id}_domain_spec.yaml (One per vertical)
+
+## Security (Non-Negotiable)
+- All Neo4j labels and relationship types MUST pass `sanitize_label()` before f-string interpolation.
+- Domain specs uploaded via admin endpoints are untrusted input → sanitize labels/types.
+- `sanitize_label()` regex: `^[A-Za-z_][A-Za-z0-9_]*$`
+- Cypher VALUES use parameterized queries ($batch, $query). Only labels/types are interpolated.
+
+## Chassis Integration Contract
+- `engine/handlers.py` is the ONLY file that imports chassis modules.
+- Handler signature: `async def handle_action(tenant: str, payload: dict) -> dict`
+- Register handlers: `chassis.router.register_handler("match", handle_match)`
+- Tenant comes FROM chassis (5-level resolution). Engine does not resolve tenant.
+- PacketEnvelope: Request/response must be wrapped via `inflate_ingress()` / `deflate_egress()` at chassis boundary.
+
+## Testing
+- Unit tests for gate compilation, scoring math, parameter resolution.
+- Integration tests use `testcontainers-neo4j` (do NOT mock Neo4j driver).
+- Compliance tests verify prohibited factors are blocked.
+- Performance tests verify <200ms p95 match latency.
+
+## What NOT to Build
+- ❌ FastAPI routes, APIRouter, app factories
+- ❌ Middleware for tenant resolution, auth, CORS
+- ❌ Logging configuration (structlog comes from chassis)
+- ❌ Prometheus metrics setup (chassis exposes /metrics)
+- ❌ Dockerfile, docker-compose.yml (use l9-root template)
+- ❌ CI/CD pipeline (use .github/workflows from template)
