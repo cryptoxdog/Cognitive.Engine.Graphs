@@ -284,6 +284,20 @@ def main() -> int:
     critical = len(grouped.get("CRITICAL", []))
     high = len(grouped.get("HIGH", []))
 
+    # --- Spec coverage (if spec exists) ---
+    import subprocess
+    spec_candidates = list(root.glob("*spec*.yaml")) + list(root.glob("*spec*.yml"))
+    if spec_candidates:
+        result = subprocess.run(
+            [sys.executable, str(root / "tools" / "spec_extract.py"),
+             "--spec", str(spec_candidates[0]),
+             "--root", str(root),
+             "--fail-on", "NONE"],  # don't double-fail; audit_engine owns exit code
+            capture_output=True, text=True,
+        )
+        if result.returncode != 0:
+            print(f"spec_extract warning: {result.stderr}", file=sys.stderr)
+
     if critical > 0:
         return 1
     if high > 0:

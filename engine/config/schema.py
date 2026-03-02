@@ -293,6 +293,8 @@ class ScoringDimensionSpec(BaseModel):
     minvalue: float | None = None
     maxvalue: float | None = None
     defaultwhennull: float = 0.0
+    decayconstant: float | None = None  # For geodecay: distance k in meters
+    bias: float | None = None  # For communitymatch: multiplicative boost
     weightkey: str
     defaultweight: float
     aggregation: ScoringAggregation = ScoringAggregation.ADDITIVE

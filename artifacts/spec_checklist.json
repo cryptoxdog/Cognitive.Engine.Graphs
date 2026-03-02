@@ -1,0 +1,1212 @@
+[
+  {
+    "category": "gates",
+    "name": "range",
+    "spec_reference": "gates (detected in spec text)",
+    "search_tokens": [
+      "range",
+      "range",
+      "\"range\"",
+      "GateType.RANGE"
+    ],
+    "search_files": [
+      "engine/gates/**/*.py"
+    ],
+    "status": "IMPLEMENTED",
+    "evidence_files": [
+      "UniversalDevelopmentPack.yaml",
+      "docs/PlasticOS Graph Cognitive Engine.yaml",
+      "docs/plasticos_domain_spec_v0.3.0.yaml",
+      "docs/plasticos_domain_spec_v0.4.yaml",
+      "domains/MASTER-SPEC-ALL-DOMAINS.yaml",
+      "domains/freight_matching_domain_spec.yaml",
+      "domains/healthcare_referral_domain_spec.yaml",
+      "domains/legal_discovery_domain_spec.yaml",
+      "domains/mortgage_brokerage_domain_spec.yaml",
+      "domains/roofing_company_domain_spec.yaml",
+      "engine/config/schema.py",
+      "engine/gates/compiler.py",
+      "engine/gates/null_semantics.py",
+      "engine/gates/registry.py",
+      "engine/gates/types/__init__.py",
+      "engine/gates/types/all_gates.py",
+      "graph-cognitive-engine-spec-v1.1.0.yaml",
+      "tests/integration/test_null_semantics.py",
+      "tests/performance/test_query_latency.py",
+      "tests/performance/test_sync_throughput.py",
+      "tests/unit/test_gates_all_types.py",
+      "tools/audit_engine.py",
+      "tools/spec_extract.py"
+    ],
+    "evidence_lines": [
+      "tools/spec_extract.py:115",
+      "tools/spec_extract.py:116",
+      "tools/spec_extract.py:117",
+      "tools/audit_engine.py:66",
+      "tests/unit/test_gates_all_types.py:17",
+      "tests/unit/test_gates_all_types.py:21",
+      "tests/unit/test_gates_all_types.py:23",
+      "tests/unit/test_gates_all_types.py:109",
+      "tests/unit/test_gates_all_types.py:110",
+      "tests/unit/test_gates_all_types.py:112"
+    ]
+  },
+  {
+    "category": "gates",
+    "name": "threshold",
+    "spec_reference": "gates (detected in spec text)",
+    "search_tokens": [
+      "threshold",
+      "threshold",
+      "\"threshold\"",
+      "GateType.THRESHOLD"
+    ],
+    "search_files": [
+      "engine/gates/**/*.py"
+    ],
+    "status": "IMPLEMENTED",
+    "evidence_files": [
+      ".github/pr_review_config.yaml",
+      "UniversalDevelopmentPack.yaml",
+      "docs/PlasticOS Graph Cognitive Engine.yaml",
+      "docs/plasticos_domain_spec_v0.3.0.yaml",
+      "docs/plasticos_domain_spec_v0.4.yaml",
+      "domains/MASTER-SPEC-ALL-DOMAINS.yaml",
+      "domains/aios_god_agent_domain_spec.yaml",
+      "domains/executive_assistant_domain_spec.yaml",
+      "domains/freight_matching_domain_spec.yaml",
+      "domains/healthcare_referral_domain_spec.yaml",
+      "domains/mortgage_brokerage_domain_spec.yaml",
+      "domains/repo_as_agent_domain_spec.yaml",
+      "domains/research_agent_domain_spec.yaml",
+      "domains/roofing_company_domain_spec.yaml",
+      "engine/config/schema.py",
+      "engine/config/settings.py",
+      "engine/gates/compiler.py",
+      "engine/gates/null_semantics.py",
+      "engine/gates/registry.py",
+      "engine/gates/types/__init__.py",
+      "engine/gates/types/all_gates.py",
+      "engine/gds/scheduler.py",
+      "graph-cognitive-engine-spec-v1.1.0.yaml",
+      "setup-new-workspace.yaml",
+      "tests/integration/test_null_semantics.py",
+      "tests/unit/test_gates_all_types.py",
+      "tools/spec_extract.py"
+    ],
+    "evidence_lines": [
+      "tools/spec_extract.py:115",
+      "tests/unit/test_gates_all_types.py:18",
+      "tests/unit/test_gates_all_types.py:34",
+      "tests/unit/test_gates_all_types.py:78",
+      "tests/unit/test_gates_all_types.py:79",
+      "tests/unit/test_gates_all_types.py:82",
+      "tests/unit/test_gates_all_types.py:308",
+      "tests/unit/test_gates_all_types.py:324",
+      "tests/unit/test_gates_all_types.py:351",
+      "tests/unit/test_gates_all_types.py:352"
+    ]
+  },
+  {
+    "category": "gates",
+    "name": "boolean",
+    "spec_reference": "gates (detected in spec text)",
+    "search_tokens": [
+      "boolean",
+      "boolean",
+      "\"boolean\"",
+      "GateType.BOOLEAN"
+    ],
+    "search_files": [
+      "engine/gates/**/*.py"
+    ],
+    "status": "IMPLEMENTED",
+    "evidence_files": [
+      "docs/PlasticOS Graph Cognitive Engine.yaml",
+      "docs/plasticos_domain_spec_v0.3.0.yaml",
+      "docs/plasticos_domain_spec_v0.4.yaml",
+      "domains/MASTER-SPEC-ALL-DOMAINS.yaml",
+      "domains/healthcare_referral_domain_spec.yaml",
+      "domains/legal_discovery_domain_spec.yaml",
+      "domains/mortgage_brokerage_domain_spec.yaml",
+      "domains/research_agent_domain_spec.yaml",
+      "domains/roofing_company_domain_spec.yaml",
+      "engine/config/schema.py",
+      "engine/gates/compiler.py",
+      "engine/gates/null_semantics.py",
+      "engine/gates/registry.py",
+      "engine/gates/types/__init__.py",
+      "engine/gates/types/all_gates.py",
+      "engine/gds/scheduler.py",
+      "graph-cognitive-engine-spec-v1.1.0.yaml",
+      "tests/integration/test_null_semantics.py",
+      "tests/unit/test_gates_all_types.py",
+      "tools/spec_extract.py"
+    ],
+    "evidence_lines": [
+      "tools/spec_extract.py:115",
+      "tests/unit/test_gates_all_types.py:16",
+      "tests/unit/test_gates_all_types.py:94",
+      "tests/unit/test_gates_all_types.py:95",
+      "tests/unit/test_gates_all_types.py:98",
+      "tests/unit/test_gates_all_types.py:228",
+      "tests/unit/test_gates_all_types.py:234",
+      "tests/unit/test_gates_all_types.py:249",
+      "tests/unit/test_gates_all_types.py:256",
+      "tests/unit/test_gates_all_types.py:273"
+    ]
+  },
+  {
+    "category": "gates",
+    "name": "composite",
+    "spec_reference": "gates (detected in spec text)",
+    "search_tokens": [
+      "composite",
+      "composite",
+      "\"composite\"",
+      "GateType.COMPOSITE"
+    ],
+    "search_files": [
+      "engine/gates/**/*.py"
+    ],
+    "status": "IMPLEMENTED",
+    "evidence_files": [
+      "docs/plasticos_domain_spec_v0.3.0.yaml",
+      "engine/config/schema.py",
+      "engine/gates/compiler.py",
+      "engine/gates/null_semantics.py",
+      "engine/gates/registry.py",
+      "engine/gates/types/__init__.py",
+      "engine/gates/types/all_gates.py",
+      "graph-cognitive-engine-spec-v1.1.0.yaml",
+      "tests/unit/test_gates_all_types.py",
+      "tools/spec_extract.py"
+    ],
+    "evidence_lines": [
+      "tools/spec_extract.py:115",
+      "tests/unit/test_gates_all_types.py:25",
+      "engine/gates/compiler.py:34",
+      "engine/gates/compiler.py:138",
+      "engine/gates/compiler.py:197",
+      "engine/gates/compiler.py:199",
+      "engine/gates/null_semantics.py:22",
+      "engine/gates/registry.py:4",
+      "engine/gates/registry.py:12",
+      "engine/gates/registry.py:31"
+    ]
+  },
+  {
+    "category": "gates",
+    "name": "enum_map",
+    "spec_reference": "gates (detected in spec text)",
+    "search_tokens": [
+      "enum_map",
+      "enummap",
+      "\"enum_map\"",
+      "GateType.ENUM_MAP"
+    ],
+    "search_files": [
+      "engine/gates/**/*.py"
+    ],
+    "status": "IMPLEMENTED",
+    "evidence_files": [
+      "docs/plasticos_domain_spec_v0.3.0.yaml",
+      "domains/MASTER-SPEC-ALL-DOMAINS.yaml",
+      "domains/freight_matching_domain_spec.yaml",
+      "domains/mortgage_brokerage_domain_spec.yaml",
+      "domains/roofing_company_domain_spec.yaml",
+      "engine/config/schema.py",
+      "engine/gates/compiler.py",
+      "engine/gates/null_semantics.py",
+      "engine/gates/registry.py",
+      "engine/gates/types/__init__.py",
+      "engine/gates/types/all_gates.py",
+      "graph-cognitive-engine-spec-v1.1.0.yaml",
+      "tests/unit/test_gates_all_types.py",
+      "tools/spec_extract.py"
+    ],
+    "evidence_lines": [
+      "tools/spec_extract.py:115",
+      "tests/unit/test_gates_all_types.py:19",
+      "tests/unit/test_gates_all_types.py:126",
+      "tests/unit/test_gates_all_types.py:127",
+      "tests/unit/test_gates_all_types.py:130",
+      "engine/gates/compiler.py:136",
+      "engine/gates/null_semantics.py:23",
+      "engine/gates/registry.py:13",
+      "engine/gates/registry.py:32",
+      "engine/config/schema.py:67"
+    ]
+  },
+  {
+    "category": "gates",
+    "name": "exclusion",
+    "spec_reference": "gates (detected in spec text)",
+    "search_tokens": [
+      "exclusion",
+      "exclusion",
+      "\"exclusion\"",
+      "GateType.EXCLUSION"
+    ],
+    "search_files": [
+      "engine/gates/**/*.py"
+    ],
+    "status": "IMPLEMENTED",
+    "evidence_files": [
+      "docs/plasticos_domain_spec_v0.3.0.yaml",
+      "docs/plasticos_domain_spec_v0.4.yaml",
+      "domains/MASTER-SPEC-ALL-DOMAINS.yaml",
+      "domains/mortgage_brokerage_domain_spec.yaml",
+      "engine/config/schema.py",
+      "engine/gates/compiler.py",
+      "engine/gates/null_semantics.py",
+      "engine/gates/registry.py",
+      "engine/gates/types/__init__.py",
+      "engine/gates/types/all_gates.py",
+      "graph-cognitive-engine-spec-v1.1.0.yaml",
+      "tests/conftest.py",
+      "tests/integration/test_multi_tenant.py",
+      "tests/integration/test_null_semantics.py",
+      "tests/unit/test_gates_all_types.py",
+      "tools/spec_extract.py"
+    ],
+    "evidence_lines": [
+      "tools/spec_extract.py:116",
+      "tests/conftest.py:132",
+      "tests/conftest.py:238",
+      "tests/unit/test_gates_all_types.py:20",
+      "tests/unit/test_gates_all_types.py:141",
+      "tests/unit/test_gates_all_types.py:142",
+      "tests/unit/test_gates_all_types.py:145",
+      "tests/unit/test_gates_all_types.py:382",
+      "tests/unit/test_gates_all_types.py:383",
+      "tests/unit/test_gates_all_types.py:391"
+    ]
+  },
+  {
+    "category": "gates",
+    "name": "self_range",
+    "spec_reference": "gates (detected in spec text)",
+    "search_tokens": [
+      "self_range",
+      "selfrange",
+      "\"self_range\"",
+      "GateType.SELF_RANGE"
+    ],
+    "search_files": [
+      "engine/gates/**/*.py"
+    ],
+    "status": "IMPLEMENTED",
+    "evidence_files": [
+      "docs/plasticos_domain_spec_v0.3.0.yaml",
+      "domains/MASTER-SPEC-ALL-DOMAINS.yaml",
+      "domains/healthcare_referral_domain_spec.yaml",
+      "domains/roofing_company_domain_spec.yaml",
+      "engine/config/schema.py",
+      "engine/gates/compiler.py",
+      "engine/gates/null_semantics.py",
+      "engine/gates/registry.py",
+      "engine/gates/types/__init__.py",
+      "engine/gates/types/all_gates.py",
+      "graph-cognitive-engine-spec-v1.1.0.yaml",
+      "tests/unit/test_gates_all_types.py",
+      "tools/spec_extract.py"
+    ],
+    "evidence_lines": [
+      "tools/spec_extract.py:116",
+      "tests/unit/test_gates_all_types.py:21",
+      "tests/unit/test_gates_all_types.py:156",
+      "tests/unit/test_gates_all_types.py:157",
+      "tests/unit/test_gates_all_types.py:160",
+      "engine/gates/compiler.py:35",
+      "engine/gates/compiler.py:139",
+      "engine/gates/compiler.py:223",
+      "engine/gates/null_semantics.py:25",
+      "engine/gates/registry.py:17"
+    ]
+  },
+  {
+    "category": "gates",
+    "name": "freshness",
+    "spec_reference": "gates (detected in spec text)",
+    "search_tokens": [
+      "freshness",
+      "freshness",
+      "\"freshness\"",
+      "GateType.FRESHNESS"
+    ],
+    "search_files": [
+      "engine/gates/**/*.py"
+    ],
+    "status": "IMPLEMENTED",
+    "evidence_files": [
+      "docs/plasticos_domain_spec_v0.3.0.yaml",
+      "docs/plasticos_domain_spec_v0.4.yaml",
+      "domains/MASTER-SPEC-ALL-DOMAINS.yaml",
+      "domains/research_agent_domain_spec.yaml",
+      "engine/config/schema.py",
+      "engine/config/settings.py",
+      "engine/gates/compiler.py",
+      "engine/gates/null_semantics.py",
+      "engine/gates/registry.py",
+      "engine/gates/types/__init__.py",
+      "engine/gates/types/all_gates.py",
+      "graph-cognitive-engine-spec-v1.1.0.yaml",
+      "tests/integration/test_null_semantics.py",
+      "tests/unit/test_gates_all_types.py",
+      "tools/spec_extract.py"
+    ],
+    "evidence_lines": [
+      "tools/spec_extract.py:116",
+      "tests/unit/test_gates_all_types.py:22",
+      "tests/unit/test_gates_all_types.py:173",
+      "tests/unit/test_gates_all_types.py:174",
+      "tests/unit/test_gates_all_types.py:177",
+      "tests/unit/test_gates_all_types.py:398",
+      "tests/unit/test_gates_all_types.py:399",
+      "tests/unit/test_gates_all_types.py:406",
+      "tests/integration/test_null_semantics.py:179",
+      "engine/gates/compiler.py:36"
+    ]
+  },
+  {
+    "category": "gates",
+    "name": "temporal_range",
+    "spec_reference": "gates (detected in spec text)",
+    "search_tokens": [
+      "temporal_range",
+      "temporalrange",
+      "\"temporal_range\"",
+      "GateType.TEMPORAL_RANGE"
+    ],
+    "search_files": [
+      "engine/gates/**/*.py"
+    ],
+    "status": "IMPLEMENTED",
+    "evidence_files": [
+      "docs/plasticos_domain_spec_v0.3.0.yaml",
+      "domains/MASTER-SPEC-ALL-DOMAINS.yaml",
+      "domains/freight_matching_domain_spec.yaml",
+      "domains/legal_discovery_domain_spec.yaml",
+      "engine/config/schema.py",
+      "engine/gates/compiler.py",
+      "engine/gates/null_semantics.py",
+      "engine/gates/registry.py",
+      "engine/gates/types/__init__.py",
+      "engine/gates/types/all_gates.py",
+      "graph-cognitive-engine-spec-v1.1.0.yaml",
+      "tests/unit/test_gates_all_types.py",
+      "tools/spec_extract.py"
+    ],
+    "evidence_lines": [
+      "tools/spec_extract.py:116",
+      "tests/unit/test_gates_all_types.py:23",
+      "tests/unit/test_gates_all_types.py:190",
+      "tests/unit/test_gates_all_types.py:191",
+      "tests/unit/test_gates_all_types.py:194",
+      "engine/gates/compiler.py:37",
+      "engine/gates/compiler.py:141",
+      "engine/gates/compiler.py:250",
+      "engine/gates/null_semantics.py:27",
+      "engine/gates/registry.py:18"
+    ]
+  },
+  {
+    "category": "gates",
+    "name": "traversal",
+    "spec_reference": "gates (detected in spec text)",
+    "search_tokens": [
+      "traversal",
+      "traversal",
+      "\"traversal\"",
+      "GateType.TRAVERSAL"
+    ],
+    "search_files": [
+      "engine/gates/**/*.py"
+    ],
+    "status": "IMPLEMENTED",
+    "evidence_files": [
+      ".github/pr_review_config.yaml",
+      "docs/plasticos_domain_spec_v0.3.0.yaml",
+      "docs/plasticos_domain_spec_v0.4.yaml",
+      "domains/MASTER-SPEC-ALL-DOMAINS.yaml",
+      "domains/aios_god_agent_domain_spec.yaml",
+      "domains/executive_assistant_domain_spec.yaml",
+      "domains/healthcare_referral_domain_spec.yaml",
+      "domains/mortgage_brokerage_domain_spec.yaml",
+      "domains/repo_as_agent_domain_spec.yaml",
+      "domains/roofing_company_domain_spec.yaml",
+      "engine/config/__init__.py",
+      "engine/config/schema.py",
+      "engine/gates/compiler.py",
+      "engine/gates/null_semantics.py",
+      "engine/gates/registry.py",
+      "engine/gates/types/__init__.py",
+      "engine/gates/types/all_gates.py",
+      "engine/handlers.py",
+      "engine/traversal/__init__.py",
+      "engine/traversal/assembler.py",
+      "graph-cognitive-engine-spec-v1.1.0.yaml",
+      "tests/conftest.py",
+      "tests/integration/test_null_semantics.py",
+      "tests/performance/test_query_latency.py",
+      "tests/unit/test_gates_all_types.py",
+      "tools/audit_rules.yaml",
+      "tools/spec_extract.py"
+    ],
+    "evidence_lines": [
+      "tools/spec_extract.py:117",
+      "tests/conftest.py:140",
+      "engine/handlers.py:21",
+      "engine/handlers.py:22",
+      "engine/handlers.py:41",
+      "engine/handlers.py:83",
+      "engine/handlers.py:84",
+      "engine/handlers.py:85",
+      "engine/handlers.py:104",
+      "tests/unit/test_gates_all_types.py:24"
+    ]
+  },
+  {
+    "category": "scoring",
+    "name": "geo_decay",
+    "spec_reference": "scoring (detected in spec text)",
+    "search_tokens": [
+      "geo_decay",
+      "geodecay",
+      "\"geo_decay\""
+    ],
+    "search_files": [
+      "engine/scoring/**/*.py"
+    ],
+    "status": "IMPLEMENTED",
+    "evidence_files": [
+      "docs/plasticos_domain_spec_v0.3.0.yaml",
+      "docs/plasticos_domain_spec_v0.4.yaml",
+      "domains/MASTER-SPEC-ALL-DOMAINS.yaml",
+      "domains/freight_matching_domain_spec.yaml",
+      "domains/healthcare_referral_domain_spec.yaml",
+      "engine/config/schema.py",
+      "engine/config/settings.py",
+      "engine/scoring/assembler.py",
+      "graph-cognitive-engine-spec-v1.1.0.yaml",
+      "tests/unit/test_scoring.py",
+      "tools/spec_extract.py"
+    ],
+    "evidence_lines": [
+      "tools/spec_extract.py:159",
+      "tests/unit/test_scoring.py:46",
+      "tests/unit/test_scoring.py:47",
+      "tests/unit/test_scoring.py:51",
+      "engine/config/settings.py:60",
+      "engine/config/schema.py:85",
+      "engine/config/schema.py:296",
+      "engine/scoring/assembler.py:61",
+      "engine/scoring/assembler.py:62",
+      "engine/scoring/assembler.py:83"
+    ]
+  },
+  {
+    "category": "scoring",
+    "name": "log_normalized",
+    "spec_reference": "scoring (detected in spec text)",
+    "search_tokens": [
+      "log_normalized",
+      "lognormalized",
+      "\"log_normalized\""
+    ],
+    "search_files": [
+      "engine/scoring/**/*.py"
+    ],
+    "status": "IMPLEMENTED",
+    "evidence_files": [
+      "docs/plasticos_domain_spec_v0.3.0.yaml",
+      "domains/MASTER-SPEC-ALL-DOMAINS.yaml",
+      "domains/legal_discovery_domain_spec.yaml",
+      "domains/research_agent_domain_spec.yaml",
+      "engine/config/schema.py",
+      "engine/scoring/assembler.py",
+      "graph-cognitive-engine-spec-v1.1.0.yaml",
+      "tools/spec_extract.py"
+    ],
+    "evidence_lines": [
+      "tools/spec_extract.py:159",
+      "engine/config/schema.py:86",
+      "engine/scoring/assembler.py:63",
+      "engine/scoring/assembler.py:64",
+      "engine/scoring/assembler.py:95",
+      "graph-cognitive-engine-spec-v1.1.0.yaml:195",
+      "domains/legal_discovery_domain_spec.yaml:94",
+      "domains/MASTER-SPEC-ALL-DOMAINS.yaml:803",
+      "domains/MASTER-SPEC-ALL-DOMAINS.yaml:1112",
+      "domains/research_agent_domain_spec.yaml:88"
+    ]
+  },
+  {
+    "category": "scoring",
+    "name": "community_match",
+    "spec_reference": "scoring (detected in spec text)",
+    "search_tokens": [
+      "community_match",
+      "communitymatch",
+      "\"community_match\""
+    ],
+    "search_files": [
+      "engine/scoring/**/*.py"
+    ],
+    "status": "IMPLEMENTED",
+    "evidence_files": [
+      "docs/plasticos_domain_spec_v0.3.0.yaml",
+      "domains/MASTER-SPEC-ALL-DOMAINS.yaml",
+      "domains/mortgage_brokerage_domain_spec.yaml",
+      "engine/config/schema.py",
+      "engine/scoring/assembler.py",
+      "graph-cognitive-engine-spec-v1.1.0.yaml",
+      "tools/spec_extract.py"
+    ],
+    "evidence_lines": [
+      "tools/spec_extract.py:159",
+      "engine/config/schema.py:87",
+      "engine/config/schema.py:297",
+      "engine/scoring/assembler.py:65",
+      "engine/scoring/assembler.py:66",
+      "engine/scoring/assembler.py:100",
+      "graph-cognitive-engine-spec-v1.1.0.yaml:201",
+      "domains/MASTER-SPEC-ALL-DOMAINS.yaml:210",
+      "domains/mortgage_brokerage_domain_spec.yaml:181",
+      "docs/plasticos_domain_spec_v0.3.0.yaml:1437"
+    ]
+  },
+  {
+    "category": "scoring",
+    "name": "inverse_linear",
+    "spec_reference": "scoring (detected in spec text)",
+    "search_tokens": [
+      "inverse_linear",
+      "inverselinear",
+      "\"inverse_linear\""
+    ],
+    "search_files": [
+      "engine/scoring/**/*.py"
+    ],
+    "status": "IMPLEMENTED",
+    "evidence_files": [
+      "docs/plasticos_domain_spec_v0.3.0.yaml",
+      "domains/MASTER-SPEC-ALL-DOMAINS.yaml",
+      "domains/aios_god_agent_domain_spec.yaml",
+      "domains/executive_assistant_domain_spec.yaml",
+      "domains/healthcare_referral_domain_spec.yaml",
+      "domains/mortgage_brokerage_domain_spec.yaml",
+      "domains/repo_as_agent_domain_spec.yaml",
+      "domains/roofing_company_domain_spec.yaml",
+      "engine/config/schema.py",
+      "engine/scoring/assembler.py",
+      "graph-cognitive-engine-spec-v1.1.0.yaml",
+      "tests/unit/test_scoring.py",
+      "tools/spec_extract.py"
+    ],
+    "evidence_lines": [
+      "tools/spec_extract.py:160",
+      "tests/unit/test_scoring.py:65",
+      "tests/unit/test_scoring.py:71",
+      "engine/config/schema.py:88",
+      "engine/scoring/assembler.py:67",
+      "engine/scoring/assembler.py:68",
+      "engine/scoring/assembler.py:105",
+      "graph-cognitive-engine-spec-v1.1.0.yaml:209",
+      "domains/repo_as_agent_domain_spec.yaml:84",
+      "domains/healthcare_referral_domain_spec.yaml:108"
+    ]
+  },
+  {
+    "category": "scoring",
+    "name": "candidate_property",
+    "spec_reference": "scoring (detected in spec text)",
+    "search_tokens": [
+      "candidate_property",
+      "candidateproperty",
+      "\"candidate_property\""
+    ],
+    "search_files": [
+      "engine/scoring/**/*.py"
+    ],
+    "status": "IMPLEMENTED",
+    "evidence_files": [
+      "docs/plasticos_domain_spec_v0.3.0.yaml",
+      "domains/MASTER-SPEC-ALL-DOMAINS.yaml",
+      "domains/aios_god_agent_domain_spec.yaml",
+      "domains/executive_assistant_domain_spec.yaml",
+      "domains/freight_matching_domain_spec.yaml",
+      "domains/healthcare_referral_domain_spec.yaml",
+      "domains/legal_discovery_domain_spec.yaml",
+      "domains/mortgage_brokerage_domain_spec.yaml",
+      "domains/repo_as_agent_domain_spec.yaml",
+      "domains/research_agent_domain_spec.yaml",
+      "domains/roofing_company_domain_spec.yaml",
+      "engine/config/schema.py",
+      "engine/scoring/assembler.py",
+      "graph-cognitive-engine-spec-v1.1.0.yaml",
+      "tests/integration/test_null_semantics.py",
+      "tests/unit/test_scoring.py",
+      "tools/spec_extract.py"
+    ],
+    "evidence_lines": [
+      "tools/spec_extract.py:160",
+      "tests/unit/test_scoring.py:28",
+      "tests/unit/test_scoring.py:93",
+      "tests/unit/test_scoring.py:100",
+      "tests/unit/test_scoring.py:123",
+      "tests/unit/test_scoring.py:157",
+      "tests/unit/test_scoring.py:158",
+      "tests/unit/test_scoring.py:163",
+      "tests/integration/test_null_semantics.py:20",
+      "engine/config/schema.py:89"
+    ]
+  },
+  {
+    "category": "scoring",
+    "name": "custom_cypher",
+    "spec_reference": "scoring (detected in spec text)",
+    "search_tokens": [
+      "custom_cypher",
+      "customcypher",
+      "\"custom_cypher\""
+    ],
+    "search_files": [
+      "engine/scoring/**/*.py"
+    ],
+    "status": "IMPLEMENTED",
+    "evidence_files": [
+      "docs/plasticos_domain_spec_v0.3.0.yaml",
+      "domains/MASTER-SPEC-ALL-DOMAINS.yaml",
+      "domains/repo_as_agent_domain_spec.yaml",
+      "engine/config/schema.py",
+      "engine/scoring/assembler.py",
+      "graph-cognitive-engine-spec-v1.1.0.yaml",
+      "tools/spec_extract.py"
+    ],
+    "evidence_lines": [
+      "tools/spec_extract.py:160",
+      "engine/config/schema.py:93",
+      "engine/config/schema.py:291",
+      "engine/scoring/assembler.py:71",
+      "graph-cognitive-engine-spec-v1.1.0.yaml:245",
+      "domains/repo_as_agent_domain_spec.yaml:91",
+      "domains/MASTER-SPEC-ALL-DOMAINS.yaml:1011",
+      "docs/plasticos_domain_spec_v0.3.0.yaml:1426",
+      "docs/plasticos_domain_spec_v0.3.0.yaml:2092",
+      "docs/plasticos_domain_spec_v0.3.0.yaml:2097"
+    ]
+  },
+  {
+    "category": "scoring",
+    "name": "temporal_decay",
+    "spec_reference": "scoring (detected in spec text)",
+    "search_tokens": [
+      "temporal_decay",
+      "temporaldecay",
+      "\"temporal_decay\""
+    ],
+    "search_files": [
+      "engine/scoring/**/*.py"
+    ],
+    "status": "IMPLEMENTED",
+    "evidence_files": [
+      "graph-cognitive-engine-spec-v1.1.0.yaml",
+      "tools/spec_extract.py"
+    ],
+    "evidence_lines": [
+      "tools/spec_extract.py:161",
+      "tools/spec_extract.py:209",
+      "graph-cognitive-engine-spec-v1.1.0.yaml:1958"
+    ]
+  },
+  {
+    "category": "v1.1_node",
+    "name": "TransactionOutcome",
+    "spec_reference": "v1.1 addition: TransactionOutcome node",
+    "search_tokens": [
+      "TransactionOutcome",
+      "\"TransactionOutcome\"",
+      "'TransactionOutcome'"
+    ],
+    "search_files": [
+      "engine/**/*.py",
+      "domains/**/*.yaml"
+    ],
+    "status": "IMPLEMENTED",
+    "evidence_files": [
+      "docs/plasticos_domain_spec_v0.4.yaml",
+      "engine/handlers.py",
+      "tools/spec_extract.py"
+    ],
+    "evidence_lines": [
+      "tools/spec_extract.py:206",
+      "engine/handlers.py:221",
+      "engine/handlers.py:238",
+      "docs/plasticos_domain_spec_v0.4.yaml:523",
+      "docs/plasticos_domain_spec_v0.4.yaml:1028",
+      "docs/plasticos_domain_spec_v0.4.yaml:1634"
+    ]
+  },
+  {
+    "category": "v1.1_node",
+    "name": "SignalEvent",
+    "spec_reference": "v1.1 addition: SignalEvent node",
+    "search_tokens": [
+      "SignalEvent",
+      "\"SignalEvent\"",
+      "'SignalEvent'"
+    ],
+    "search_files": [
+      "engine/**/*.py",
+      "domains/**/*.yaml"
+    ],
+    "status": "IMPLEMENTED",
+    "evidence_files": [
+      "docs/plasticos_domain_spec_v0.4.yaml",
+      "tools/spec_extract.py"
+    ],
+    "evidence_lines": [
+      "tools/spec_extract.py:206",
+      "docs/plasticos_domain_spec_v0.4.yaml:546",
+      "docs/plasticos_domain_spec_v0.4.yaml:1039",
+      "docs/plasticos_domain_spec_v0.4.yaml:1634"
+    ]
+  },
+  {
+    "category": "v1.1_edge",
+    "name": "RESULTED_IN",
+    "spec_reference": "v1.1 addition: RESULTED_IN edge",
+    "search_tokens": [
+      "RESULTED_IN",
+      "\"RESULTED_IN\"",
+      "'RESULTED_IN'"
+    ],
+    "search_files": [
+      "engine/**/*.py",
+      "domains/**/*.yaml"
+    ],
+    "status": "IMPLEMENTED",
+    "evidence_files": [
+      "docs/plasticos_domain_spec_v0.4.yaml",
+      "engine/handlers.py",
+      "tools/spec_extract.py"
+    ],
+    "evidence_lines": [
+      "tools/spec_extract.py:207",
+      "engine/handlers.py:221",
+      "engine/handlers.py:250",
+      "docs/plasticos_domain_spec_v0.4.yaml:1026",
+      "docs/plasticos_domain_spec_v0.4.yaml:1635"
+    ]
+  },
+  {
+    "category": "v1.1_edge",
+    "name": "RESOLVED_FROM",
+    "spec_reference": "v1.1 addition: RESOLVED_FROM edge",
+    "search_tokens": [
+      "RESOLVED_FROM",
+      "\"RESOLVED_FROM\"",
+      "'RESOLVED_FROM'"
+    ],
+    "search_files": [
+      "engine/**/*.py",
+      "domains/**/*.yaml"
+    ],
+    "status": "IMPLEMENTED",
+    "evidence_files": [
+      "docs/plasticos_domain_spec_v0.4.yaml",
+      "tools/spec_extract.py"
+    ],
+    "evidence_lines": [
+      "tools/spec_extract.py:207",
+      "docs/plasticos_domain_spec_v0.4.yaml:1037",
+      "docs/plasticos_domain_spec_v0.4.yaml:1635"
+    ]
+  },
+  {
+    "category": "v1.1_action",
+    "name": "outcomes",
+    "spec_reference": "v1.1 addition: outcomes action/endpoint",
+    "search_tokens": [
+      "handle_outcomes",
+      "\"outcomes\"",
+      "'outcomes'",
+      "outcomes"
+    ],
+    "search_files": [
+      "engine/handlers.py",
+      "engine/**/*.py"
+    ],
+    "status": "PARTIAL",
+    "evidence_files": [
+      "engine/handlers.py"
+    ],
+    "evidence_lines": [
+      "engine/handlers.py:219",
+      "engine/handlers.py:302"
+    ]
+  },
+  {
+    "category": "v1.1_action",
+    "name": "resolve",
+    "spec_reference": "v1.1 addition: resolve action/endpoint",
+    "search_tokens": [
+      "handle_resolve",
+      "\"resolve\"",
+      "'resolve'",
+      "resolve"
+    ],
+    "search_files": [
+      "engine/handlers.py",
+      "engine/**/*.py"
+    ],
+    "status": "PARTIAL",
+    "evidence_files": [
+      "engine/handlers.py"
+    ],
+    "evidence_lines": [
+      "engine/handlers.py:22",
+      "engine/handlers.py:75",
+      "engine/handlers.py:76",
+      "engine/handlers.py:77",
+      "engine/handlers.py:117"
+    ]
+  },
+  {
+    "category": "v1.1_scoring",
+    "name": "temporal_decay",
+    "spec_reference": "v1.1 addition: temporal_decay scoring type",
+    "search_tokens": [
+      "temporal_decay",
+      "temporaldecay",
+      "\"temporal_decay\""
+    ],
+    "search_files": [
+      "engine/scoring/**/*.py"
+    ],
+    "status": "IMPLEMENTED",
+    "evidence_files": [
+      "graph-cognitive-engine-spec-v1.1.0.yaml",
+      "tools/spec_extract.py"
+    ],
+    "evidence_lines": [
+      "tools/spec_extract.py:161",
+      "tools/spec_extract.py:209",
+      "graph-cognitive-engine-spec-v1.1.0.yaml:1958"
+    ]
+  },
+  {
+    "category": "v1.1_scoring",
+    "name": "outcome_weighted",
+    "spec_reference": "v1.1 addition: outcome_weighted scoring type",
+    "search_tokens": [
+      "outcome_weighted",
+      "outcomeweighted",
+      "\"outcome_weighted\""
+    ],
+    "search_files": [
+      "engine/scoring/**/*.py"
+    ],
+    "status": "PARTIAL",
+    "evidence_files": [
+      "tools/spec_extract.py"
+    ],
+    "evidence_lines": [
+      "tools/spec_extract.py:161",
+      "tools/spec_extract.py:209"
+    ]
+  },
+  {
+    "category": "action_handler",
+    "name": "match",
+    "spec_reference": "chassis action: match",
+    "search_tokens": [
+      "handle_match",
+      "\"match\"",
+      "register_handler(\"match\""
+    ],
+    "search_files": [
+      "engine/handlers.py"
+    ],
+    "status": "PARTIAL",
+    "evidence_files": [
+      "engine/handlers.py"
+    ],
+    "evidence_lines": [
+      "engine/handlers.py:39",
+      "engine/handlers.py:299"
+    ]
+  },
+  {
+    "category": "action_handler",
+    "name": "sync",
+    "spec_reference": "chassis action: sync",
+    "search_tokens": [
+      "handle_sync",
+      "\"sync\"",
+      "register_handler(\"sync\""
+    ],
+    "search_files": [
+      "engine/handlers.py"
+    ],
+    "status": "PARTIAL",
+    "evidence_files": [
+      "engine/handlers.py"
+    ],
+    "evidence_lines": [
+      "engine/handlers.py:132",
+      "engine/handlers.py:300"
+    ]
+  },
+  {
+    "category": "action_handler",
+    "name": "admin",
+    "spec_reference": "chassis action: admin",
+    "search_tokens": [
+      "handle_admin",
+      "\"admin\"",
+      "register_handler(\"admin\""
+    ],
+    "search_files": [
+      "engine/handlers.py"
+    ],
+    "status": "PARTIAL",
+    "evidence_files": [
+      "engine/handlers.py"
+    ],
+    "evidence_lines": [
+      "engine/handlers.py:182",
+      "engine/handlers.py:301"
+    ]
+  },
+  {
+    "category": "action_handler",
+    "name": "query",
+    "spec_reference": "chassis action: query",
+    "search_tokens": [
+      "handle_query",
+      "\"query\"",
+      "register_handler(\"query\""
+    ],
+    "search_files": [
+      "engine/handlers.py"
+    ],
+    "status": "PARTIAL",
+    "evidence_files": [
+      "engine/handlers.py"
+    ],
+    "evidence_lines": [
+      "engine/handlers.py:60",
+      "engine/handlers.py:117"
+    ]
+  },
+  {
+    "category": "action_handler",
+    "name": "enrich",
+    "spec_reference": "chassis action: enrich",
+    "search_tokens": [
+      "handle_enrich",
+      "\"enrich\"",
+      "register_handler(\"enrich\""
+    ],
+    "search_files": [
+      "engine/handlers.py"
+    ],
+    "status": "MISSING",
+    "evidence_files": [],
+    "evidence_lines": []
+  },
+  {
+    "category": "action_handler",
+    "name": "healthcheck",
+    "spec_reference": "chassis action: healthcheck",
+    "search_tokens": [
+      "handle_healthcheck",
+      "\"healthcheck\"",
+      "register_handler(\"healthcheck\""
+    ],
+    "search_files": [
+      "engine/handlers.py"
+    ],
+    "status": "MISSING",
+    "evidence_files": [],
+    "evidence_lines": []
+  },
+  {
+    "category": "gds_algorithm",
+    "name": "louvain",
+    "spec_reference": "gds (detected in spec text)",
+    "search_tokens": [
+      "louvain",
+      "_run_louvain",
+      "\"louvain\""
+    ],
+    "search_files": [
+      "engine/gds/**/*.py"
+    ],
+    "status": "IMPLEMENTED",
+    "evidence_files": [
+      ".coderabbit.yaml",
+      "docs/plasticos_domain_spec_v0.3.0.yaml",
+      "docs/plasticos_domain_spec_v0.4.yaml",
+      "domains/MASTER-SPEC-ALL-DOMAINS.yaml",
+      "domains/mortgage_brokerage_domain_spec.yaml",
+      "engine/gds/scheduler.py",
+      "graph-cognitive-engine-spec-v1.1.0.yaml",
+      "tools/audit_rules.yaml",
+      "tools/spec_extract.py"
+    ],
+    "evidence_lines": [
+      "tools/spec_extract.py:266",
+      "engine/gds/scheduler.py:4",
+      "engine/gds/scheduler.py:30",
+      "engine/gds/scheduler.py:75",
+      "engine/gds/scheduler.py:76",
+      "engine/gds/scheduler.py:110",
+      "engine/gds/scheduler.py:111",
+      "engine/gds/scheduler.py:127",
+      "engine/gds/scheduler.py:128",
+      "engine/gds/scheduler.py:132"
+    ]
+  },
+  {
+    "category": "gds_algorithm",
+    "name": "cooccurrence",
+    "spec_reference": "gds (detected in spec text)",
+    "search_tokens": [
+      "cooccurrence",
+      "_run_cooccurrence",
+      "\"cooccurrence\""
+    ],
+    "search_files": [
+      "engine/gds/**/*.py"
+    ],
+    "status": "IMPLEMENTED",
+    "evidence_files": [
+      ".coderabbit.yaml",
+      "docs/plasticos_domain_spec_v0.3.0.yaml",
+      "engine/gds/scheduler.py",
+      "graph-cognitive-engine-spec-v1.1.0.yaml",
+      "tools/audit_rules.yaml",
+      "tools/spec_extract.py"
+    ],
+    "evidence_lines": [
+      "tools/spec_extract.py:266",
+      "engine/gds/scheduler.py:31",
+      "engine/gds/scheduler.py:77",
+      "engine/gds/scheduler.py:78",
+      "engine/gds/scheduler.py:143",
+      "graph-cognitive-engine-spec-v1.1.0.yaml:605",
+      "graph-cognitive-engine-spec-v1.1.0.yaml:644",
+      "graph-cognitive-engine-spec-v1.1.0.yaml:645",
+      "graph-cognitive-engine-spec-v1.1.0.yaml:652",
+      "graph-cognitive-engine-spec-v1.1.0.yaml:663"
+    ]
+  },
+  {
+    "category": "gds_algorithm",
+    "name": "reinforcement",
+    "spec_reference": "gds (detected in spec text)",
+    "search_tokens": [
+      "reinforcement",
+      "_run_reinforcement",
+      "\"reinforcement\""
+    ],
+    "search_files": [
+      "engine/gds/**/*.py"
+    ],
+    "status": "IMPLEMENTED",
+    "evidence_files": [
+      "docs/plasticos_domain_spec_v0.3.0.yaml",
+      "docs/plasticos_domain_spec_v0.4.yaml",
+      "engine/config/settings.py",
+      "engine/gds/scheduler.py",
+      "graph-cognitive-engine-spec-v1.1.0.yaml",
+      "tools/audit_rules.yaml",
+      "tools/spec_extract.py"
+    ],
+    "evidence_lines": [
+      "tools/spec_extract.py:266",
+      "engine/config/settings.py:58",
+      "engine/gds/scheduler.py:4",
+      "engine/gds/scheduler.py:32",
+      "engine/gds/scheduler.py:79",
+      "engine/gds/scheduler.py:80",
+      "engine/gds/scheduler.py:163",
+      "engine/gds/scheduler.py:168",
+      "engine/gds/scheduler.py:227",
+      "engine/gds/scheduler.py:254"
+    ]
+  },
+  {
+    "category": "gds_algorithm",
+    "name": "temporal_recency",
+    "spec_reference": "gds (detected in spec text)",
+    "search_tokens": [
+      "temporal_recency",
+      "_run_temporal_recency",
+      "\"temporal_recency\""
+    ],
+    "search_files": [
+      "engine/gds/**/*.py"
+    ],
+    "status": "IMPLEMENTED",
+    "evidence_files": [
+      "docs/plasticos_domain_spec_v0.3.0.yaml",
+      "docs/plasticos_domain_spec_v0.4.yaml",
+      "engine/gds/scheduler.py",
+      "graph-cognitive-engine-spec-v1.1.0.yaml",
+      "tools/audit_rules.yaml",
+      "tools/spec_extract.py"
+    ],
+    "evidence_lines": [
+      "tools/spec_extract.py:266",
+      "engine/gds/scheduler.py:82",
+      "engine/gds/scheduler.py:262",
+      "graph-cognitive-engine-spec-v1.1.0.yaml:575",
+      "graph-cognitive-engine-spec-v1.1.0.yaml:612",
+      "graph-cognitive-engine-spec-v1.1.0.yaml:693",
+      "tools/audit_rules.yaml:79",
+      "docs/plasticos_domain_spec_v0.4.yaml:855",
+      "docs/plasticos_domain_spec_v0.4.yaml:1396",
+      "docs/plasticos_domain_spec_v0.4.yaml:1397"
+    ]
+  },
+  {
+    "category": "gds_algorithm",
+    "name": "similarity",
+    "spec_reference": "gds (detected in spec text)",
+    "search_tokens": [
+      "similarity",
+      "_run_similarity",
+      "\"similarity\""
+    ],
+    "search_files": [
+      "engine/gds/**/*.py"
+    ],
+    "status": "IMPLEMENTED",
+    "evidence_files": [
+      "docs/plasticos_domain_spec_v0.3.0.yaml",
+      "docs/plasticos_domain_spec_v0.4.yaml",
+      "domains/MASTER-SPEC-ALL-DOMAINS.yaml",
+      "domains/mortgage_brokerage_domain_spec.yaml",
+      "engine/config/schema.py",
+      "graph-cognitive-engine-spec-v1.1.0.yaml",
+      "tools/spec_extract.py"
+    ],
+    "evidence_lines": [
+      "tools/spec_extract.py:267",
+      "engine/config/schema.py:427",
+      "graph-cognitive-engine-spec-v1.1.0.yaml:4",
+      "graph-cognitive-engine-spec-v1.1.0.yaml:446",
+      "graph-cognitive-engine-spec-v1.1.0.yaml:448",
+      "graph-cognitive-engine-spec-v1.1.0.yaml:493",
+      "graph-cognitive-engine-spec-v1.1.0.yaml:503",
+      "graph-cognitive-engine-spec-v1.1.0.yaml:646",
+      "graph-cognitive-engine-spec-v1.1.0.yaml:648",
+      "graph-cognitive-engine-spec-v1.1.0.yaml:654"
+    ]
+  }
+]

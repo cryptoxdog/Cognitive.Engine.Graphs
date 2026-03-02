@@ -75,3 +75,19 @@ local-api:                 ## Run API locally against Dockerized DBs
 
 clean:                     ## Remove volumes + containers
 	docker compose down -v --remove-orphans
+
+# ── L9_TEMPLATE Audit & Coverage ──────────────────────────
+
+.PHONY: audit audit-strict coverage
+
+audit:                     ## Run full architecture audit + spec coverage
+	python3 tools/audit_engine.py
+	python3 tools/spec_extract.py --fail-on NONE
+	@echo "Reports in artifacts/"
+
+audit-strict:              ## Audit with strict failure (blocks on MISSING spec features)
+	python3 tools/audit_engine.py
+	python3 tools/spec_extract.py --fail-on MISSING
+
+coverage:                  ## Spec coverage matrix only (no architecture audit)
+	python3 tools/spec_extract.py --fail-on NONE

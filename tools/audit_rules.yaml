@@ -37,10 +37,10 @@ rules:
     description: "All f-string Cypher that interpolates labels/types must use sanitize_label()."
     include_globs: ["engine/**/*.py"]
     patterns_regex:
-      - 'f""".*MATCH\\s*\\(.*:.*\\{.*\\}.*"""'
-      - 'f".*MATCH\\s*\\(.*:.*\\{.*\\}.*"'
-      - 'f""".*MERGE\\s*\\(.*:.*\\{.*\\}.*"""'
-      - 'f".*MERGE\\s*\\(.*:.*\\{.*\\}.*"'
+      - 'f""".*MATCH\s*\(.*:.*\{.*\}.*"""'
+      - 'f".*MATCH\s*\(.*:.*\{.*\}.*"'
+      - 'f""".*MERGE\s*\(.*:.*\{.*\}.*"""'
+      - 'f".*MERGE\s*\(.*:.*\{.*\}.*"'
     allow_if_contains:
       - "sanitize_label("
 

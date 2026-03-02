@@ -23,6 +23,9 @@ files:
   - path: "tools/audit_rules.yaml"
     required: true
     tags: ["L9_TEMPLATE", "audit-rules"]
+  - path: "tools/spec_extract.py"
+    required: true
+    tags: ["L9_TEMPLATE", "audit", "spec-coverage"]
   - path: "tools/l9_template_manifest.yaml"
     required: true
     tags: ["L9_TEMPLATE", "meta"]

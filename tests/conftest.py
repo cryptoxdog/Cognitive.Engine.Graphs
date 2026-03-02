@@ -101,7 +101,7 @@ def domain_spec_path() -> Path:
 @pytest.fixture(scope="session")
 def domain_spec(domain_spec_path: Path) -> DomainSpec:
     """Loaded and validated PlasticOS DomainSpec."""
-    loader = DomainPackLoader(search_paths=[domain_spec_path.parent])
+    loader = DomainPackLoader(domains_root=domain_spec_path.parent)
     return loader.load_domain(domain_spec_path.stem.replace("_spec", "").replace("spec", "plasticos"))
 
 
@@ -147,7 +147,7 @@ def minimal_domain_spec() -> DomainSpec:
 @pytest.fixture(scope="session")
 def domain_loader(domain_spec_path: Path) -> DomainPackLoader:
     """Session-scoped domain loader."""
-    return DomainPackLoader(search_paths=[domain_spec_path.parent])
+    return DomainPackLoader(domains_root=domain_spec_path.parent)
 
 
 # ── Handler Dependencies ──────────────────────────────────

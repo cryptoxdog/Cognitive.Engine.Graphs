@@ -7,6 +7,8 @@ Handles currency, distance, weight, time, temperature, rates, etc.
 import logging
 from dataclasses import dataclass
 
+from engine.utils.safe_eval import safe_eval
+
 logger = logging.getLogger(__name__)
 
 
@@ -156,14 +158,8 @@ class UnitConverter:
         Returns:
             Computed result
         """
-        # Safe eval with restricted namespace
-        namespace = {
-            "value": value,
-            "__builtins__": {},
-        }
-
         try:
-            return float(eval(formula, namespace))
+            return float(safe_eval(formula, {"value": value}))
         except Exception as e:
             logger.error(f"Formula evaluation failed: {formula}, error: {e}")
             return value

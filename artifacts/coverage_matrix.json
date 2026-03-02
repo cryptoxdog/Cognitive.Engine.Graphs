@@ -1,0 +1,59 @@
+{
+  "categories": {
+    "gates": {
+      "IMPLEMENTED": 10,
+      "PARTIAL": 0,
+      "MISSING": 0,
+      "total": 10
+    },
+    "scoring": {
+      "IMPLEMENTED": 7,
+      "PARTIAL": 0,
+      "MISSING": 0,
+      "total": 7
+    },
+    "v1.1_node": {
+      "IMPLEMENTED": 2,
+      "PARTIAL": 0,
+      "MISSING": 0,
+      "total": 2
+    },
+    "v1.1_edge": {
+      "IMPLEMENTED": 2,
+      "PARTIAL": 0,
+      "MISSING": 0,
+      "total": 2
+    },
+    "v1.1_action": {
+      "IMPLEMENTED": 0,
+      "PARTIAL": 2,
+      "MISSING": 0,
+      "total": 2
+    },
+    "v1.1_scoring": {
+      "IMPLEMENTED": 1,
+      "PARTIAL": 1,
+      "MISSING": 0,
+      "total": 2
+    },
+    "action_handler": {
+      "IMPLEMENTED": 0,
+      "PARTIAL": 4,
+      "MISSING": 2,
+      "total": 6
+    },
+    "gds_algorithm": {
+      "IMPLEMENTED": 5,
+      "PARTIAL": 0,
+      "MISSING": 0,
+      "total": 5
+    }
+  },
+  "totals": {
+    "IMPLEMENTED": 27,
+    "PARTIAL": 7,
+    "MISSING": 2,
+    "total": 36
+  },
+  "generated_at": "2026-03-02T01:38:06.563711+00:00"
+}

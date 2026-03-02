@@ -1,9 +1,9 @@
-name: L9 Audit
+name: L9 Audit + Spec Coverage
 
 on:
   pull_request:
   push:
-    branches: [ main ]
+    branches: [main]
 
 jobs:
   audit:
@@ -15,16 +15,17 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Install deps
-        run: |
-          pip install pyyaml
+      - run: pip install pyyaml
 
-      - name: Run audit
-        run: |
-          python tools/audit_engine.py
+      - name: Architecture audit
+        run: python tools/audit_engine.py
 
-      - name: Upload artifacts
+      - name: Spec coverage
+        run: python tools/spec_extract.py --fail-on NONE
+
+      - name: Upload reports
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: l9-audit
+          name: l9-audit-reports
           path: artifacts/

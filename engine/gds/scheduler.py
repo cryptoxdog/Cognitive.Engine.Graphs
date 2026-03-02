@@ -8,6 +8,7 @@ All algorithms execute real Cypher against Neo4j — no stubs.
 """
 from __future__ import annotations
 
+import json
 import logging
 from datetime import datetime
 from typing import Dict, List, Optional
@@ -42,12 +43,12 @@ class GDSScheduler:
 
     def register_jobs(self) -> None:
         """Register all GDS jobs from domain spec."""
-        for job_spec in self.domain_spec.gds_jobs:
+        for job_spec in self.domain_spec.gdsjobs:
             if job_spec.schedule.type == "cron":
                 self._register_cron_job(job_spec)
             elif job_spec.schedule.type == "manual":
                 logger.info(f"Job {job_spec.name} is manual-trigger only")
-        logger.info(f"Registered {len(self.domain_spec.gds_jobs)} GDS jobs")
+        logger.info(f"Registered {len(self.domain_spec.gdsjobs)} GDS jobs")
 
     def _register_cron_job(self, job_spec: GDSJobSpec) -> None:
         if not job_spec.schedule.cron:
@@ -108,36 +109,47 @@ class GDSScheduler:
 
     async def _run_louvain(self, job_spec: GDSJobSpec) -> Dict:
         """Run Louvain community detection via GDS."""
-        cypher = f"""
-        CALL gds.graph.project(
-            '{job_spec.name}_graph',
-            {job_spec.projection.node_labels},
-            {job_spec.projection.edge_types}
-        ) YIELD graphName, nodeCount, relationshipCount
-        CALL gds.louvain.write(
-            '{job_spec.name}_graph',
-            {{writeProperty: '{job_spec.write_property}'}}
-        ) YIELD communityCount, modularity
-        CALL gds.graph.drop('{job_spec.name}_graph') YIELD graphName
-        RETURN communityCount, modularity
+        db = self.domain_spec.domain.id
+        graph_name = f"{job_spec.name}_graph"
+        # Use json.dumps for proper Cypher array syntax
+        node_labels = json.dumps(job_spec.projection.nodelabels)
+        edge_types = json.dumps(job_spec.projection.edgetypes)
+        write_prop = job_spec.writeproperty or "communityId"
+
+        project_cypher = f"""
+        CALL gds.graph.project('{graph_name}', {node_labels}, {edge_types})
+        YIELD graphName, nodeCount, relationshipCount
+        RETURN graphName, nodeCount, relationshipCount
         """
-        result = await self.graph_driver.execute_query(
-            cypher, database=self.domain_spec.domain.id
-        )
-        data = result[0] if result else {}
-        logger.info(f"Louvain: {data}")
-        return {"communities": data.get("communityCount"), "modularity": data.get("modularity")}
+        try:
+            await self.graph_driver.execute_query(project_cypher, database=db)
+
+            louvain_cypher = f"""
+            CALL gds.louvain.write('{graph_name}', {{writeProperty: '{write_prop}'}})
+            YIELD communityCount, modularity
+            RETURN communityCount, modularity
+            """
+            result = await self.graph_driver.execute_query(louvain_cypher, database=db)
+            data = result[0] if result else {}
+            logger.info(f"Louvain: {data}")
+            return {"communities": data.get("communityCount"), "modularity": data.get("modularity")}
+        finally:
+            drop_cypher = f"CALL gds.graph.drop('{graph_name}') YIELD graphName RETURN graphName"
+            try:
+                await self.graph_driver.execute_query(drop_cypher, database=db)
+            except Exception as drop_err:
+                logger.error(f"Failed to drop projected graph '{graph_name}': {drop_err}")
 
     async def _run_cooccurrence(self, job_spec: GDSJobSpec) -> Dict:
         """Build co-occurrence edges from bipartite projection."""
-        if not job_spec.source_edge or not job_spec.write_edge:
-            raise ValueError(f"Job {job_spec.name}: source_edge and write_edge required")
+        if not job_spec.sourceedge or not job_spec.writeedge:
+            raise ValueError(f"Job {job_spec.name}: sourceedge and writeedge required")
         cypher = f"""
-        MATCH (a)-[:{job_spec.source_edge}]->(common)<-[:{job_spec.source_edge}]-(b)
+        MATCH (a)-[:{job_spec.sourceedge}]->(common)<-[:{job_spec.sourceedge}]-(b)
         WHERE id(a) < id(b)
         WITH a, b, count(common) AS weight
         WHERE weight >= 2
-        MERGE (a)-[r:{job_spec.write_edge}]-(b)
+        MERGE (a)-[r:{job_spec.writeedge}]->(b)
         SET r.weight = weight, r.updated_at = datetime()
         RETURN count(r) AS edges_created
         """
@@ -212,27 +224,28 @@ class GDSScheduler:
         RETURN count(r) AS rejected_edges
         """
 
-        # Phase 3: Prune stale reinforcement edges (recency < 0.1)
-        prune_cypher = """
+        # Phase 3: Prune stale reinforcement edges (recency < 0.1) - split into separate queries
+        prune_accepted_cypher = """
         MATCH ()-[r:ACCEPTED_MATERIAL_FROM]-()
         WHERE r.recency_score < 0.1
         DELETE r
-        RETURN count(r) AS pruned_accepted
-        UNION ALL
+        RETURN count(r) AS pruned
+        """
+        prune_rejected_cypher = """
         MATCH ()-[r:REJECTED_MATERIAL_FROM]-()
         WHERE r.recency_score < 0.1
         DELETE r
-        RETURN count(r) AS pruned_rejected
+        RETURN count(r) AS pruned
         """
 
         accepted_result = await self.graph_driver.execute_query(accepted_cypher, database=db)
         rejected_result = await self.graph_driver.execute_query(rejected_cypher, database=db)
 
         try:
-            prune_result = await self.graph_driver.execute_query(prune_cypher, database=db)
+            await self.graph_driver.execute_query(prune_accepted_cypher, database=db)
+            await self.graph_driver.execute_query(prune_rejected_cypher, database=db)
         except Exception as e:
             logger.warning(f"Prune step skipped: {e}")
-            prune_result = []
 
         accepted_count = accepted_result[0]["accepted_edges"] if accepted_result else 0
         rejected_count = rejected_result[0]["rejected_edges"] if rejected_result else 0
@@ -298,6 +311,7 @@ class GDSScheduler:
         max_km = 500
         decay_km = 200
 
+        # Use directional MERGE to avoid duplicate edges
         cypher = f"""
         MATCH (a:Facility), (b:Facility)
         WHERE a.facility_id < b.facility_id
@@ -308,7 +322,7 @@ class GDSScheduler:
                  point({{latitude: b.lat, longitude: b.lon}})
              ) / 1000.0 AS dist_km
         WHERE dist_km <= {max_km}
-        MERGE (a)-[r:COLOCATED_WITH]-(b)
+        MERGE (a)-[r:COLOCATED_WITH]->(b)
         SET r.distance_km = dist_km,
             r.proximity_score = 1.0 / (1.0 + dist_km / {decay_km})
         RETURN count(r) AS edges_created
@@ -348,7 +362,7 @@ class GDSScheduler:
 
     async def trigger_job(self, job_name: str) -> Dict:
         """Manually trigger a registered job by name."""
-        for job_spec in self.domain_spec.gds_jobs:
+        for job_spec in self.domain_spec.gdsjobs:
             if job_spec.name == job_name:
                 return await self.execute_job(job_spec)
         raise ValueError(f"Job '{job_name}' not found in domain spec")

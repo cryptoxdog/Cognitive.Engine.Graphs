@@ -45,8 +45,8 @@ class GateCompiler:
 
     def __init__(self, domain_spec: DomainSpec):
         self.domain_spec = domain_spec
-        self._gates: List[GateSpec] = domain_spec.gates.gates if domain_spec.gates else []
-        self._compliance = domain_spec.compliance
+        self._gates: List[GateSpec] = domain_spec.gates if domain_spec.gates else []
+        self._compliance = getattr(domain_spec, "compliance", None)
 
     # ── Public API ─────────────────────────────────────────
 
@@ -57,7 +57,7 @@ class GateCompiler:
         Returns a string like:
             "candidate.min_density <= $density AND $density <= candidate.max_density"
         """
-        handler = self._get_handler(gate.gate_type)
+        handler = self._get_handler(gate.type)
         raw_predicate = handler(gate)
         return self._wrap_null_semantics(gate, raw_predicate)
 
@@ -80,11 +80,11 @@ class GateCompiler:
 
         for gate in self._gates:
             # Direction filter
-            if gate.match_directions and match_direction not in gate.match_directions:
+            if gate.matchdirections and match_direction not in gate.matchdirections:
                 continue
 
             # Role exemption
-            if role and gate.exempt_roles and role in gate.exempt_roles:
+            if role and gate.roleexempt and role in gate.roleexempt:
                 logger.debug(f"Gate {gate.name} exempted for role={role}")
                 continue
 
@@ -105,17 +105,17 @@ class GateCompiler:
         """
         Compile gates for relaxed matching.
         Non-critical gates become score penalties instead of hard filters.
-        Only gates with relaxed_penalty defined are included as hard WHERE.
+        Only gates with relaxedpenalty == 0.0 are included as hard WHERE.
         """
         hard_fragments: List[str] = []
 
         for gate in self._gates:
-            if gate.match_directions and match_direction not in gate.match_directions:
+            if gate.matchdirections and match_direction not in gate.matchdirections:
                 continue
-            if role and gate.exempt_roles and role in gate.exempt_roles:
+            if role and gate.roleexempt and role in gate.roleexempt:
                 continue
 
-            if gate.required or gate.relaxed_penalty is None:
+            if gate.relaxedpenalty == 0.0:
                 fragment = self.compile(gate)
                 if fragment:
                     hard_fragments.append(f"({fragment})")
@@ -149,26 +149,26 @@ class GateCompiler:
 
     def _compile_boolean(self, gate: GateSpec) -> str:
         """Boolean gate: candidate.prop = $param OR candidate.prop = true."""
-        if gate.query_param:
-            return f"candidate.{gate.candidate_prop} = ${gate.query_param}"
-        return f"candidate.{gate.candidate_prop} = true"
+        if gate.queryparam:
+            return f"candidate.{gate.candidateprop} = ${gate.queryparam}"
+        return f"candidate.{gate.candidateprop} = true"
 
     def _compile_threshold(self, gate: GateSpec) -> str:
         """
         Threshold gate: candidate.prop >= $param (default).
         Supports operator override via gate.operator: >=, <=, >, <, =
         """
-        op = getattr(gate, "operator", ">=") or ">="
-        return f"candidate.{gate.candidate_prop} {op} ${gate.query_param}"
+        op = gate.operator or ">="
+        return f"candidate.{gate.candidateprop} {op} ${gate.queryparam}"
 
     def _compile_range(self, gate: GateSpec) -> str:
         """
         Range gate: query value falls within candidate's min/max range.
         Pattern: candidate.min_prop <= $param AND $param <= candidate.max_prop
         """
-        min_prop = gate.candidate_prop_min or f"min_{gate.candidate_prop}"
-        max_prop = gate.candidate_prop_max or f"max_{gate.candidate_prop}"
-        param = gate.query_param
+        min_prop = gate.candidateprop_min or f"min_{gate.candidateprop}"
+        max_prop = gate.candidateprop_max or f"max_{gate.candidateprop}"
+        param = gate.queryparam
 
         parts = []
         parts.append(f"(candidate.{min_prop} IS NULL OR candidate.{min_prop} <= ${param})")
@@ -180,32 +180,38 @@ class GateCompiler:
         Enum gate: candidate.prop IN $param_list
         Or inverse: $param IN candidate.prop_list
         """
-        if gate.inverse:
-            return f"${gate.query_param} IN candidate.{gate.candidate_prop}"
-        return f"candidate.{gate.candidate_prop} IN ${gate.query_param}"
+        if gate.invertible:
+            return f"${gate.queryparam} IN candidate.{gate.candidateprop}"
+        return f"candidate.{gate.candidateprop} IN ${gate.queryparam}"
 
     def _compile_exclusion(self, gate: GateSpec) -> str:
         """
         Exclusion gate: NOT exists((candidate)-[:EXCLUDED_FROM]->(query_entity))
         Uses the EXCLUDED_FROM edge type from the graph schema.
         """
-        edge_type = gate.edge_type or "EXCLUDED_FROM"
-        if gate.query_entity_ref:
-            return f"NOT exists((candidate)-[:{edge_type}]->({gate.query_entity_ref}))"
+        edge_type = gate.edgetype or "EXCLUDED_FROM"
+        if gate.fromnode:
+            return f"NOT exists(({gate.fromnode})-[:{edge_type}]->({gate.tonode or 'candidate'}))"
         return f"NOT exists((candidate)-[:{edge_type}]->(query))"
 
     def _compile_composite(self, gate: GateSpec) -> str:
         """
         Composite gate: combines sub-gates with AND/OR.
-        gate.sub_gates is a list of GateSpec, gate.combinator is 'AND' or 'OR'.
+        gate.subgates is a list of gate names (strings), gate.logic is 'AND' or 'OR'.
         """
-        if not gate.sub_gates:
+        if not gate.subgates:
             return "true"
 
-        combinator = f" {gate.combinator or 'AND'} "
+        combinator = f" {gate.logic or 'AND'} "
         sub_fragments = []
-        for sub_gate in gate.sub_gates:
-            fragment = self.compile(sub_gate)
+        for sub_gate_name in gate.subgates:
+            sub_gate_spec = next(
+                (g for g in self._gates if g.name == sub_gate_name), None
+            )
+            if sub_gate_spec is None:
+                logger.warning(f"Subgate '{sub_gate_name}' not found, skipping")
+                continue
+            fragment = self.compile(sub_gate_spec)
             if fragment:
                 sub_fragments.append(f"({fragment})")
 
@@ -220,9 +226,9 @@ class GateCompiler:
         Pattern: candidate.min_prop <= $param AND $param <= candidate.max_prop
         Differs from range in that both bounds come from the candidate.
         """
-        min_prop = gate.candidate_prop_min or f"min_{gate.candidate_prop}"
-        max_prop = gate.candidate_prop_max or f"max_{gate.candidate_prop}"
-        param = gate.query_param
+        min_prop = gate.candidateprop_min or f"min_{gate.candidateprop}"
+        max_prop = gate.candidateprop_max or f"max_{gate.candidateprop}"
+        param = gate.queryparam
 
         return (
             f"(candidate.{min_prop} IS NULL OR candidate.{min_prop} <= ${param}) AND "
@@ -234,10 +240,10 @@ class GateCompiler:
         Freshness gate: candidate.prop >= datetime() - duration({days: N})
         Ensures data recency (e.g., rate sheets updated within 24h).
         """
-        duration_field = gate.duration_field or "days"
-        duration_value = gate.duration_value or 1
+        duration_field = "days"
+        duration_value = gate.maxagedays or 1
         return (
-            f"candidate.{gate.candidate_prop} >= "
+            f"candidate.{gate.candidateprop} >= "
             f"datetime() - duration({{{duration_field}: {duration_value}}})"
         )
 
@@ -245,11 +251,11 @@ class GateCompiler:
         """
         Temporal range gate: candidate.prop between two datetime parameters.
         """
-        start_param = gate.query_param_start or f"{gate.query_param}_start"
-        end_param = gate.query_param_end or f"{gate.query_param}_end"
+        start_param = gate.queryparam_start or f"{gate.queryparam}_start"
+        end_param = gate.queryparam_end or f"{gate.queryparam}_end"
         return (
-            f"candidate.{gate.candidate_prop} >= ${start_param} AND "
-            f"candidate.{gate.candidate_prop} <= ${end_param}"
+            f"candidate.{gate.candidateprop} >= ${start_param} AND "
+            f"candidate.{gate.candidateprop} <= ${end_param}"
         )
 
     def _compile_traversal(self, gate: GateSpec) -> str:
@@ -257,12 +263,12 @@ class GateCompiler:
         Traversal gate: requires an edge path to exist.
         Pattern: exists((candidate)-[:EDGE_TYPE]->(target {prop: $param}))
         """
-        edge_type = gate.edge_type or "RELATES_TO"
-        target_label = gate.target_label or ""
+        edge_type = gate.edgetype or "RELATES_TO"
+        target_label = gate.tonode or ""
         target_filter = ""
 
-        if gate.target_prop and gate.query_param:
-            target_filter = f" {{{gate.target_prop}: ${gate.query_param}}}"
+        if gate.candidateprop and gate.queryparam:
+            target_filter = f" {{{gate.candidateprop}: ${gate.queryparam}}}"
 
         label_clause = f":{target_label}" if target_label else ""
         return f"exists((candidate)-[:{edge_type}]->(t{label_clause}{target_filter}))"
@@ -276,14 +282,14 @@ class GateCompiler:
         NullBehavior.PASS   → (candidate.prop IS NULL OR <predicate>)
         NullBehavior.FAIL   → (candidate.prop IS NOT NULL AND <predicate>)
         """
-        null_behavior = getattr(gate, "null_behavior", None)
-        if null_behavior is None:
-            null_behavior = NullHandler.DEFAULT_BEHAVIORS.get(gate.gate_type, NullBehavior.PASS)
+        null_behavior = gate.nullbehavior
+        if null_behavior is None or null_behavior == NullBehavior.PASS:
+            null_behavior = NullHandler.DEFAULT_BEHAVIORS.get(gate.type, NullBehavior.PASS)
 
         return NullHandler.wrap_gate_with_null_logic(
-            gate_type=gate.gate_type,
+            gate_type=gate.type,
             null_behavior=null_behavior,
             gate_cypher=predicate,
-            candidate_prop=f"candidate.{gate.candidate_prop}" if gate.candidate_prop else None,
-            query_param=f"${gate.query_param}" if gate.query_param else None,
+            candidate_prop=f"candidate.{gate.candidateprop}" if gate.candidateprop else None,
+            query_param=f"${gate.queryparam}" if gate.queryparam else None,
         )

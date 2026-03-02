@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import logging
 import time
+import uuid
 from typing import Any
 
 from engine.config.loader import DomainPackLoader
@@ -58,7 +59,14 @@ async def handle_match(tenant: str, payload: dict[str, Any]) -> dict[str, Any]:
     # Extract payload fields
     query = payload["query"]
     match_direction = payload["match_direction"]
-    top_n = payload.get("top_n", 10)
+    
+    # Validate and clamp top_n to prevent injection and abuse
+    raw_top_n = payload.get("top_n", 10)
+    try:
+        top_n = max(1, min(int(raw_top_n), 1000))
+    except (TypeError, ValueError):
+        top_n = 10
+    
     weights = payload.get("weights", {})
     
     # Load domain spec
@@ -80,17 +88,17 @@ async def handle_match(tenant: str, payload: dict[str, Any]) -> dict[str, Any]:
     scoring_assembler = ScoringAssembler(domain_spec)
     scoring_clause = scoring_assembler.assemble_scoring_clause(match_direction, weights)
     
-    # Get candidate label (with sanitization)
+    # Get candidate label (with sanitization) - using correct field names
     candidate_labels = [
-        c.label for c in domain_spec.match_entities.candidate
-        if c.match_direction == match_direction
+        c.label for c in domain_spec.matchentities.candidate
+        if c.matchdirection == match_direction
     ]
     if not candidate_labels:
         raise ValueError(f"No candidate entity for direction {match_direction!r}")
     
     candidate_label = sanitize_label(candidate_labels[0])  # SECURITY FIX
     
-    # Build Cypher query
+    # Build Cypher query - parameterize top_n to prevent injection
     cypher = f"""
     MATCH (candidate:{candidate_label})
     {chr(10).join(traversal_clauses)}
@@ -98,15 +106,15 @@ async def handle_match(tenant: str, payload: dict[str, Any]) -> dict[str, Any]:
     {scoring_clause}
     RETURN candidate, score
     ORDER BY score DESC
-    LIMIT {top_n}
+    LIMIT $top_n
     """
     
     logger.debug(f"Compiled Cypher for tenant={tenant}, direction={match_direction}:\n{cypher}")
     
-    # Execute
+    # Execute with parameterized top_n
     results = await _graph_driver.execute_query(
         cypher=cypher,
-        parameters={"query": resolved_query},
+        parameters={"query": resolved_query, "top_n": top_n},
         database=domain_spec.domain.id,
     )
     
@@ -114,7 +122,7 @@ async def handle_match(tenant: str, payload: dict[str, Any]) -> dict[str, Any]:
     
     return {
         "candidates": results,
-        "query_id": f"q_{int(time.time())}",
+        "query_id": f"q_{uuid.uuid4().hex[:12]}",
         "match_direction": match_direction,
         "total_candidates": len(results),
         "execution_time_ms": execution_time_ms,
@@ -208,6 +216,78 @@ async def handle_admin(tenant: str, payload: dict[str, Any]) -> dict[str, Any]:
         raise ValueError(f"Unknown admin subaction: {subaction!r}")
 
 
+async def handle_outcomes(tenant: str, payload: dict[str, Any]) -> dict[str, Any]:
+    """
+    Outcome feedback: write TransactionOutcome nodes and RESULTED_IN edges.
+
+    Payload schema:
+      - match_id: str          # Original match query ID
+      - candidate_id: str      # Chosen candidate entity ID
+      - outcome: str           # "success" | "failure" | "partial"
+      - value: float | None    # Transaction value (optional)
+      - metadata: dict | None  # Arbitrary outcome metadata
+
+    Returns:
+      - status: str
+      - outcome_id: str
+    """
+    domain_spec = _domain_loader.load_domain(tenant)
+    outcome_id = f"out_{uuid.uuid4().hex[:12]}"
+
+    cypher = """
+    CREATE (o:TransactionOutcome {
+        outcome_id: $outcome_id,
+        match_id: $match_id,
+        candidate_id: $candidate_id,
+        outcome: $outcome,
+        value: $value,
+        created_at: datetime(),
+        tenant: $tenant
+    })
+    WITH o
+    OPTIONAL MATCH (c {entity_id: $candidate_id})
+    FOREACH (_ IN CASE WHEN c IS NOT NULL THEN [1] ELSE [] END |
+        CREATE (c)-[:RESULTED_IN]->(o)
+    )
+    RETURN o.outcome_id AS outcome_id
+    """
+
+    await _graph_driver.execute_query(
+        cypher=cypher,
+        parameters={
+            "outcome_id": outcome_id,
+            "match_id": payload["match_id"],
+            "candidate_id": payload["candidate_id"],
+            "outcome": payload["outcome"],
+            "value": payload.get("value"),
+            "tenant": tenant,
+        },
+        database=domain_spec.domain.id,
+    )
+
+    return {"status": "recorded", "outcome_id": outcome_id}
+
+
+async def handle_health(tenant: str, payload: dict[str, Any]) -> dict[str, Any]:
+    """Health check: verify Neo4j connectivity and domain spec validity."""
+    checks = {"neo4j": "unknown", "domain_spec": "unknown"}
+
+    try:
+        await _graph_driver.execute_query("RETURN 1 AS ping", database="system")
+        checks["neo4j"] = "ok"
+    except Exception as e:
+        checks["neo4j"] = f"error: {e}"
+
+    try:
+        _domain_loader.load_domain(tenant)
+        checks["domain_spec"] = "ok"
+    except Exception as e:
+        checks["domain_spec"] = f"error: {e}"
+
+    overall = "healthy" if all(v == "ok" for v in checks.values()) else "degraded"
+    return {"status": overall, "checks": checks}
+
+
 def register_all(chassis_router) -> None:
     """
     Register all action handlers with the chassis.
@@ -219,4 +299,6 @@ def register_all(chassis_router) -> None:
     chassis_router.register_handler("match", handle_match)
     chassis_router.register_handler("sync", handle_sync)
     chassis_router.register_handler("admin", handle_admin)
-    logger.info("Registered 3 action handlers: match, sync, admin")
+    chassis_router.register_handler("outcomes", handle_outcomes)
+    chassis_router.register_handler("health", handle_health)
+    logger.info("Registered 5 action handlers: match, sync, admin, outcomes, health")

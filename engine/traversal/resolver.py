@@ -7,6 +7,7 @@ import logging
 from typing import Any
 
 from engine.config.schema import DomainSpec
+from engine.utils.safe_eval import safe_eval
 
 logger = logging.getLogger(__name__)
 
@@ -50,6 +51,4 @@ class ParameterResolver:
         Returns:
             Computed value
         """
-        # Safe eval with restricted namespace
-        namespace = {**context, "__builtins__": {}}
-        return eval(expression, namespace)
+        return safe_eval(expression, context)
