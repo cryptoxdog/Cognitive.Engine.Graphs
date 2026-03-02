@@ -1,16 +1,17 @@
-#!/bin/sh
-# --- L9_META ---
-# l9_schema: 1
-# origin: l9-template
-# engine: graph
-# layer: [scripts]
-# tags: [L9_TEMPLATE, scripts, entrypoint]
-# owner: platform
-# status: active
-# --- /L9_META ---
-# ─────────────────────────────────────────────────────────────
-# L9 Graph Cognitive Engine — Container Entrypoint
-# ─────────────────────────────────────────────────────────────
+#
+!/bin/sh
+--- L9_META ---
+l9_schema: 1
+origin: l9-template
+engine: graph
+layer: [scripts]
+tags: [L9_TEMPLATE, scripts, entrypoint]
+owner: platform
+status: active
+--- /L9_META ---
+─────────────────────────────────────────────────────────────
+L9 Graph Cognitive Engine — Container Entrypoint
+─────────────────────────────────────────────────────────────
 set -e
 
 echo "╔══════════════════════════════════════════════════════╗"
@@ -18,7 +19,7 @@ echo "║  L9 Graph Cognitive Engine                           ║"
 echo "║  Starting uvicorn on 0.0.0.0:8000                    ║"
 echo "╚══════════════════════════════════════════════════════╝"
 
-# Wait for Neo4j to be ready (belt + suspenders beyond depends_on)
+Wait for Neo4j to be ready (belt + suspenders beyond depends_on)
 echo "Waiting for Neo4j..."
 for i in $(seq 1 30); do
     python -c "
@@ -36,7 +37,7 @@ print('Neo4j ready')
     sleep 2
 done
 
-# Launch uvicorn
+Launch uvicorn
 exec uvicorn engine.api.app:create_app \
     --factory \
     --host 0.0.0.0 \

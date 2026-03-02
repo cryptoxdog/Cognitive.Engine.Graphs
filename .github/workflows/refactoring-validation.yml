@@ -1,22 +1,23 @@
-# --- L9_META ---
-# l9_schema: 1
-# origin: l9-template
-# engine: graph
-# layer: [ci]
-# tags: [L9_TEMPLATE, ci, refactoring]
-# owner: platform
-# status: active
-# --- /L9_META ---
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-# DORA META: Refactoring Safety Gate (BLOCKING)
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-# CREATED: 2026-02-15T21:34:00-04:00
-# AUTHOR: L9 Engineering (cryptoxdog)
-# PURPOSE: HARD GATE for refactoring PRs — zero false positives allowed
-# DEPENDENCIES: Ruff, Mypy, Pytest
-# DEPLOYMENT: Runs on refactor/* branches only
-# DORA METRICS: Zero regressions | Test coverage maintained
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+#
+--- L9_META ---
+l9_schema: 1
+origin: l9-template
+engine: graph
+layer: [ci]
+tags: [L9_TEMPLATE, ci, refactoring]
+owner: platform
+status: active
+--- /L9_META ---
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+DORA META: Refactoring Safety Gate (BLOCKING)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+CREATED: 2026-02-15T21:34:00-04:00
+AUTHOR: L9 Engineering (cryptoxdog)
+PURPOSE: HARD GATE for refactoring PRs — zero false positives allowed
+DEPENDENCIES: Ruff, Mypy, Pytest
+DEPLOYMENT: Runs on refactor/* branches only
+DORA METRICS: Zero regressions | Test coverage maintained
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 name: Refactoring Safety Gate
 
@@ -44,10 +45,10 @@ jobs:
 
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11v4.1.1
 
       - name: Set up Python 3.12
-        uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v5.3.0
+        uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2bv5.3.0
         with:
           python-version: '3.12'
           cache: 'pip'
@@ -61,17 +62,17 @@ jobs:
       - name: Run Ruff Linter (BLOCKING)
         run: |
           ruff check . --output-format=github
-        # REMOVED: continue-on-error: true — this is a GATE
+REMOVED: continue-on-error: true — this is a GATE
 
       - name: Run Ruff Formatter Check (BLOCKING)
         run: |
           ruff format --check .
-        # REMOVED: continue-on-error: true
+REMOVED: continue-on-error: true
 
       - name: Run Mypy Type Checker (BLOCKING)
         run: |
           mypy . --show-error-codes --pretty
-        # REMOVED: continue-on-error: true
+REMOVED: continue-on-error: true
 
       - name: Run Full Test Suite (BLOCKING)
         run: |
@@ -80,15 +81,15 @@ jobs:
             --cov-report=term-missing \
             --cov-fail-under=60 \
             -v
-        # REMOVED: continue-on-error: true
+REMOVED: continue-on-error: true
 
       - name: Refactoring Gate Passed
         run: |
           echo "✅ All refactoring safety checks passed"
           echo "🚀 Safe to merge"
 
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-# DORA META END
-# LAST_MODIFIED: 2026-02-15T21:34:00-04:00
-# CHANGE_SUMMARY: Removed all continue-on-error, added pytest-xdist, renamed to .yml
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+DORA META END
+LAST_MODIFIED: 2026-02-15T21:34:00-04:00
+CHANGE_SUMMARY: Removed all continue-on-error, added pytest-xdist, renamed to .yml
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

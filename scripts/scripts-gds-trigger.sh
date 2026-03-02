@@ -1,16 +1,17 @@
-#!/usr/bin/env bash
-# --- L9_META ---
-# l9_schema: 1
-# origin: l9-template
-# engine: graph
-# layer: [scripts]
-# tags: [L9_TEMPLATE, scripts, gds]
-# owner: platform
-# status: active
-# --- /L9_META ---
-# ============================================================================
-# gds-trigger.sh — Manually trigger GDS algorithm jobs
-# ============================================================================
+#
+!/usr/bin/env bash
+--- L9_META ---
+l9_schema: 1
+origin: l9-template
+engine: graph
+layer: [scripts]
+tags: [L9_TEMPLATE, scripts, gds]
+owner: platform
+status: active
+--- /L9_META ---
+============================================================================
+gds-trigger.sh — Manually trigger GDS algorithm jobs
+============================================================================
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

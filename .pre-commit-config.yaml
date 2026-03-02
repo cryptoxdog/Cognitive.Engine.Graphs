@@ -7,6 +7,7 @@
 # owner: platform
 # status: active
 # --- /L9_META ---
+#
 # Pre-commit hooks — mechanical enforcement before commit
 # Install: pre-commit install
 # Run manually: pre-commit run --all-files

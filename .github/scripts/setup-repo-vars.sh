@@ -1,21 +1,22 @@
-#!/usr/bin/env bash
-# --- L9_META ---
-# l9_schema: 1
-# origin: l9-template
-# engine: graph
-# layer: [bootstrap]
-# tags: [L9_TEMPLATE, bootstrap, setup]
-# owner: platform
-# status: active
-# --- /L9_META ---
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-# Universal CI/CD Pack — Automated Variable Setup
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-# VERSION: 1.0.0
-# USAGE: bash .github/scripts/setup-repo-vars.sh [path-to-env-file]
-# REQUIRES: GitHub CLI (gh) authenticated
-# INSTALL: https://cli.github.com/
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+#
+!/usr/bin/env bash
+--- L9_META ---
+l9_schema: 1
+origin: l9-template
+engine: graph
+layer: [bootstrap]
+tags: [L9_TEMPLATE, bootstrap, setup]
+owner: platform
+status: active
+--- /L9_META ---
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Universal CI/CD Pack — Automated Variable Setup
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+VERSION: 1.0.0
+USAGE: bash .github/scripts/setup-repo-vars.sh [path-to-env-file]
+REQUIRES: GitHub CLI (gh) authenticated
+INSTALL: https://cli.github.com/
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 set -euo pipefail
 
 ENV_FILE="${1:-.github/env.template}"
@@ -25,7 +26,7 @@ echo "Universal CI/CD Pack — Repository Variable Setup"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""
 
-# ── Check dependencies ──
+── Check dependencies ──
 if [ ! -f "$ENV_FILE" ]; then
   echo "❌ File not found: $ENV_FILE"
   echo ""
@@ -44,7 +45,7 @@ if ! command -v gh &> /dev/null; then
   exit 1
 fi
 
-# ── Get repository info ──
+── Get repository info ──
 REPO=$(gh repo view --json nameWithOwner -q '.nameWithOwner' 2>/dev/null || echo "")
 
 if [ -z "$REPO" ]; then
@@ -64,16 +65,16 @@ COUNT=0
 SKIPPED=0
 
 while IFS= read -r line; do
-  # Skip comments and empty lines
-  [[ "$line" =~ ^#.*$ ]] && continue
+Skip comments and empty lines
+  [[ "$line" =~ ^.*$ ]] && continue
   [[ "$line" =~ ^[[:space:]]*$ ]] && continue
 
-  # Parse KEY=VALUE
+Parse KEY=VALUE
   if [[ "$line" =~ ^([A-Z_]+)=(.*)$ ]]; then
     KEY="${BASH_REMATCH[1]}"
     VALUE="${BASH_REMATCH[2]}"
 
-    # Skip if no value
+Skip if no value
     if [ -z "$VALUE" ]; then
       ((SKIPPED++))
       continue

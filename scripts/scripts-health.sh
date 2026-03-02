@@ -1,16 +1,17 @@
-#!/usr/bin/env bash
-# --- L9_META ---
-# l9_schema: 1
-# origin: l9-template
-# engine: graph
-# layer: [scripts]
-# tags: [L9_TEMPLATE, scripts, health]
-# owner: platform
-# status: active
-# --- /L9_META ---
-# ============================================================================
-# health.sh — Health check all services
-# ============================================================================
+#
+!/usr/bin/env bash
+--- L9_META ---
+l9_schema: 1
+origin: l9-template
+engine: graph
+layer: [scripts]
+tags: [L9_TEMPLATE, scripts, health]
+owner: platform
+status: active
+--- /L9_META ---
+============================================================================
+health.sh — Health check all services
+============================================================================
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -25,7 +26,7 @@ REDIS_HOST="${REDIS_HOST:-localhost}"
 echo "🏥 L9 Health Check"
 echo "=================="
 
-# --- API ---
+--- API ---
 printf "  API (%s)... " "$API_URL"
 if HTTP_CODE=$(curl -sf -o /dev/null -w "%{http_code}" "${API_URL}/v1/health" 2>/dev/null); then
   if [ "$HTTP_CODE" = "200" ]; then
@@ -37,7 +38,7 @@ else
   echo "❌ DOWN"
 fi
 
-# --- Neo4j ---
+--- Neo4j ---
 printf "  Neo4j (%s)... " "$NEO4J_URL"
 if curl -sf "$NEO4J_URL" >/dev/null 2>&1; then
   echo "✅ UP"
@@ -45,7 +46,7 @@ else
   echo "❌ DOWN"
 fi
 
-# --- Redis ---
+--- Redis ---
 printf "  Redis (%s:6379)... " "$REDIS_HOST"
 if redis-cli -h "$REDIS_HOST" ping 2>/dev/null | grep -q PONG; then
   echo "✅ UP"

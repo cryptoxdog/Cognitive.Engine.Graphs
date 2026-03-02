@@ -1,19 +1,20 @@
-# --- L9_META ---
-# l9_schema: 1
-# origin: l9-template
-# engine: graph
-# layer: [ci]
-# tags: [L9_TEMPLATE, ci, security]
-# owner: platform
-# status: active
-# --- /L9_META ---
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-# Universal CI/CD Pack — Supply Chain Security
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-# VERSION: 1.0.0
-# PURPOSE: OpenSSF Scorecard, dependency review, SBOM generation, license compliance
-# FEATURES: Automated security posture assessment and supply chain protection
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+#
+--- L9_META ---
+l9_schema: 1
+origin: l9-template
+engine: graph
+layer: [ci]
+tags: [L9_TEMPLATE, ci, security]
+owner: platform
+status: active
+--- /L9_META ---
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Universal CI/CD Pack — Supply Chain Security
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+VERSION: 1.0.0
+PURPOSE: OpenSSF Scorecard, dependency review, SBOM generation, license compliance
+FEATURES: Automated security posture assessment and supply chain protection
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 name: Supply Chain Security
 
@@ -26,7 +27,7 @@ on:
     branches:
       - ${{ vars.PRIMARY_BRANCH || 'main' }}
   schedule:
-    - cron: '0 3 * * 1'  # Weekly on Monday at 3 AM UTC
+    - cron: '0 3 * * 1'Weekly on Monday at 3 AM UTC
   workflow_dispatch:
 
 concurrency:
@@ -43,9 +44,9 @@ env:
   PYTHON_VERSION: ${{ vars.PYTHON_VERSION || '3.12' }}
 
 jobs:
-  # ────────────────────────────────────────────────────────────────────────
-  # OpenSSF Scorecard — Supply Chain Security Assessment
-  # ────────────────────────────────────────────────────────────────────────
+────────────────────────────────────────────────────────────────────────
+OpenSSF Scorecard — Supply Chain Security Assessment
+────────────────────────────────────────────────────────────────────────
   scorecard:
     name: OpenSSF Scorecard
     runs-on: ubuntu-latest
@@ -58,19 +59,19 @@ jobs:
 
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11v4.1.1
         with:
           persist-credentials: false
 
       - name: Run OpenSSF Scorecard Analysis
-        uses: ossf/scorecard-action@62b2cac7ed8198b15735ed49ab1e5cf35480ba46 # v2.4.0
+        uses: ossf/scorecard-action@62b2cac7ed8198b15735ed49ab1e5cf35480ba46v2.4.0
         with:
           results_file: scorecard.sarif
           results_format: sarif
           publish_results: true
 
       - name: Upload Scorecard Results to Security Tab
-        uses: github/codeql-action/upload-sarif@a57c67b89589d2d13d5ac85a9fc4679e7539e94c # v3.27.9
+        uses: github/codeql-action/upload-sarif@a57c67b89589d2d13d5ac85a9fc4679e7539e94cv3.27.9
         with:
           sarif_file: scorecard.sarif
 
@@ -81,9 +82,9 @@ jobs:
           path: scorecard.sarif
           retention-days: 30
 
-  # ────────────────────────────────────────────────────────────────────────
-  # Dependency Review — Block Risky Dependencies in PRs
-  # ────────────────────────────────────────────────────────────────────────
+────────────────────────────────────────────────────────────────────────
+Dependency Review — Block Risky Dependencies in PRs
+────────────────────────────────────────────────────────────────────────
   dependency-review:
     name: Dependency Review
     runs-on: ubuntu-latest
@@ -95,19 +96,19 @@ jobs:
 
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11v4.1.1
 
       - name: Review Dependencies
-        uses: actions/dependency-review-action@5aa4f05ee5e9f4f33e5c31e13d7d77c6a07a86e2 # v4.5.0
+        uses: actions/dependency-review-action@5aa4f05ee5e9f4f33e5c31e13d7d77c6a07a86e2v4.5.0
         with:
           fail-on-severity: high
           allow-licenses: ${{ vars.ALLOWED_LICENSES || 'MIT, Apache-2.0, BSD-3-Clause, BSD-2-Clause, ISC' }}
           deny-licenses: ${{ vars.DENIED_LICENSES || 'GPL-3.0, AGPL-3.0' }}
           comment-summary-in-pr: on-failure
 
-  # ────────────────────────────────────────────────────────────────────────
-  # SBOM Generation — Software Bill of Materials
-  # ────────────────────────────────────────────────────────────────────────
+────────────────────────────────────────────────────────────────────────
+SBOM Generation — Software Bill of Materials
+────────────────────────────────────────────────────────────────────────
   sbom:
     name: Generate SBOM
     runs-on: ubuntu-latest
@@ -119,10 +120,10 @@ jobs:
 
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11v4.1.1
 
       - name: Generate SBOM with Syft
-        uses: anchore/sbom-action@fc46e51fb0e4e3ecf1ea2be3b2e00ee50f1c4e44 # v0.17.7
+        uses: anchore/sbom-action@fc46e51fb0e4e3ecf1ea2be3b2e00ee50f1c4e44v0.17.7
         with:
           format: spdx-json
           output-file: sbom.spdx.json
@@ -130,15 +131,15 @@ jobs:
           upload-release-assets: false
 
       - name: Generate CycloneDX SBOM
-        uses: anchore/sbom-action@fc46e51fb0e4e3ecf1ea2be3b2e00ee50f1c4e44 # v0.17.7
+        uses: anchore/sbom-action@fc46e51fb0e4e3ecf1ea2be3b2e00ee50f1c4e44v0.17.7
         with:
           format: cyclonedx-json
           output-file: sbom.cyclonedx.json
           upload-artifact: true
 
-  # ────────────────────────────────────────────────────────────────────────
-  # License Compliance — Enforce Approved Licenses
-  # ────────────────────────────────────────────────────────────────────────
+────────────────────────────────────────────────────────────────────────
+License Compliance — Enforce Approved Licenses
+────────────────────────────────────────────────────────────────────────
   license-compliance:
     name: License Compliance
     runs-on: ubuntu-latest
@@ -148,10 +149,10 @@ jobs:
 
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11v4.1.1
 
       - name: Set up Python
-        uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v5.3.0
+        uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2bv5.3.0
         with:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: 'pip'
@@ -179,11 +180,11 @@ jobs:
           echo "Denied licenses: $DENY"
           echo ""
 
-          # Generate report
+Generate report
           pip-licenses --format=json --output-file=licenses.json
           pip-licenses --format=markdown --output-file=licenses.md
 
-          # Check compliance
+Check compliance
           pip-licenses \
             --allow-only="$ALLOW" \
             --fail-on="$DENY" \
@@ -202,6 +203,6 @@ jobs:
             licenses.md
           retention-days: 30
 
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-# END OF SUPPLY CHAIN SECURITY
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+END OF SUPPLY CHAIN SECURITY
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

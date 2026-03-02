@@ -1,13 +1,14 @@
-# --- L9_META ---
-# l9_schema: 1
-# origin: l9-template
-# engine: graph
-# layer: [telemetry]
-# tags: [L9_TEMPLATE, telemetry, prometheus]
-# owner: platform
-# status: active
-# --- /L9_META ---
-# Prometheus scrape config for L9 Engine
+#
+--- L9_META ---
+l9_schema: 1
+origin: l9-template
+engine: graph
+layer: [telemetry]
+tags: [L9_TEMPLATE, telemetry, prometheus]
+owner: platform
+status: active
+--- /L9_META ---
+Prometheus scrape config for L9 Engine
 global:
   scrape_interval: 15s
   evaluation_interval: 15s

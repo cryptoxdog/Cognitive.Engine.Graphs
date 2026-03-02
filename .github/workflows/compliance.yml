@@ -1,12 +1,13 @@
-# --- L9_META ---
-# l9_schema: 1
-# origin: l9-template
-# engine: graph
-# layer: [ci]
-# tags: [L9_TEMPLATE, ci, compliance]
-# owner: platform
-# status: active
-# --- /L9_META ---
+#
+--- L9_META ---
+l9_schema: 1
+origin: l9-template
+engine: graph
+layer: [ci]
+tags: [L9_TEMPLATE, ci, compliance]
+owner: platform
+status: active
+--- /L9_META ---
 name: Architecture Compliance Check
 
 on:
@@ -32,7 +33,7 @@ jobs:
 
       - name: Check for banned files
         run: |
-          # Fail if engine/api/ or engine/middleware.py exist
+Fail if engine/api/ or engine/middleware.py exist
           if [ -d "engine/api" ]; then
             echo "ERROR: engine/api/ directory exists (chassis contract violation)"
             exit 1
@@ -44,7 +45,7 @@ jobs:
 
       - name: Check for FastAPI imports in engine/
         run: |
-          # Allow chassis imports ONLY in engine/handlers.py
+Allow chassis imports ONLY in engine/handlers.py
           if find engine/ -name "*.py" ! -path "engine/handlers.py" -exec grep -l "from fastapi import\|import fastapi" {} \;; then
             echo "ERROR: FastAPI imports found in engine/ (only handlers.py allowed)"
             exit 1
@@ -52,7 +53,7 @@ jobs:
 
       - name: Check for Cypher injection patterns
         run: |
-          # Find f-strings with Cypher labels NOT wrapped in sanitize_label()
+Find f-strings with Cypher labels NOT wrapped in sanitize_label()
           if find engine/ -name "*.py" -exec grep -P 'f".*MATCH.*\(.*:\{(?!sanitize_label)' {} \; | grep -v test; then
             echo "ERROR: Cypher label interpolation without sanitize_label() detected"
             exit 1
@@ -66,7 +67,7 @@ jobs:
 
       - name: Validate domain specs
         run: |
-          # Ensure all YAML specs can be loaded by Pydantic
+Ensure all YAML specs can be loaded by Pydantic
           python -c "
           from pathlib import Path
           import yaml

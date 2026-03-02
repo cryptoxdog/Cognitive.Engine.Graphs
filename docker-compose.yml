@@ -1,23 +1,24 @@
-# --- L9_META ---
-# l9_schema: 1
-# origin: l9-template
-# engine: graph
-# layer: [docker]
-# tags: [L9_TEMPLATE, docker, dev]
-# owner: platform
-# status: active
-# --- /L9_META ---
-# ─────────────────────────────────────────────────────────────
-# L9 Graph Cognitive Engine — Local Dev Docker Compose
-# Usage: docker compose up -d
-# API:   http://localhost:8000/v1/health
-# Neo4j: http://localhost:7474 (browser), bolt://localhost:7687
-# Redis: localhost:6379
-# ─────────────────────────────────────────────────────────────
+#
+--- L9_META ---
+l9_schema: 1
+origin: l9-template
+engine: graph
+layer: [docker]
+tags: [L9_TEMPLATE, docker, dev]
+owner: platform
+status: active
+--- /L9_META ---
+─────────────────────────────────────────────────────────────
+L9 Graph Cognitive Engine — Local Dev Docker Compose
+Usage: docker compose up -d
+API:   http://localhost:8000/v1/health
+Neo4j: http://localhost:7474 (browser), bolt://localhost:7687
+Redis: localhost:6379
+─────────────────────────────────────────────────────────────
 
 services:
 
-  # ── API Server ───────────────────────────────────────────
+── API Server ───────────────────────────────────────────
   api:
     build:
       context: .
@@ -26,18 +27,18 @@ services:
     ports:
       - "8000:8000"
     environment:
-      # Neo4j — uses Docker service name, not localhost
+Neo4j — uses Docker service name, not localhost
       PLASTICOS_NEO4J_URI: bolt://neo4j:7687
       PLASTICOS_NEO4J_USER: neo4j
       PLASTICOS_NEO4J_PASSWORD: l9-dev-password
       PLASTICOS_NEO4J_POOL_SIZE: 20
-      # Redis
+Redis
       PLASTICOS_REDIS_URL: redis://redis:6379/0
-      # API
+API
       PLASTICOS_API_KEY: dev-key-sha256-not-for-production
       PLASTICOS_LOG_LEVEL: debug
       PLASTICOS_CORS_ORIGINS: '["http://localhost:3000","http://localhost:8000"]'
-      # Scoring defaults
+Scoring defaults
       PLASTICOS_W_STRUCTURAL: "0.30"
       PLASTICOS_W_GEO: "0.25"
       PLASTICOS_W_REINFORCEMENT: "0.20"
@@ -45,10 +46,10 @@ services:
       PLASTICOS_GEO_DECAY_KM: "800.0"
       PLASTICOS_COMMUNITY_CROSS_BIAS: "0.92"
       PLASTICOS_MAX_RESULTS: "25"
-      # Domain
+Domain
       PLASTICOS_DOMAIN_SPEC: domains/plasticos_spec.yaml
     volumes:
-      # Hot-reload: mount source code so changes reflect without rebuild
+Hot-reload: mount source code so changes reflect without rebuild
       - ./engine:/app/engine:ro
       - ./domains:/app/domains:ro
     depends_on:
@@ -66,13 +67,13 @@ services:
     networks:
       - l9-graph
 
-  # ── Neo4j 5.x Enterprise + GDS ──────────────────────────
+── Neo4j 5.x Enterprise + GDS ──────────────────────────
   neo4j:
     image: neo4j:5-enterprise
     container_name: l9-graph-neo4j
     ports:
-      - "7475:7474"   # Browser (7475 external -> 7474 internal)
-      - "7688:7687"   # Bolt (7688 external -> 7687 internal)
+      - "7475:7474"Browser (7475 external -> 7474 internal)
+      - "7688:7687"Bolt (7688 external -> 7687 internal)
     environment:
       NEO4J_AUTH: neo4j/l9-dev-password
       NEO4J_ACCEPT_LICENSE_AGREEMENT: "yes"
@@ -96,7 +97,7 @@ services:
     networks:
       - l9-graph
 
-  # ── Redis 7.x ───────────────────────────────────────────
+── Redis 7.x ───────────────────────────────────────────
   redis:
     image: redis:7-alpine
     container_name: l9-graph-redis

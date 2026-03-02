@@ -1,16 +1,17 @@
-#!/usr/bin/env bash
-# --- L9_META ---
-# l9_schema: 1
-# origin: l9-template
-# engine: graph
-# layer: [scripts]
-# tags: [L9_TEMPLATE, scripts, test]
-# owner: platform
-# status: active
-# --- /L9_META ---
-# ============================================================================
-# test.sh — Run test suite with coverage
-# ============================================================================
+#
+!/usr/bin/env bash
+--- L9_META ---
+l9_schema: 1
+origin: l9-template
+engine: graph
+layer: [scripts]
+tags: [L9_TEMPLATE, scripts, test]
+owner: platform
+status: active
+--- /L9_META ---
+============================================================================
+test.sh — Run test suite with coverage
+============================================================================
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

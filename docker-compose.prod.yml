@@ -1,17 +1,18 @@
-# --- L9_META ---
-# l9_schema: 1
-# origin: l9-template
-# engine: graph
-# layer: [docker]
-# tags: [L9_TEMPLATE, docker, prod]
-# owner: platform
-# status: active
-# --- /L9_META ---
-# ============================================================================
-# L9 Engine — Local Development Stack
-# ============================================================================
-# Usage: docker compose up -d
-# ============================================================================
+#
+--- L9_META ---
+l9_schema: 1
+origin: l9-template
+engine: graph
+layer: [docker]
+tags: [L9_TEMPLATE, docker, prod]
+owner: platform
+status: active
+--- /L9_META ---
+============================================================================
+L9 Engine — Local Development Stack
+============================================================================
+Usage: docker compose up -d
+============================================================================
 
 services:
   neo4j:

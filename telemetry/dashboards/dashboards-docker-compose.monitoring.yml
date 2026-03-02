@@ -1,18 +1,19 @@
-# --- L9_META ---
-# l9_schema: 1
-# origin: l9-template
-# engine: graph
-# layer: [telemetry]
-# tags: [L9_TEMPLATE, telemetry, docker]
-# owner: platform
-# status: active
-# --- /L9_META ---
-# ============================================================================
-# Monitoring Stack — Grafana + Prometheus (local dev)
-# ============================================================================
-# Usage: docker compose -f dashboards/docker-compose.monitoring.yml up -d
-# Grafana: http://localhost:3000 (admin/admin)
-# ============================================================================
+#
+--- L9_META ---
+l9_schema: 1
+origin: l9-template
+engine: graph
+layer: [telemetry]
+tags: [L9_TEMPLATE, telemetry, docker]
+owner: platform
+status: active
+--- /L9_META ---
+============================================================================
+Monitoring Stack — Grafana + Prometheus (local dev)
+============================================================================
+Usage: docker compose -f dashboards/docker-compose.monitoring.yml up -d
+Grafana: http://localhost:3000 (admin/admin)
+============================================================================
 
 services:
   prometheus:

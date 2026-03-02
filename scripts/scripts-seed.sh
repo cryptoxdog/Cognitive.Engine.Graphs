@@ -1,16 +1,17 @@
-#!/usr/bin/env bash
-# --- L9_META ---
-# l9_schema: 1
-# origin: l9-template
-# engine: graph
-# layer: [scripts]
-# tags: [L9_TEMPLATE, scripts, seed]
-# owner: platform
-# status: active
-# --- /L9_META ---
-# ============================================================================
-# seed.sh — Seed Neo4j with sample data for a domain
-# ============================================================================
+#
+!/usr/bin/env bash
+--- L9_META ---
+l9_schema: 1
+origin: l9-template
+engine: graph
+layer: [scripts]
+tags: [L9_TEMPLATE, scripts, seed]
+owner: platform
+status: active
+--- /L9_META ---
+============================================================================
+seed.sh — Seed Neo4j with sample data for a domain
+============================================================================
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

@@ -1,22 +1,23 @@
-#!/usr/bin/env bash
-# --- L9_META ---
-# l9_schema: 1
-# origin: l9-template
-# engine: graph
-# layer: [scripts]
-# tags: [L9_TEMPLATE, scripts, dev]
-# owner: platform
-# status: active
-# --- /L9_META ---
-# ============================================================================
-# dev.sh — Start local development stack
-# ============================================================================
+#
+!/usr/bin/env bash
+--- L9_META ---
+l9_schema: 1
+origin: l9-template
+engine: graph
+layer: [scripts]
+tags: [L9_TEMPLATE, scripts, dev]
+owner: platform
+status: active
+--- /L9_META ---
+============================================================================
+dev.sh — Start local development stack
+============================================================================
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(dirname "$SCRIPT_DIR")"
 
-# Source env
+Source env
 set -a; source "$ROOT_DIR/.env" 2>/dev/null || true; set +a
 
 ACTION="${1:-up}"

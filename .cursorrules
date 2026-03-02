@@ -1,56 +1,440 @@
-# --- L9_META ---
-# l9_schema: 1
-# origin: l9-template
-# engine: graph
-# layer: [agent-rules]
-# tags: [L9_TEMPLATE, agent-rules, cursor]
-# owner: platform
-# status: active
-# --- /L9_META ---
-# Graph Cognitive Engine Rules
+#
+`.cursorrules` — Graph Cognitive Engine (v2.0)
 
-## Core Principles
-- This is an L9 constellation engine. The chassis handles HTTP/auth/observability; engines handle domain logic only.
-- Engine NEVER imports FastAPI, Starlette, or any HTTP library.
-- Engine NEVER implements tenant resolution, auth, rate limiting, or CORS.
-- Engine NEVER creates routes. Only action handlers: `async def handle_X(tenant: str, payload: dict) -> dict`.
+```
+--- L9_META ---
+l9_schema: 1
+origin: l9-template
+engine: graph
+layer: [agent-rules]
+tags: [L9_TEMPLATE, agent-rules, cursor]
+owner: platform
+status: active
+--- /L9_META ---
 
-## File Structure (Immutable)
-- `engine/handlers.py`: ONLY file that registers with chassis (register_all)
-- `engine/config/`: Domain spec schema + loader
-- `engine/gates/`: Gate compiler + types
-- `engine/scoring/`: Scoring assembler
-- `engine/traversal/`: Traversal assembler
-- `engine/sync/`: Sync generator
-- `engine/gds/`: GDS scheduler
-- `engine/graph/`: Neo4j driver wrapper
-- `engine/compliance/`: PII + prohibited factors
-- `engine/packet/`: PacketEnvelope bridge (chassis_contract.py)
-- `domains/`: {domain_id}_domain_spec.yaml (One per vertical)
 
-## Security (Non-Negotiable)
-- All Neo4j labels and relationship types MUST pass `sanitize_label()` before f-string interpolation.
-- Domain specs uploaded via admin endpoints are untrusted input → sanitize labels/types.
-- `sanitize_label()` regex: `^[A-Za-z_][A-Za-z0-9_]*$`
-- Cypher VALUES use parameterized queries ($batch, $query). Only labels/types are interpolated.
+============================================================================
+.cursorrules — Graph Cognitive Engine
+============================================================================
+20 contracts. Violate any → revert and ask.
+============================================================================
 
-## Chassis Integration Contract
-- `engine/handlers.py` is the ONLY file that imports chassis modules.
-- Handler signature: `async def handle_action(tenant: str, payload: dict) -> dict`
-- Register handlers: `chassis.router.register_handler("match", handle_match)`
-- Tenant comes FROM chassis (5-level resolution). Engine does not resolve tenant.
-- PacketEnvelope: Request/response must be wrapped via `inflate_ingress()` / `deflate_egress()` at chassis boundary.
 
-## Testing
-- Unit tests for gate compilation, scoring math, parameter resolution.
-- Integration tests use `testcontainers-neo4j` (do NOT mock Neo4j driver).
-- Compliance tests verify prohibited factors are blocked.
-- Performance tests verify <200ms p95 match latency.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+LAYER 1 — CHASSIS BOUNDARY (contracts 1–5)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-## What NOT to Build
-- ❌ FastAPI routes, APIRouter, app factories
-- ❌ Middleware for tenant resolution, auth, CORS
-- ❌ Logging configuration (structlog comes from chassis)
-- ❌ Prometheus metrics setup (chassis exposes /metrics)
-- ❌ Dockerfile, docker-compose.yml (use l9-root template)
-- ❌ CI/CD pipeline (use .github/workflows from template)
+CONTRACT 1: SINGLE INGRESS
+The only HTTP surface is POST /v1/execute and GET /v1/health.
+Engine NEVER imports FastAPI, Starlette, or any HTTP library.
+Engine NEVER creates routes, APIRouter, or app factories.
+
+CONTRACT 2: HANDLER INTERFACE
+Engine exposes action handlers only:
+async def handle_<action>(tenant: str, payload: dict) -> dict
+Register in engine/handlers.py via:
+chassis.router.register_handler("match", handle_match)
+handlers.py is the ONLY file that imports chassis modules.
+
+CONTRACT 3: TENANT ISOLATION
+Tenant is resolved BY the chassis (5-level: header → subdomain → key prefix → envelope → default).
+Engine receives tenant as a string argument. Engine NEVER resolves tenant.
+Every Neo4j query scopes to tenant database. No cross-tenant reads.
+
+CONTRACT 4: OBSERVABILITY IS INHERITED
+Engine NEVER configures structlog, Prometheus, or logging handlers.
+Chassis provides: structured JSON logging, trace_id propagation, /metrics endpoint.
+Engine uses: structlog.get_logger(__name__) — nothing else.
+
+CONTRACT 5: INFRASTRUCTURE IS TEMPLATE
+Engine NEVER creates: Dockerfile, docker-compose, CI pipeline, Terraform modules.
+All exist in l9-template. Engine adds engine-specific env vars to .env.template only.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+LAYER 2 — PACKET PROTOCOL (contracts 6–8)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+CONTRACT 6: PACKETENVELOPE IS THE ONLY DATA CONTAINER
+Every inter-service payload is a PacketEnvelope.
+inflate_ingress() at boundary entry. deflate_egress() at boundary exit.
+Engine code between boundaries works with typed dicts/Pydantic — never raw envelopes.
+
+CONTRACT 7: IMMUTABILITY + CONTENT HASH
+PacketEnvelope is frozen (Pydantic frozen=True). Mutations create new packets via .derive().
+content_hash (SHA-256 of canonical payload) is a UNIQUE DB constraint.
+Design all writes for idempotency — duplicate content_hash is silently rejected.
+
+CONTRACT 8: LINEAGE + AUDIT
+Every derived packet sets parent_id, root_id, increments generation.
+hop_trace is append-only: each node that touches a packet adds a HopEntry.
+delegation_chain carries scoped authorization through multi-hop flows.
+Engine NEVER bypasses lineage — all new packets come from .derive() or PacketEnvelope.create().
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+LAYER 3 — SECURITY (contracts 9–11)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+CONTRACT 9: CYPHER INJECTION PREVENTION
+All Neo4j labels and relationship types MUST pass sanitize_label() before interpolation.
+Regex: ^[A-Za-z_][A-Za-z0-9_]*$
+Cypher VALUES always use parameterized queries ($batch, $query).
+Only labels/types are interpolated — after sanitization.
+
+CONTRACT 10: PROHIBITED FACTORS
+Compliance fields (race, ethnicity, religion, gender, age, disability, familial_status,
+national_origin) are blocked at compile-time during gate validation.
+If a domain spec references a prohibited field → gate compilation fails, not a runtime error.
+audit_on_violation: true — every blocked attempt is logged.
+
+CONTRACT 11: PII HANDLING
+PII fields declared in domain spec compliance.pii.fields.
+Handling mode per domain: hash | encrypt | redact | tokenize.
+Encryption key source: env | vault | kms (declared in spec, never hardcoded).
+Engine NEVER logs PII values. structlog filters are set by chassis.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+LAYER 4 — ENGINE ARCHITECTURE (contracts 12–16)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+CONTRACT 12: DOMAIN SPEC IS THE SOURCE OF TRUTH
+All matching behavior comes from {domain_id}_domain_spec.yaml.
+DomainPackLoader (engine/config/loader.py) reads YAML → DomainConfig (Pydantic).
+Every downstream module consumes DomainConfig — never raw YAML, never raw dicts.
+Domain specs are untrusted input (uploaded via admin endpoints) → validate everything.
+
+CONTRACT 13: GATE-THEN-SCORE ARCHITECTURE
+Matching is two-phase: gates (hard filter) → scoring (soft rank).
+All gate logic compiles to Cypher WHERE clauses — zero post-filtering in Python.
+All scoring dimensions compile to a single WITH/ORDER BY clause — no iterative scoring.
+10 gate types: range, threshold, boolean, composite, enum_map, exclusion,
+self_range, freshness, temporal_range, traversal.
+9 scoring computations: geo_decay, log_normalized, community_match, inverse_linear,
+candidate_property, weighted_rate, price_alignment, temporal_proximity, custom_cypher.
+
+CONTRACT 14: NULL SEMANTICS ARE DETERMINISTIC
+Every gate declares null_behavior: pass | fail.
+pass → wraps predicate in (candidate.prop IS NULL OR <predicate>).
+fail → NULL candidate is rejected.
+This is per-gate, not global. The compiler handles it — callers don't.
+
+CONTRACT 15: BIDIRECTIONAL MATCHING
+Gates with invertible: true swap candidate_prop ↔ query_param when match direction reverses.
+Gates with match_directions: [specific] only fire for those directions.
+Scoring dimensions similarly scope to match_directions.
+The compiler handles inversion — gate implementations are direction-unaware.
+
+CONTRACT 16: FILE STRUCTURE IS FIXED
+engine/handlers.py      → ONLY chassis bridge (register_all)
+engine/config/           → Domain spec schema + loader + settings + units
+engine/gates/            → Gate compiler + null semantics + registry + types/
+engine/scoring/          → Scoring assembler
+engine/traversal/        → Traversal assembler + resolver
+engine/sync/             → Sync generator
+engine/gds/              → GDS scheduler (APScheduler from spec.gds_jobs)
+engine/graph/            → Neo4j async driver wrapper
+engine/compliance/       → Prohibited factors + PII + audit
+engine/packet/           → PacketEnvelope bridge (chassis_contract.py)
+engine/utils/            → safe_eval, security (sanitize_label)
+chassis/                 → Thin chassis adapter (actions.py)
+domains/                 → {domain_id}_domain_spec.yaml per vertical
+Do NOT create new top-level directories without architectural approval.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+LAYER 5 — TESTING + QUALITY (contracts 17–18)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+CONTRACT 17: TEST REQUIREMENTS
+Unit tests: gate compilation, scoring math, parameter resolution, null semantics per gate.
+Integration tests: testcontainers-neo4j — do NOT mock the Neo4j driver.
+Compliance tests: verify prohibited factors are blocked at compile time.
+Performance: <200ms p95 match latency.
+Validation: compiled Cypher for plasticos_spec.yaml must match hand-verified reference output.
+
+CONTRACT 18: L9_META ON EVERY FILE
+Every tracked file carries an L9_META header (schema version 1).
+Fields: l9_schema, origin, engine, layer, tags, owner, status.
+Format varies by filetype (YAML comment, HTML comment, Python docstring, JSON key, TOML table).
+Injected by tools/l9_meta_injector.py — not manually. Run it, commit, done.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+LAYER 6 — GRAPH INTELLIGENCE (contracts 19–20)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+CONTRACT 19: GDS JOBS ARE DECLARATIVE
+Graph Data Science algorithms (Louvain, similarity, etc.) are declared in spec.gds_jobs.
+Schedule type: cron | manual. Projections declare node_labels + edge_types.
+Scheduler reads the spec and creates APScheduler jobs — no hardcoded algorithm calls.
+GDS write targets (write_property, write_to, write_edge) are spec-driven.
+
+CONTRACT 20: KGE EMBEDDINGS (CompoundE3D)
+Model: CompoundE3D, 256-dim default. Training relations from domain spec ontology.edges.
+Beam search (width=10, depth=3) for link prediction.
+Ensemble strategy: weighted_average | rank_aggregation | mixture_of_experts.
+KGE scores are a scoring dimension — they feed into the same WITH clause as all others.
+Vector index stored in Neo4j (cosine similarity). Embeddings are domain-specific, never shared cross-tenant.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+CODE STYLE + CONVENTIONS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+LANGUAGE: Python 3.12+, async/await for all I/O (Neo4j, PostgreSQL, Redis).
+TYPE HINTS: Every function signature, class attribute, ambiguous variable.
+MODELS: Pydantic v2 BaseModel (frozen where appropriate) for all structured data.
+FORMATTER: ruff format (Black-compatible, 88-char line length). Run before commit.
+LINTER: ruff check + mypy --strict engine/
+LOGGING: structlog.get_logger(__name__). Include tenant, trace_id, action in context.
+NAMING: snake_case everywhere. No Pydantic Field(alias=...). YAML keys = Python field names.
+RUFF PATTERNS THAT CAUSE NOISE (write code that avoids them):
+Exceptions → always assign message to variable first:
+BAD:  raise ValueError(f"invalid {x}")
+GOOD: msg = f"invalid {x}"; raise ValueError(msg)
+(prevents EM101, EM102 — duplicated traceback lines)
+Nullable params → explicit union, never implicit Optional:
+BAD:  def f(x: str = None)
+GOOD: def f(x: str | None = None)
+(prevents RUF013)
+Mutable class defaults → always annotate ClassVar:
+BAD:  class C: items = []
+GOOD: class C: items: ClassVar[list[str]] = []
+(prevents RUF012 — Pydantic frozen models are exempt)
+Datetime → always timezone-aware:
+BAD:  datetime.now()
+GOOD: datetime.now(tz=UTC)
+(prevents DTZ005 — only suppress with noqa + comment for scheduler local time)
+Singletons → module pattern, not global keyword:
+BAD:  global _driver; _driver = ...
+GOOD: _driver: GraphDriver | None = None  (module-level, set via init function)
+(prevents PLW0603)
+Many args → group into dataclass/TypedDict when >8:
+Threshold set to max-args=8 (not default 5). Audit/compliance APIs need 6-8.
+Beyond 8 → use @dataclass param object.
+(prevents PLR0913)
+Branches → extract helpers when >15:
+Threshold set to max-branches=15 (not default 12). Gate compiler is inherently branchy.
+Beyond 15 → extract sub-functions.
+(prevents PLR0912)
+Magic values → named constants in engine/, literals OK in tests/:
+BAD (in engine):  if score > 0.85
+GOOD (in engine):  MATCH_THRESHOLD = 0.85; if score > MATCH_THRESHOLD
+(PLR2004 is per-file-ignored in tests/ and config/)
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+KEY COMMANDS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+make setup             → Install deps, pre-commit hooks, verify Neo4j
+make dev               → docker-compose (app + Neo4j + Redis + Prometheus + Grafana)
+make test              → Full pytest suite (unit + integration + compliance)
+make test-unit         → Gate compilation, scoring math, parameter resolution
+make test-integration  → testcontainers-neo4j full pipeline
+make lint              → ruff check + ruff format --check + mypy --strict engine/
+make lint-fix          → ruff check --fix + ruff format .
+make cypher-lint       → Scan generated Cypher for injection vectors
+make gds-trigger JOB=louvain DOMAIN=plasticos  → Manual GDS job trigger
+make build             → Docker image
+make deploy ENV=staging → Railway/ArgoCD deploy
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+IMPORT PATTERNS (canonical — do not deviate)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+ONLY in engine/handlers.py:
+from chassis.router import register_handler
+Domain specs:
+from engine.config.loader import DomainPackLoader
+from engine.config.schema import DomainSpec, GateSpec, ScoringDimension
+Gate compilation:
+from engine.gates.compiler import GateCompiler
+from engine.gates.types import RangeGate, ThresholdGate, BooleanGate
+Scoring / Traversal / Sync:
+from engine.scoring.assembler import ScoringAssembler
+from engine.traversal.assembler import TraversalAssembler
+from engine.sync.generator import SyncGenerator, SyncStrategy
+GDS / Graph:
+from engine.gds.scheduler import GDSScheduler
+from engine.graph.driver import GraphDriver
+Packet:
+from engine.packet.chassis_contract import inflate_ingress, deflate_egress
+from engine.packet.packet_envelope import PacketEnvelope, PacketMetadata
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+BANNED PATTERNS (scanner rule IDs for contract_scanner.py)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+CRITICAL — merge blocked:
+SEC-001  f-string Cypher MATCH without sanitize_label() → contract 9
+SEC-002  eval()                                         → contract 9
+SEC-003  exec()                                         → contract 9
+SEC-004  f-string LIMIT interpolation                   → contract 9
+SEC-005  f-string SQL interpolation                     → contract 9
+SEC-006  pickle.load(s)                                 → contract 9
+SEC-007  yaml.load() without SafeLoader                 → contract 9
+ARCH-001 from fastapi import (in engine/)               → contract 1
+ARCH-002 from starlette import (in engine/)             → contract 1
+ARCH-003 import uvicorn (in engine/)                    → contract 1
+DEL-001  httpx.post/get/etc (in engine/)                → contract 8
+DEL-002  requests.post/get/etc (in engine/)             → contract 8
+MEM-001  INSERT INTO packetstore (in engine/)           → contract 7
+MEM-002  INSERT INTO memory_embeddings (in engine/)     → contract 7
+STUB-001 raise NotImplementedError (outside tests/)     → zero-stub protocol
+HIGH — merge blocked:
+ERR-001  bare except:                                   → error handling
+ERR-002  except + pass (swallowed exception)            → error handling
+DI-001   from fastapi import Depends (in engine/)       → contract 1
+OBS-001  structlog.configure() (in engine/)             → contract 4
+OBS-002  logging.basicConfig() (in engine/)             → contract 4
+NAME-001 Pydantic Field(alias=...)                      → naming convention
+SHARED-001 class PacketEnvelope (redefining)            → contract 7
+SHARED-002 class TenantContext (redefining)             → contract 3
+SHARED-003 class ExecuteRequest (redefining)            → contract 1
+STUB-002TODO comment                                → zero-stub protocol
+STUB-003PLACEHOLDER comment                         → zero-stub protocol
+PKT-001  uppercase packet_type value                    → contract 7
+ENV-001  non-L9_ env var name for infra vars            → convention
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ENFORCEMENT PIPELINE (5 layers — all must pass to merge)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1. PRE-COMMIT  → ruff, mypy --strict, contract_scanner.py, verify_contracts.py
+2. CI LINT     → same as pre-commit, repo-wide
+3. CI TESTS    → pytest (unit + integration + compliance + performance)
+4. CI AUDIT    → verify_contracts.py (all 20 contract files exist + wired)
+5. LLM REVIEW  → CodeRabbit + Qodo + Claude (contract-aware instructions)
+Branch protection: all 5 required status checks. No bypass.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+CONTRACT DOCS (read before writing engine code)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Engine-internal (1–10):
+docs/contracts/FIELD_NAMES.md
+docs/contracts/METHOD_SIGNATURES.md
+docs/contracts/CYPHER_SAFETY.md
+docs/contracts/BANNED_PATTERNS.md
+docs/contracts/ERROR_HANDLING.md
+docs/contracts/HANDLER_PAYLOADS.md
+docs/contracts/PYDANTIC_YAML_MAPPING.md
+docs/contracts/DEPENDENCY_INJECTION.md
+docs/contracts/TEST_PATTERNS.md
+docs/contracts/RETURN_VALUES.md
+Constellation (11–20):
+docs/contracts/PACKET_ENVELOPE_FIELDS.md
+docs/contracts/DELEGATION_PROTOCOL.md
+docs/contracts/PACKET_TYPE_REGISTRY.md
+docs/contracts/DOMAIN_SPEC_VERSIONING.md
+docs/contracts/FEEDBACK_LOOPS.md
+docs/contracts/NODE_REGISTRATION.md
+docs/contracts/ENV_VARS.md
+docs/contracts/OBSERVABILITY.md
+docs/contracts/MEMORY_SUBSTRATE_ACCESS.md
+docs/contracts/SHARED_MODELS.md
+Enforced by: tools/contract_scanner.py + tools/verify_contracts.py
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+REFERENCE DOCS (do not duplicate — read for context)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+@docs/L9_Platform_Architecture.md         → chassis contract, universal envelope
+@docs/L9_AI_Constellation_Infrastructure_Reference.md → PacketEnvelope schema, memory substrate
+@docs/ARCHITECTURE.md                     → engine-level overview, design principles
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+QUICK REFERENCE — WHAT NOT TO BUILD
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+❌ FastAPI routes, APIRouter, app factories          → chassis (contract 1)
+❌ Middleware for tenant resolution, auth, CORS       → chassis (contract 3)
+❌ Logging/structlog configuration                   → chassis (contract 4)
+❌ Prometheus metrics setup                          → chassis (contract 4)
+❌ Dockerfile, docker-compose, CI/CD pipelines       → l9-template (contract 5)
+❌ Terraform modules, k8s manifests                  → l9-template (contract 5)
+❌ Custom request/response schemas for HTTP          → universal contract envelope (contract 1)
+❌ Manual packet creation without .derive()          → packet protocol (contract 8)
+❌ String-interpolated Cypher without sanitize_label → security (contract 9)
+❌ Post-filter matching in Python                    → gate-then-score in Cypher (contract 13)
+❌ Hardcoded GDS algorithm scheduling                → declarative spec (contract 19)
+❌ Cross-tenant KGE embeddings                       → domain isolation (contract 20)
+❌ eval(), exec(), pickle.load()                     → banned patterns (contract 9)
+❌ yaml.load() without SafeLoader                    → banned patterns (contract 9)
+❌ Raw httpx/requests calls to other nodes           → delegation protocol (contract 8)
+❌ Direct INSERT into packetstore/memory_embeddings  → memory substrate (contract 7)
+❌ Redefining PacketEnvelope/TenantContext/ExecuteRequest → shared models (contract 7)
+❌ raise NotImplementedError (ship code or defer)    → zero-stub protocol
+❌ TODO / PLACEHOLDER comments without DEFERRED.md   → zero-stub protocol
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+RUFF CONFIG (pyproject.toml reference — do not contradict)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Global ignores (legitimately inapplicable to this project):
+E501     → formatter handles line length
+TRY003   → long exception messages acceptable in domain code
+TRY400   → logging.error vs logging.exception — both acceptable
+TRY004   → TypeError vs ValueError — overly prescriptive
+TC001    → typing-only first-party import — breaks Pydantic v2 validators at runtime
+TC003    → typing-only stdlib import — same runtime issue
+ARG001-3 → unused function/method/classmethod args — handler interface compliance
+ARG005   → unused lambda args — callback signature compliance
+SIM105   → contextlib.suppress — explicit try/except is clearer in async+structlog code
+B007     → unused loop variable — use _ prefix convention
+PLC0206  → dict index missing items — false positives with dynamic dicts
+Threshold raises (configure limits, don't ignore):
+PLR0913  → max-args = 8       (default 5 is too low for audit/compliance APIs)
+PLR0912  → max-branches = 15  (default 12 is too low for gate compiler validation)
+PLR0911  → max-returns = 8    (default 6 is too low for tool dispatch)
+Per-file ignores (scoped to specific directories):
+tests/**  → PLR2004 (magic values), PT011 (broad raises), E741 (short var names)
+engine/config/** → PLR2004 (magic values in defaults)
+tools/**  → PLC0415 (lazy imports), E741 (short var names)
+```
+
+***
+
+Contract Index
+
+The 20 contracts are grouped into 6 layers, each targeting a distinct architectural concern:[1][2][3]
+
+|| Contract | Layer | Enforces |
+|---|----------|-------|----------|
+| 1 | Single Ingress | Chassis Boundary | No HTTP in engine[1] |
+| 2 | Handler Interface | Chassis Boundary | `async def handle_X(tenant, payload) → dict`[1] |
+| 3 | Tenant Isolation | Chassis Boundary | 5-level resolution, engine receives string[3] |
+| 4 | Observability Inherited | Chassis Boundary | No structlog/Prometheus config in engine[1] |
+| 5 | Infrastructure Template | Chassis Boundary | No Dockerfile/CI/Terraform in engine[1] |
+| 6 | PacketEnvelope Only | Packet Protocol | `inflate_ingress()` / `deflate_egress()` at boundary[2] |
+| 7 | Immutability + Hash | Packet Protocol | `frozen=True`, SHA-256 content_hash, idempotent writes[2] |
+| 8 | Lineage + Audit | Packet Protocol | `.derive()`, hop_trace, delegation_chain[2] |
+| 9 | Cypher Injection Prevention | Security | `sanitize_label()` regex, parameterized values[4] |
+| 10 | Prohibited Factors | Security | Compile-time block on ECOA/HIPAA fields[4] |
+| 11 | PII Handling | Security | Per-domain hash/encrypt/redact/tokenize[4] |
+| 12 | Domain Spec Source of Truth | Engine Architecture | YAML → DomainConfig (Pydantic), never raw dicts[4] |
+| 13 | Gate-Then-Score | Engine Architecture | 10 gate types → WHERE, 9 scoring → WITH/ORDER BY[4] |
+| 14 | Null Semantics | Engine Architecture | Per-gate `null_behavior: pass \| fail`[4] |
+| 15 | Bidirectional Matching | Engine Architecture | `invertible: true` swaps props, direction-scoped gates[4] |
+| 16 | Fixed File Structure | Engine Architecture | Immutable directory layout[4] |
+| 17 | Test Requirements | Quality | testcontainers-neo4j, <200ms p95, compliance coverage[4] |
+| 18 | L9_META on Every File | Quality | Schema v1 header via `l9_meta_injector.py` |
+| 19 | Declarative GDS Jobs | Graph Intelligence | `spec.gds_jobs` → APScheduler, no hardcoded calls[4] |
+| 20 | KGE Embeddings | Graph Intelligence | CompoundE3D, domain-scoped, feeds scoring pipeline[4] |
+
+Design Rationale
+
+**Why 20 contracts instead of prose rules?** Each contract is a single predicate — it either holds or it doesn't. Cursor can check `contract 9: sanitize_label` without reading paragraphs of context. The numbered system also makes code review comments unambiguous: "violates contract 3" is actionable; "this doesn't follow our tenancy pattern" is not.[3][1]
+
+**Layer grouping maps to failure domains.** Contracts 1–5 (chassis boundary) prevent the engine from rebuilding what already exists. Contracts 6–8 (packet protocol) enforce the constellation's communication invariant. Contracts 9–11 (security) are non-negotiable compliance gates. Contracts 12–16 (engine architecture) define the matching pipeline's mechanical rules. Contracts 17–18 (quality) ensure testability and traceability. Contracts 19–20 (graph intelligence) govern the GDS/KGE subsystem.[4][2]
+
+**The "What Not to Build" section is the highest-signal part.** LLM agents (including Cursor) default to building the most obvious thing — a FastAPI route, a logging config, a Dockerfile. The explicit prohibition list with contract references stops the most common drift patterns before they start.[1]

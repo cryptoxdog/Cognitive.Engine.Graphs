@@ -1,12 +1,13 @@
-# --- L9_META ---
-# l9_schema: 1
-# origin: l9-template
-# engine: graph
-# layer: [bootstrap]
-# tags: [L9_TEMPLATE, dev-pack, standards]
-# owner: platform
-# status: active
-# --- /L9_META ---
+#
+--- L9_META ---
+l9_schema: 1
+origin: l9-template
+engine: graph
+layer: [bootstrap]
+tags: [L9_TEMPLATE, dev-pack, standards]
+owner: platform
+status: active
+--- /L9_META ---
 ---
 title: "Universal Development Pack"
 purpose: "Universal loader pack extracted from UNIFIED_PROMPT_TOOLKIT golden morsels"
@@ -24,11 +25,11 @@ type: "config"
 production_ready: true
 ---
 
-# ============================================================================
-# UNIVERSAL DEVELOPMENT PACK v1.0.0
-# Extracted from UNIFIED_PROMPT_TOOLKIT using hybrid reasoning
-# Domain-agnostic patterns for high-quality development
-# ============================================================================
+============================================================================
+UNIVERSAL DEVELOPMENT PACK v1.0.0
+Extracted from UNIFIED_PROMPT_TOOLKIT using hybrid reasoning
+Domain-agnostic patterns for high-quality development
+============================================================================
 
 metadata:
   name: "Universal Development Pack"
@@ -38,13 +39,13 @@ metadata:
   applicability: "Universal (all development domains)"
   confidence: 0.92
 
-# ============================================================================
-# SECTION 1: CORE DEVELOPMENT PRINCIPLES
-# ============================================================================
+============================================================================
+SECTION 1: CORE DEVELOPMENT PRINCIPLES
+============================================================================
 
 core_principles:
 
-  # Principle 1: Autonomous Operations
+Principle 1: Autonomous Operations
   autonomous_operations:
     enabled: true
     description: "Minimize human intervention through self-healing and auto-remediation"
@@ -55,7 +56,7 @@ core_principles:
       - "Log all autonomous actions for audit trail"
     enforcement: "mandatory"
 
-  # Principle 2: Validation Gates
+Principle 2: Validation Gates
   validation_gates:
     enabled: true
     description: "Multi-layer validation before deployment"
@@ -68,7 +69,7 @@ core_principles:
         checks: ["health check", "integration test", "monitoring active"]
     block_on_failure: true
 
-  # Principle 3: Memory System
+Principle 3: Memory System
   memory_system:
     enabled: true
     description: "Learn from corrections and never repeat mistakes"
@@ -80,7 +81,7 @@ core_principles:
     storage: "memory_index.json"
     aggregation_interval: "daily"
 
-  # Principle 4: Metrics-Driven Improvement
+Principle 4: Metrics-Driven Improvement
   metrics_driven:
     enabled: true
     description: "Track performance metrics to drive continuous improvement"
@@ -99,7 +100,7 @@ core_principles:
         measurement: "Same mistake repeated / total mistakes"
     telemetry_output: "metrics.json"
 
-  # Principle 5: Production-Ready by Default
+Principle 5: Production-Ready by Default
   production_ready_default:
     enabled: true
     description: "All outputs production-ready unless explicitly prototyping"
@@ -112,19 +113,19 @@ core_principles:
       - "Performance optimized"
     exceptions: ["prototype", "proof-of-concept", "spike"]
 
-# ============================================================================
-# SECTION 2: REASONING FRAMEWORK
-# ============================================================================
+============================================================================
+SECTION 2: REASONING FRAMEWORK
+============================================================================
 
 reasoning_framework:
 
-  # Use L9 Unified Reasoning Pack for complex tasks
+Use L9 Unified Reasoning Pack for complex tasks
   l9_integration:
     enabled: true
     reference: "L9_UNIFIED_REASONING_PACK_v2.md"
     trigger: "complexity >= moderate"
 
-  # Adaptive Reasoning
+Adaptive Reasoning
   adaptive_reasoning:
     enabled: true
     description: "Adjust reasoning depth based on task complexity"
@@ -151,7 +152,7 @@ reasoning_framework:
         time_budget: "very_high"
         meta_reasoning: true
 
-  # Reasoning Metrics
+Reasoning Metrics
   reasoning_metrics:
     enabled: true
     track:
@@ -161,13 +162,13 @@ reasoning_framework:
       - "Decision quality score"
     output: "reasoning_metrics.json"
 
-# ============================================================================
-# SECTION 3: QUALITY STANDARDS
-# ============================================================================
+============================================================================
+SECTION 3: QUALITY STANDARDS
+============================================================================
 
 quality_standards:
 
-  # Code Quality
+Code Quality
   code_quality:
     style:
       - "Use active voice, not passive"
@@ -185,7 +186,7 @@ quality_standards:
       - "Max file length: 500 lines"
       - "Max nesting depth: 3"
 
-  # Documentation Quality
+Documentation Quality
   documentation_quality:
     inline:
       - "Docstrings for all public functions/classes"
@@ -200,7 +201,7 @@ quality_standards:
       format: "YAML frontmatter"
       fields: ["title", "purpose", "summary", "version", "created", "updated", "owner", "tags", "domain", "type", "production_ready"]
 
-  # Error Handling Quality
+Error Handling Quality
   error_handling_quality:
     requirements:
       - "Handle all failure modes explicitly"
@@ -214,7 +215,7 @@ quality_standards:
       - "Result types (Rust-style Ok/Err)"
       - "Error boundaries (React-style)"
 
-  # Testing Quality
+Testing Quality
   testing_quality:
     coverage_target: 0.80
     types:
@@ -230,13 +231,13 @@ quality_standards:
       - "Test edge cases"
       - "Test boundary conditions"
 
-# ============================================================================
-# SECTION 4: WORKFLOW PATTERNS
-# ============================================================================
+============================================================================
+SECTION 4: WORKFLOW PATTERNS
+============================================================================
 
 workflow_patterns:
 
-  # Pipeline Orchestration
+Pipeline Orchestration
   pipeline_orchestration:
     enabled: true
     description: "Coordinate multi-step workflows with validation gates"
@@ -255,7 +256,7 @@ workflow_patterns:
         actions: ["Revert changes", "Restore state", "Log rollback"]
     auto_rollback: true
 
-  # Anomaly Response
+Anomaly Response
   anomaly_response:
     enabled: true
     description: "Detect and respond to anomalies autonomously"
@@ -270,7 +271,7 @@ workflow_patterns:
       auto_remediate: ["minor", "moderate"]
       manual_approval: ["critical"]
 
-  # Health Scoring
+Health Scoring
   health_scoring:
     enabled: true
     description: "Score system health on 0-100 scale"
@@ -289,13 +290,13 @@ workflow_patterns:
     action_on_low_score: "Block deployment, trigger investigation"
     output: "health_report.json"
 
-# ============================================================================
-# SECTION 5: DEVELOPMENT WORKFLOW
-# ============================================================================
+============================================================================
+SECTION 5: DEVELOPMENT WORKFLOW
+============================================================================
 
 development_workflow:
 
-  # Pre-Development
+Pre-Development
   pre_development:
     steps:
       - "Read relevant documentation"
@@ -304,7 +305,7 @@ development_workflow:
       - "Define success criteria"
       - "Estimate complexity"
 
-  # During Development
+During Development
   during_development:
     steps:
       - "Follow established patterns"
@@ -317,7 +318,7 @@ development_workflow:
       - "Type check on save"
       - "Run tests on commit"
 
-  # Post-Development
+Post-Development
   post_development:
     steps:
       - "Run full test suite"
@@ -333,13 +334,13 @@ development_workflow:
       - "Documentation complete"
       - "Rollback plan defined"
 
-# ============================================================================
-# SECTION 6: LEARNING SYSTEM
-# ============================================================================
+============================================================================
+SECTION 6: LEARNING SYSTEM
+============================================================================
 
 learning_system:
 
-  # Meta-Learning
+Meta-Learning
   meta_learning:
     enabled: true
     description: "Learn from past interactions and compile into reusable knowledge"
@@ -357,7 +358,7 @@ learning_system:
       output: "style_guide.md"
       update_frequency: "weekly"
 
-  # Pattern Detection
+Pattern Detection
   pattern_detection:
     enabled: true
     description: "Detect recurring patterns for automation"
@@ -367,7 +368,7 @@ learning_system:
       - "Efficiency patterns (optimize)"
     accuracy_target: 0.94
 
-  # Continuous Evolution
+Continuous Evolution
   continuous_evolution:
     enabled: true
     description: "Evolve practices based on learnings"
@@ -381,13 +382,13 @@ learning_system:
       - "Optimize workflow"
     notification: true
 
-# ============================================================================
-# SECTION 7: COMMUNICATION STANDARDS
-# ============================================================================
+============================================================================
+SECTION 7: COMMUNICATION STANDARDS
+============================================================================
 
 communication_standards:
 
-  # Output Format
+Output Format
   output_format:
     style: "conversational"
     language_level: "college"
@@ -400,7 +401,7 @@ communication_standards:
       - "Cap at 800 tokens (use prime + annex if needed)"
       - "Remove filler, use active voice"
 
-  # Confidence Scoring
+Confidence Scoring
   confidence_scoring:
     required: true
     scale: "0.0-1.0"
@@ -412,7 +413,7 @@ communication_standards:
       "<0.60": "Very low confidence (uncertain, needs review)"
     placement: "End of output"
 
-  # Assumptions & Trade-offs
+Assumptions & Trade-offs
   assumptions_tradeoffs:
     required: true
     format:
@@ -421,13 +422,13 @@ communication_standards:
       - "Explain rationale for each trade-off"
     placement: "Before recommendation"
 
-# ============================================================================
-# SECTION 8: SECURITY & GOVERNANCE
-# ============================================================================
+============================================================================
+SECTION 8: SECURITY & GOVERNANCE
+============================================================================
 
 security_governance:
 
-  # Security Standards
+Security Standards
   security_standards:
     authentication:
       - "Use OAuth 2.0 / OIDC for user auth"
@@ -444,7 +445,7 @@ security_governance:
       - "Hash passwords (bcrypt, scrypt, Argon2)"
       - "Sanitize all inputs"
 
-  # Governance Rules
+Governance Rules
   governance_rules:
     hard_rules:
       - "No invented data (state 'Unknown' if missing)"
@@ -453,7 +454,7 @@ security_governance:
       - "No manual secrets (use secret managers)"
     enforcement: "fatal"
 
-  # Audit Trail
+Audit Trail
   audit_trail:
     enabled: true
     log_events:
@@ -464,13 +465,13 @@ security_governance:
     retention: "90 days"
     format: "JSON"
 
-# ============================================================================
-# SECTION 9: PERFORMANCE OPTIMIZATION
-# ============================================================================
+============================================================================
+SECTION 9: PERFORMANCE OPTIMIZATION
+============================================================================
 
 performance_optimization:
 
-  # Optimization Targets
+Optimization Targets
   targets:
     latency:
       api_response: "<200ms (p95)"
@@ -484,7 +485,7 @@ performance_optimization:
       memory: "<80% average"
       disk: "<80% average"
 
-  # Optimization Strategies
+Optimization Strategies
   strategies:
     caching:
       - "Cache frequently accessed data"
@@ -499,7 +500,7 @@ performance_optimization:
       - "Batch operations when possible"
       - "Lazy load when appropriate"
 
-  # Monitoring
+Monitoring
   monitoring:
     enabled: true
     metrics:
@@ -512,13 +513,13 @@ performance_optimization:
       - "Error rate > threshold"
       - "Resource usage > threshold"
 
-# ============================================================================
-# SECTION 10: INTEGRATION PATTERNS
-# ============================================================================
+============================================================================
+SECTION 10: INTEGRATION PATTERNS
+============================================================================
 
 integration_patterns:
 
-  # API Integration
+API Integration
   api_integration:
     standards:
       - "RESTful design (resources, HTTP methods)"
@@ -533,7 +534,7 @@ integration_patterns:
       - "API keys for service-to-service"
       - "OAuth for user-delegated access"
 
-  # Database Integration
+Database Integration
   database_integration:
     patterns:
       - "Repository pattern (abstract data access)"
@@ -544,7 +545,7 @@ integration_patterns:
       - "Reversible (up/down)"
       - "Tested in staging first"
 
-  # Message Queue Integration
+Message Queue Integration
   message_queue_integration:
     patterns:
       - "Pub/Sub for event broadcasting"
@@ -555,19 +556,19 @@ integration_patterns:
       - "Idempotent consumers"
       - "Message ordering (if required)"
 
-# ============================================================================
-# SECTION 11: DEPLOYMENT PATTERNS
-# ============================================================================
+============================================================================
+SECTION 11: DEPLOYMENT PATTERNS
+============================================================================
 
 deployment_patterns:
 
-  # Deployment Strategy
+Deployment Strategy
   deployment_strategy:
     preferred: "blue-green"
     alternatives: ["canary", "rolling"]
     rollback_plan: "required"
 
-  # Environment Management
+Environment Management
   environment_management:
     environments: ["dev", "staging", "prod"]
     promotion_flow: "dev → staging → prod"
@@ -575,14 +576,14 @@ deployment_patterns:
       staging: ["integration tests", "security scan"]
       prod: ["smoke tests", "health check", "rollback plan"]
 
-  # Infrastructure as Code
+Infrastructure as Code
   infrastructure_as_code:
     enabled: true
     tools: ["Terraform", "CloudFormation", "Pulumi"]
     version_control: true
     peer_review: true
 
-  # Continuous Integration/Deployment
+Continuous Integration/Deployment
   ci_cd:
     enabled: true
     pipeline_stages:
@@ -597,13 +598,13 @@ deployment_patterns:
       - "Deploy to prod"
     automation_level: "full"
 
-# ============================================================================
-# SECTION 12: OBSERVABILITY
-# ============================================================================
+============================================================================
+SECTION 12: OBSERVABILITY
+============================================================================
 
 observability:
 
-  # Logging
+Logging
   logging:
     levels: ["DEBUG", "INFO", "WARN", "ERROR", "FATAL"]
     structured: true
@@ -616,31 +617,31 @@ observability:
       staging: "30 days"
       prod: "90 days"
 
-  # Metrics
+Metrics
   metrics:
     types: ["counter", "gauge", "histogram", "summary"]
     collection: "Prometheus-compatible"
     dashboards: "Grafana"
 
-  # Tracing
+Tracing
   tracing:
     enabled: true
     standard: "OpenTelemetry"
     sampling_rate: 0.01
 
-  # Alerting
+Alerting
   alerting:
     channels: ["email", "slack", "pagerduty"]
     severity_levels: ["info", "warning", "critical"]
     escalation_policy: true
 
-# ============================================================================
-# SECTION 13: COLLABORATION PATTERNS
-# ============================================================================
+============================================================================
+SECTION 13: COLLABORATION PATTERNS
+============================================================================
 
 collaboration_patterns:
 
-  # Version Control
+Version Control
   version_control:
     system: "Git"
     branching_strategy: "GitFlow"
@@ -652,7 +653,7 @@ collaboration_patterns:
       reviewers: 1
       checks: ["tests passing", "no conflicts"]
 
-  # Code Review
+Code Review
   code_review:
     focus_areas:
       - "Correctness"
@@ -662,7 +663,7 @@ collaboration_patterns:
       - "Test coverage"
     turnaround_time: "24 hours"
 
-  # Documentation
+Documentation
   documentation:
     types:
       - "README (setup, usage)"
@@ -671,7 +672,7 @@ collaboration_patterns:
       - "Runbooks (operations)"
     update_frequency: "on every change"
 
-  # Knowledge Sharing
+Knowledge Sharing
   knowledge_sharing:
     methods:
       - "Tech talks"
@@ -680,13 +681,13 @@ collaboration_patterns:
       - "Post-mortems"
     frequency: "weekly"
 
-# ============================================================================
-# SECTION 14: FORBIDDEN PRACTICES
-# ============================================================================
+============================================================================
+SECTION 14: FORBIDDEN PRACTICES
+============================================================================
 
 forbidden_practices:
 
-  # Code
+Code
   code:
     - "Hardcoded credentials"
     - "Commented-out code (delete instead)"
@@ -694,46 +695,46 @@ forbidden_practices:
     - "Global state (use dependency injection)"
     - "Swallowing exceptions (log or re-throw)"
 
-  # Architecture
+Architecture
   architecture:
     - "Tight coupling"
     - "God objects (single class doing too much)"
     - "Circular dependencies"
     - "Premature optimization"
 
-  # Process
+Process
   process:
     - "Deploying without tests"
     - "Deploying on Fridays (unless emergency)"
     - "Skipping code review"
     - "Manual deployments (use CI/CD)"
 
-  # Communication
+Communication
   communication:
     - "Hedging (just say it)"
     - "Apologies for doing your job"
     - "Spin (be direct)"
     - "Fabricating data (say 'Unknown')"
 
-# ============================================================================
-# SECTION 15: INTEGRATION WITH EXISTING PACKS
-# ============================================================================
+============================================================================
+SECTION 15: INTEGRATION WITH EXISTING PACKS
+============================================================================
 
 integration:
 
-  # Load Order
+Load Order
   load_order:
     - "UniversalDevelopmentPack.yaml (this file)"
     - "UserPrefPack_v1.4.yaml (user-specific preferences)"
     - "L9_UNIFIED_REASONING_PACK_v2.md (reasoning framework)"
     - "Domain-specific packs (e.g., CursorPreferencePack.md)"
 
-  # Conflict Resolution
+Conflict Resolution
   conflict_resolution:
     priority: "User > Domain > Universal"
     rule: "More specific overrides more general"
 
-  # Continuous Evolution
+Continuous Evolution
   continuous_evolution:
     enabled: true
     triggers:
@@ -743,6 +744,6 @@ integration:
     notification: true
     version_bump: "MINOR"
 
-# ============================================================================
-# END OF UNIVERSAL DEVELOPMENT PACK
-# ============================================================================
+============================================================================
+END OF UNIVERSAL DEVELOPMENT PACK
+============================================================================

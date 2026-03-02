@@ -1,16 +1,17 @@
-#!/usr/bin/env bash
-# --- L9_META ---
-# l9_schema: 1
-# origin: l9-template
-# engine: graph
-# layer: [scripts]
-# tags: [L9_TEMPLATE, scripts, build]
-# owner: platform
-# status: active
-# --- /L9_META ---
-# ============================================================================
-# build.sh — Build and push Docker image to ECR
-# ============================================================================
+#
+!/usr/bin/env bash
+--- L9_META ---
+l9_schema: 1
+origin: l9-template
+engine: graph
+layer: [scripts]
+tags: [L9_TEMPLATE, scripts, build]
+owner: platform
+status: active
+--- /L9_META ---
+============================================================================
+build.sh — Build and push Docker image to ECR
+============================================================================
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -29,17 +30,17 @@ IMAGE="${REGISTRY}/${PROJECT}:${TAG}"
 echo "🐳 Building ${PROJECT}:${TAG}"
 echo "   Registry: ${REGISTRY}"
 
-# --- Build ---
+--- Build ---
 docker build -t "${PROJECT}:${TAG}"   --build-arg L9_PROJECT="$PROJECT"   --build-arg L9_ENV="$ENV"   -f "$ROOT_DIR/Dockerfile"   "$ROOT_DIR"
 
 echo "✅ Built ${PROJECT}:${TAG}"
 
-# --- Tag & Push ---
+--- Tag & Push ---
 if [ "$ACCOUNT_ID" != "000000000000" ]; then
   echo "📤 Pushing to ECR..."
   aws ecr get-login-password --region "$REGION" | docker login --username AWS --password-stdin "$REGISTRY"
 
-  # Create repo if not exists
+Create repo if not exists
   aws ecr describe-repositories --repository-names "$PROJECT" --region "$REGION" 2>/dev/null ||     aws ecr create-repository --repository-name "$PROJECT" --region "$REGION"
 
   docker tag "${PROJECT}:${TAG}" "$IMAGE"

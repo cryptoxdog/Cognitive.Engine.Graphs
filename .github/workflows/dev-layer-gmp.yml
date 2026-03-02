@@ -1,22 +1,23 @@
-# --- L9_META ---
-# l9_schema: 1
-# origin: l9-template
-# engine: graph
-# layer: [ci]
-# tags: [L9_TEMPLATE, ci, dev-layer]
-# owner: platform
-# status: active
-# --- /L9_META ---
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-# DORA META: Dev Layer GMP (Gate-Measure-Prove) Validation
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-# CREATED: 2026-02-15T21:34:00-04:00
-# AUTHOR: L9 Engineering (cryptoxdog)
-# PURPOSE: Validate dev layer isolation and packet flow invariants
-# DEPENDENCIES: pytest, dev_layer tests
-# DEPLOYMENT: Runs on all PRs touching dev_layer/
-# DORA METRICS: Gate pass rate >95% | Test coverage >80%
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+#
+--- L9_META ---
+l9_schema: 1
+origin: l9-template
+engine: graph
+layer: [ci]
+tags: [L9_TEMPLATE, ci, dev-layer]
+owner: platform
+status: active
+--- /L9_META ---
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+DORA META: Dev Layer GMP (Gate-Measure-Prove) Validation
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+CREATED: 2026-02-15T21:34:00-04:00
+AUTHOR: L9 Engineering (cryptoxdog)
+PURPOSE: Validate dev layer isolation and packet flow invariants
+DEPENDENCIES: pytest, dev_layer tests
+DEPLOYMENT: Runs on all PRs touching dev_layer/
+DORA METRICS: Gate pass rate >95% | Test coverage >80%
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 name: Dev Layer GMP Validation
 
@@ -42,10 +43,10 @@ jobs:
 
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11v4.1.1
 
       - name: Set up Python 3.12
-        uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v5.3.0
+        uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2bv5.3.0
         with:
           python-version: '3.12'
           cache: 'pip'
@@ -66,14 +67,14 @@ jobs:
             -v
 
       - name: Upload Coverage to Codecov
-        uses: codecov/codecov-action@15f84a87bdc039a8af98c1a9e12c153c15c1d773 # v5.1.2
+        uses: codecov/codecov-action@15f84a87bdc039a8af98c1a9e12c153c15c1d773v5.1.2
         with:
           files: ./coverage.xml
           flags: dev-layer
           fail_ci_if_error: false
 
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-# DORA META END
-# LAST_MODIFIED: 2026-02-15T21:34:00-04:00
-# CHANGE_SUMMARY: Action version fixes, added concurrency control
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+DORA META END
+LAST_MODIFIED: 2026-02-15T21:34:00-04:00
+CHANGE_SUMMARY: Action version fixes, added concurrency control
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

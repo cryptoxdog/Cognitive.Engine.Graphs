@@ -1,41 +1,38 @@
-# --- L9_META ---
-# l9_schema: 1
-# origin: domain-specific
-# engine: graph
-# layer: [config]
-# tags: [domains, master-spec]
-# owner: domain-team
-# status: active
-# --- /L9_META ---
-# ALL_DOMAINS_CONSOLIDATED.yaml
 #
-# THIS FILE CONTAINS ALL 10 DOMAIN SPECIFICATIONS
-# Extract each domain into: domains/{domain-id}/spec.yaml
-#
-# DOMAINS INCLUDED:
-# 1. plasticos (recycled plastic matching)
-# 2. mortgage-brokerage (loan matching, ECOA-compliant)
-# 3. healthcare-referral (provider matching, HIPAA-compliant)
-# 4. freight-matching (load-carrier matching)
-# 5. roofing-company (contractor-project matching)
-# 6. executive-assistant (task-expert matching)
-# 7. research-agent (paper-dataset matching)
-# 8. aios-god-agent (tool orchestration)
-# 9. repo-as-agent (code-contributor matching)
-# 10. legal-discovery (case-document matching)
-#
-# ============================================================================
-# DOMAIN 1: PLASTICOS (Recycled Plastic Matching)
-# ============================================================================
-# NOTE: Use the previously generated 2116-line plasticos/spec.yaml (artifact 72)
-# That file is the complete, stress-tested version with all features.
-#
-# Key Stats: 29 edge types, 22 gates, 10 scoring dimensions, 9 GDS jobs
-# ============================================================================
+--- L9_META ---
+l9_schema: 1
+origin: domain-specific
+engine: graph
+layer: [config]
+tags: [domains, master-spec]
+owner: domain-team
+status: active
+--- /L9_META ---
+ALL_DOMAINS_CONSOLIDATED.yaml
+THIS FILE CONTAINS ALL 10 DOMAIN SPECIFICATIONS
+Extract each domain into: domains/{domain-id}/spec.yaml
+DOMAINS INCLUDED:
+1. plasticos (recycled plastic matching)
+2. mortgage-brokerage (loan matching, ECOA-compliant)
+3. healthcare-referral (provider matching, HIPAA-compliant)
+4. freight-matching (load-carrier matching)
+5. roofing-company (contractor-project matching)
+6. executive-assistant (task-expert matching)
+7. research-agent (paper-dataset matching)
+8. aios-god-agent (tool orchestration)
+9. repo-as-agent (code-contributor matching)
+10. legal-discovery (case-document matching)
+============================================================================
+DOMAIN 1: PLASTICOS (Recycled Plastic Matching)
+============================================================================
+NOTE: Use the previously generated 2116-line plasticos/spec.yaml (artifact 72)
+That file is the complete, stress-tested version with all features.
+Key Stats: 29 edge types, 22 gates, 10 scoring dimensions, 9 GDS jobs
+============================================================================
 
-# ============================================================================
-# DOMAIN 2: MORTGAGE-BROKERAGE (Loan Product Matching)
-# ============================================================================
+============================================================================
+DOMAIN 2: MORTGAGE-BROKERAGE (Loan Product Matching)
+============================================================================
 ---
 domain:
   id: mortgage-brokerage
@@ -237,9 +234,9 @@ compliance:
     logmatchresults: true
     retentiondays: 90
 
-# ============================================================================
-# DOMAIN 3: HEALTHCARE-REFERRAL (Provider-Patient Matching)
-# ============================================================================
+============================================================================
+DOMAIN 3: HEALTHCARE-REFERRAL (Provider-Patient Matching)
+============================================================================
 ---
 domain:
   id: healthcare-referral
@@ -371,9 +368,9 @@ compliance:
     fields: [patientid, name, ssn, dob]
     handling: hash
 
-# ============================================================================
-# DOMAIN 4: FREIGHT-MATCHING (Load-Carrier Matching)
-# ============================================================================
+============================================================================
+DOMAIN 4: FREIGHT-MATCHING (Load-Carrier Matching)
+============================================================================
 ---
 domain:
   id: freight-matching
@@ -481,9 +478,9 @@ compliance:
     logmatchrequests: true
     retentiondays: 180
 
-# ============================================================================
-# DOMAIN 5: ROOFING-COMPANY (Contractor-Project Matching)
-# ============================================================================
+============================================================================
+DOMAIN 5: ROOFING-COMPANY (Contractor-Project Matching)
+============================================================================
 ---
 domain:
   id: roofing-company
@@ -604,9 +601,9 @@ scoring:
       weightkey: wprice
       defaultweight: 0.25
 
-# ============================================================================
-# DOMAIN 6: EXECUTIVE-ASSISTANT (Task-Expert Matching)
-# ============================================================================
+============================================================================
+DOMAIN 6: EXECUTIVE-ASSISTANT (Task-Expert Matching)
+============================================================================
 ---
 domain:
   id: executive-assistant
@@ -719,9 +716,9 @@ scoring:
       weightkey: wutilization
       defaultweight: 0.20
 
-# ============================================================================
-# DOMAIN 7: RESEARCH-AGENT (Paper-Dataset Matching)
-# ============================================================================
+============================================================================
+DOMAIN 7: RESEARCH-AGENT (Paper-Dataset Matching)
+============================================================================
 ---
 domain:
   id: research-agent
@@ -825,9 +822,9 @@ scoring:
       weightkey: wrecency
       defaultweight: 0.20
 
-# ============================================================================
-# DOMAIN 8: AIOS-GOD-AGENT (Tool Orchestration)
-# ============================================================================
+============================================================================
+DOMAIN 8: AIOS-GOD-AGENT (Tool Orchestration)
+============================================================================
 ---
 domain:
   id: aios-god-agent
@@ -924,9 +921,9 @@ scoring:
       weightkey: wcost
       defaultweight: 0.20
 
-# ============================================================================
-# DOMAIN 9: REPO-AS-AGENT (Code-Contributor Matching)
-# ============================================================================
+============================================================================
+DOMAIN 9: REPO-AS-AGENT (Code-Contributor Matching)
+============================================================================
 ---
 domain:
   id: repo-as-agent
@@ -1022,9 +1019,9 @@ scoring:
       weightkey: wexpertise
       defaultweight: 0.25
 
-# ============================================================================
-# DOMAIN 10: LEGAL-DISCOVERY (Case-Document Matching)
-# ============================================================================
+============================================================================
+DOMAIN 10: LEGAL-DISCOVERY (Case-Document Matching)
+============================================================================
 ---
 domain:
   id: legal-discovery
@@ -1139,8 +1136,8 @@ compliance:
     enabled: true
     logmatchrequests: true
     logmatchresults: true
-    retentiondays: 2555  # 7 years
+    retentiondays: 25557 years
 
-# ============================================================================
-# END OF ALL 10 DOMAIN SPECIFICATIONS
-# ============================================================================
+============================================================================
+END OF ALL 10 DOMAIN SPECIFICATIONS
+============================================================================

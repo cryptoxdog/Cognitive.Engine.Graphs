@@ -1,21 +1,22 @@
-# --- L9_META ---
-# l9_schema: 1
-# origin: l9-template
-# engine: graph
-# layer: [docker]
-# tags: [L9_TEMPLATE, docker, prod]
-# owner: platform
-# status: active
-# --- /L9_META ---
-# ============================================================================
-# L9 Engine — Multi-stage Production Dockerfile
-# ============================================================================
+#
+--- L9_META ---
+l9_schema: 1
+origin: l9-template
+engine: graph
+layer: [docker]
+tags: [L9_TEMPLATE, docker, prod]
+owner: platform
+status: active
+--- /L9_META ---
+============================================================================
+L9 Engine — Multi-stage Production Dockerfile
+============================================================================
 
 FROM python:3.11-slim AS builder
 
 WORKDIR /build
 
-# Install build deps
+Install build deps
 RUN pip install --no-cache-dir poetry &&     poetry config virtualenvs.create false
 
 COPY pyproject.toml poetry.lock* ./
@@ -23,7 +24,7 @@ RUN poetry install --no-dev --no-interaction --no-ansi 2>/dev/null ||     pip in
 
 COPY . .
 
-# --- Production ---
+--- Production ---
 FROM python:3.11-slim
 
 ARG L9_PROJECT=l9-engine
@@ -31,7 +32,7 @@ ARG L9_ENV=prod
 
 WORKDIR /app
 
-# Copy installed packages + app code
+Copy installed packages + app code
 COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
 COPY --from=builder /usr/local/bin /usr/local/bin
 COPY --from=builder /build/engine ./engine

@@ -1,16 +1,17 @@
-#!/usr/bin/env bash
-# --- L9_META ---
-# l9_schema: 1
-# origin: l9-template
-# engine: graph
-# layer: [scripts]
-# tags: [L9_TEMPLATE, scripts, deploy]
-# owner: platform
-# status: active
-# --- /L9_META ---
-# ============================================================================
-# deploy.sh — Deploy infrastructure via Terraform
-# ============================================================================
+#
+!/usr/bin/env bash
+--- L9_META ---
+l9_schema: 1
+origin: l9-template
+engine: graph
+layer: [scripts]
+tags: [L9_TEMPLATE, scripts, deploy]
+owner: platform
+status: active
+--- /L9_META ---
+============================================================================
+deploy.sh — Deploy infrastructure via Terraform
+============================================================================
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -29,13 +30,13 @@ fi
 
 cd "$IAC_DIR"
 
-# --- Init ---
+--- Init ---
 terraform init   -backend-config="key=${L9_PROJECT:-l9-engine}/${ENV}/terraform.tfstate"
 
-# --- Select workspace ---
+--- Select workspace ---
 terraform workspace select "$ENV" 2>/dev/null || terraform workspace new "$ENV"
 
-# --- Plan or Apply ---
+--- Plan or Apply ---
 case "$ACTION" in
   plan)
     terraform plan       -var="env=${ENV}"       -var-file="${ENV}.tfvars" 2>/dev/null ||     terraform plan -var="env=${ENV}"

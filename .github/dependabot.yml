@@ -1,26 +1,27 @@
-# --- L9_META ---
-# l9_schema: 1
-# origin: l9-template
-# engine: graph
-# layer: [governance]
-# tags: [L9_TEMPLATE, security, deps]
-# owner: platform
-# status: active
-# --- /L9_META ---
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-# Universal CI/CD Pack — Dependabot Configuration
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-# VERSION: 1.0.0
-# PURPOSE: Automated dependency updates with logical grouping
-# CUSTOMIZE: Update reviewers, assignees, and dependency groups for your stack
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+#
+--- L9_META ---
+l9_schema: 1
+origin: l9-template
+engine: graph
+layer: [governance]
+tags: [L9_TEMPLATE, security, deps]
+owner: platform
+status: active
+--- /L9_META ---
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Universal CI/CD Pack — Dependabot Configuration
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+VERSION: 1.0.0
+PURPOSE: Automated dependency updates with logical grouping
+CUSTOMIZE: Update reviewers, assignees, and dependency groups for your stack
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 version: 2
 
 updates:
-  # ──────────────────────────────────────────────────────────────────────
-  # Python Dependencies
-  # ──────────────────────────────────────────────────────────────────────
+──────────────────────────────────────────────────────────────────────
+Python Dependencies
+──────────────────────────────────────────────────────────────────────
   - package-ecosystem: "pip"
     directory: "/"
     schedule:
@@ -40,16 +41,16 @@ updates:
       - "python"
       - "automerge-candidate"
 
-    # CUSTOMIZE: Replace with your GitHub username(s)
+CUSTOMIZE: Replace with your GitHub username(s)
     reviewers:
       - "YOUR_GITHUB_USERNAME"
 
     assignees:
       - "YOUR_GITHUB_USERNAME"
 
-    # Dependency groups — customize for your stack
+Dependency groups — customize for your stack
     groups:
-      # Web frameworks
+Web frameworks
       web-framework:
         patterns:
           - "fastapi*"
@@ -61,7 +62,7 @@ updates:
           - "requests*"
           - "httpx*"
 
-      # Database drivers and ORMs
+Database drivers and ORMs
       database:
         patterns:
           - "psycopg*"
@@ -71,7 +72,7 @@ updates:
           - "pymongo*"
           - "redis*"
 
-      # Testing frameworks
+Testing frameworks
       testing:
         patterns:
           - "pytest*"
@@ -79,7 +80,7 @@ updates:
           - "hypothesis*"
           - "faker*"
 
-      # Development tools
+Development tools
       dev-tools:
         patterns:
           - "ruff*"
@@ -88,7 +89,7 @@ updates:
           - "isort*"
           - "pre-commit*"
 
-      # Security and cryptography
+Security and cryptography
       security:
         patterns:
           - "cryptography*"
@@ -96,7 +97,7 @@ updates:
           - "passlib*"
           - "bcrypt*"
 
-      # Monitoring and logging
+Monitoring and logging
       observability:
         patterns:
           - "structlog*"
@@ -104,9 +105,9 @@ updates:
           - "prometheus*"
           - "opentelemetry*"
 
-  # ──────────────────────────────────────────────────────────────────────
-  # GitHub Actions
-  # ──────────────────────────────────────────────────────────────────────
+──────────────────────────────────────────────────────────────────────
+GitHub Actions
+──────────────────────────────────────────────────────────────────────
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
@@ -123,9 +124,9 @@ updates:
       - "github-actions"
       - "automerge-candidate"
 
-  # ──────────────────────────────────────────────────────────────────────
-  # Docker
-  # ──────────────────────────────────────────────────────────────────────
+──────────────────────────────────────────────────────────────────────
+Docker
+──────────────────────────────────────────────────────────────────────
   - package-ecosystem: "docker"
     directory: "/"
     schedule:
@@ -141,6 +142,6 @@ updates:
       - "dependencies"
       - "docker"
 
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-# END OF DEPENDABOT CONFIGURATION
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+END OF DEPENDABOT CONFIGURATION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

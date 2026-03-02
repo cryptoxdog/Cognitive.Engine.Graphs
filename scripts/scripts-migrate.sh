@@ -1,16 +1,17 @@
-#!/usr/bin/env bash
-# --- L9_META ---
-# l9_schema: 1
-# origin: l9-template
-# engine: graph
-# layer: [scripts]
-# tags: [L9_TEMPLATE, scripts, migration]
-# owner: platform
-# status: active
-# --- /L9_META ---
-# ============================================================================
-# migrate.sh — Create Neo4j constraints and indexes from domain spec
-# ============================================================================
+#
+!/usr/bin/env bash
+--- L9_META ---
+l9_schema: 1
+origin: l9-template
+engine: graph
+layer: [scripts]
+tags: [L9_TEMPLATE, scripts, migration]
+owner: platform
+status: active
+--- /L9_META ---
+============================================================================
+migrate.sh — Create Neo4j constraints and indexes from domain spec
+============================================================================
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -26,14 +27,14 @@ NEO4J_PASS="${NEO4J_PASSWORD:-devpassword}"
 echo "🔄 Running migrations for ${DOMAIN}"
 echo "   Target: ${NEO4J_URI}"
 
-# Run via cypher-shell if available
+Run via cypher-shell if available
 if command -v cypher-shell >/dev/null 2>&1; then
   CYPHER_CMD="cypher-shell -u $NEO4J_USER -p $NEO4J_PASS -a $NEO4J_URI"
 else
   CYPHER_CMD="docker exec -i $(docker ps -qf name=neo4j) cypher-shell -u $NEO4J_USER -p $NEO4J_PASS"
 fi
 
-# Read constraints from domain spec or migration files
+Read constraints from domain spec or migration files
 MIGRATION_DIR="$ROOT_DIR/domains/${DOMAIN}/migrations"
 
 if [ -d "$MIGRATION_DIR" ]; then
@@ -47,7 +48,7 @@ else
   echo "  ⚠️  No migrations directory: ${MIGRATION_DIR}"
   echo "  Creating default constraints..."
 
-  # Default uniqueness constraints
+Default uniqueness constraints
   echo "CREATE CONSTRAINT IF NOT EXISTS FOR (n:${DOMAIN}) REQUIRE n.id IS UNIQUE;" | $CYPHER_CMD 2>/dev/null || true
   echo "  ✅ Default constraints applied"
 fi

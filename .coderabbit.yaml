@@ -1,14 +1,15 @@
-# --- L9_META ---
-# l9_schema: 1
-# origin: l9-template
-# engine: graph
-# layer: [governance]
-# tags: [L9_TEMPLATE, pr-review]
-# owner: platform
-# status: active
-# --- /L9_META ---
-# CodeRabbit — L9 contract-aware review
-# Contract files: docs/contracts/
+#
+--- L9_META ---
+l9_schema: 1
+origin: l9-template
+engine: graph
+layer: [governance]
+tags: [L9_TEMPLATE, pr-review]
+owner: platform
+status: active
+--- /L9_META ---
+CodeRabbit — L9 contract-aware review
+Contract files: docs/contracts/
 
 reviews:
   instructions: |

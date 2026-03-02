@@ -1,22 +1,23 @@
-# --- L9_META ---
-# l9_schema: 1
-# origin: l9-template
-# engine: graph
-# layer: [ci]
-# tags: [L9_TEMPLATE, ci, adr]
-# owner: platform
-# status: active
-# --- /L9_META ---
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-# DORA META: ADR Auto-Fixer with PR Creation
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-# CREATED: 2026-02-15T21:34:00-04:00
-# AUTHOR: L9 Engineering (cryptoxdog)
-# PURPOSE: Automated ADR violation fixes via PR (never direct push to main)
-# DEPENDENCIES: ci/auto_fix_adr.py, peter-evans/create-pull-request
-# DEPLOYMENT: Runs on push to develop only
-# DORA METRICS: Automated fix rate >70% | Manual review <30min
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+#
+--- L9_META ---
+l9_schema: 1
+origin: l9-template
+engine: graph
+layer: [ci]
+tags: [L9_TEMPLATE, ci, adr]
+owner: platform
+status: active
+--- /L9_META ---
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+DORA META: ADR Auto-Fixer with PR Creation
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+CREATED: 2026-02-15T21:34:00-04:00
+AUTHOR: L9 Engineering (cryptoxdog)
+PURPOSE: Automated ADR violation fixes via PR (never direct push to main)
+DEPENDENCIES: ci/auto_fix_adr.py, peter-evans/create-pull-request
+DEPLOYMENT: Runs on push to develop only
+DORA METRICS: Automated fix rate >70% | Manual review <30min
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 name: ADR Auto-Fixer
 
@@ -41,13 +42,13 @@ jobs:
 
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11v4.1.1
         with:
           fetch-depth: 0
           ref: develop
 
       - name: Set up Python 3.12
-        uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v5.3.0
+        uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2bv5.3.0
         with:
           python-version: '3.12'
           cache: 'pip'
@@ -75,17 +76,17 @@ jobs:
 
       - name: Create Pull Request
         if: steps.auto_fix.outcome == 'success'
-        uses: peter-evans/create-pull-request@c5a7806660adbe173f04e3e038b0ccdcd758773d # v6.1.0
+        uses: peter-evans/create-pull-request@c5a7806660adbe173f04e3e038b0ccdcd758773dv6.1.0
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           commit-message: "fix(adr): automated ADR violation fixes"
           title: "🤖 ADR Auto-Fix: Automated Compliance Corrections"
           body: |
-            ## Automated ADR Fixes
+Automated ADR Fixes
 
             This PR contains automated fixes for ADR violations detected in `develop`.
 
-            ### Changes Applied:
+Changes Applied:
             - ✅ Sorted `__all__` exports (ADR-0001)
             - ✅ Converted `Optional[T]` → `T | None` (ADR-0002)
             - ✅ Replaced `datetime.now()` → `datetime.now(tz=timezone.utc)` (ADR-0003)
@@ -114,8 +115,8 @@ jobs:
           echo "❌ ADR auto-fix failed. Manual intervention required."
           echo "Check logs at: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
 
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-# DORA META END
-# LAST_MODIFIED: 2026-02-15T21:34:00-04:00
-# CHANGE_SUMMARY: Never pushes to main; creates PR with validation gates
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+DORA META END
+LAST_MODIFIED: 2026-02-15T21:34:00-04:00
+CHANGE_SUMMARY: Never pushes to main; creates PR with validation gates
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

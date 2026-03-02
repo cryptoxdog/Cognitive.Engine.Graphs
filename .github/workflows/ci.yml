@@ -1,20 +1,21 @@
-# --- L9_META ---
-# l9_schema: 1
-# origin: l9-template
-# engine: graph
-# layer: [ci]
-# tags: [L9_TEMPLATE, ci, pipeline]
-# owner: platform
-# status: active
-# --- /L9_META ---
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-# Universal CI/CD Pack — Main CI Pipeline
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-# VERSION: 1.0.0
-# PURPOSE: Production-grade CI for any Python repository
-# ZERO-CONFIG: Works immediately with sensible defaults
-# CONFIGURABLE: Customize via Repository Variables (see env.template)
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+#
+--- L9_META ---
+l9_schema: 1
+origin: l9-template
+engine: graph
+layer: [ci]
+tags: [L9_TEMPLATE, ci, pipeline]
+owner: platform
+status: active
+--- /L9_META ---
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Universal CI/CD Pack — Main CI Pipeline
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+VERSION: 1.0.0
+PURPOSE: Production-grade CI for any Python repository
+ZERO-CONFIG: Works immediately with sensible defaults
+CONFIGURABLE: Customize via Repository Variables (see env.template)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 name: CI Pipeline
 
@@ -44,9 +45,9 @@ env:
   SOURCE_DIR: ${{ vars.SOURCE_DIR || '.' }}
 
 jobs:
-  # ────────────────────────────────────────────────────────────────────────
-  # PHASE 1: VALIDATION
-  # ────────────────────────────────────────────────────────────────────────
+────────────────────────────────────────────────────────────────────────
+PHASE 1: VALIDATION
+────────────────────────────────────────────────────────────────────────
   validate:
     name: Validate Structure
     runs-on: ubuntu-latest
@@ -56,12 +57,12 @@ jobs:
 
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11v4.1.1
         with:
           fetch-depth: 0
 
       - name: Set up Python
-        uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v5.3.0
+        uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2bv5.3.0
         with:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: 'pip'
@@ -102,9 +103,9 @@ jobs:
           print('✅ All YAML workflow files are valid')
           "
 
-  # ────────────────────────────────────────────────────────────────────────
-  # PHASE 2: LINT & TYPE CHECK
-  # ────────────────────────────────────────────────────────────────────────
+────────────────────────────────────────────────────────────────────────
+PHASE 2: LINT & TYPE CHECK
+────────────────────────────────────────────────────────────────────────
   lint:
     name: Lint & Type Check
     runs-on: ubuntu-latest
@@ -115,10 +116,10 @@ jobs:
 
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11v4.1.1
 
       - name: Set up Python
-        uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v5.3.0
+        uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2bv5.3.0
         with:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: 'pip'
@@ -150,9 +151,9 @@ jobs:
             --non-interactive \
             || echo "⚠️  Type check warnings (non-blocking)"
 
-  # ────────────────────────────────────────────────────────────────────────
-  # PHASE 3: TEST SUITE
-  # ────────────────────────────────────────────────────────────────────────
+────────────────────────────────────────────────────────────────────────
+PHASE 3: TEST SUITE
+────────────────────────────────────────────────────────────────────────
   test:
     name: Test Suite
     runs-on: ubuntu-latest
@@ -175,7 +176,7 @@ jobs:
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
-        # Service only runs if POSTGRES_ENABLED=true (GitHub ignores services with falsy conditions)
+Service only runs if POSTGRES_ENABLED=true (GitHub ignores services with falsy conditions)
 
       redis:
         image: ${{ vars.REDIS_IMAGE || 'redis:7-alpine' }}
@@ -189,10 +190,10 @@ jobs:
 
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11v4.1.1
 
       - name: Set up Python
-        uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v5.3.0
+        uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2bv5.3.0
         with:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: 'pip'
@@ -225,15 +226,15 @@ jobs:
           echo "✅ All tests passed with coverage >=${{ env.COVERAGE_THRESHOLD }}%"
 
       - name: Upload Coverage to Codecov
-        uses: codecov/codecov-action@15f84a87bdc039a8af98c1a9e12c153c15c1d773 # v5.1.2
+        uses: codecov/codecov-action@15f84a87bdc039a8af98c1a9e12c153c15c1d773v5.1.2
         with:
           files: ./coverage.xml
           flags: unittests
           fail_ci_if_error: false
 
-  # ────────────────────────────────────────────────────────────────────────
-  # PHASE 4: SECURITY SCANNING
-  # ────────────────────────────────────────────────────────────────────────
+────────────────────────────────────────────────────────────────────────
+PHASE 4: SECURITY SCANNING
+────────────────────────────────────────────────────────────────────────
   security:
     name: Security Scanning
     runs-on: ubuntu-latest
@@ -246,10 +247,10 @@ jobs:
 
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11v4.1.1
 
       - name: Set up Python
-        uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v5.3.0
+        uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2bv5.3.0
         with:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: 'pip'
@@ -280,13 +281,13 @@ jobs:
 
       - name: Dependency Review (PR only)
         if: github.event_name == 'pull_request'
-        uses: actions/dependency-review-action@5aa4f05ee5e9f4f33e5c31e13d7d77c6a07a86e2 # v4.5.0
+        uses: actions/dependency-review-action@5aa4f05ee5e9f4f33e5c31e13d7d77c6a07a86e2v4.5.0
         with:
           fail-on-severity: high
 
-  # ────────────────────────────────────────────────────────────────────────
-  # PHASE 5: SBOM GENERATION
-  # ────────────────────────────────────────────────────────────────────────
+────────────────────────────────────────────────────────────────────────
+PHASE 5: SBOM GENERATION
+────────────────────────────────────────────────────────────────────────
   sbom:
     name: Generate SBOM
     runs-on: ubuntu-latest
@@ -298,19 +299,19 @@ jobs:
 
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11v4.1.1
 
       - name: Generate Software Bill of Materials
-        uses: anchore/sbom-action@fc46e51fb0e4e3ecf1ea2be3b2e00ee50f1c4e44 # v0.17.7
+        uses: anchore/sbom-action@fc46e51fb0e4e3ecf1ea2be3b2e00ee50f1c4e44v0.17.7
         with:
           format: spdx-json
           output-file: sbom.spdx.json
           upload-artifact: true
           upload-release-assets: false
 
-  # ────────────────────────────────────────────────────────────────────────
-  # PHASE 6: OPENSSF SCORECARD
-  # ────────────────────────────────────────────────────────────────────────
+────────────────────────────────────────────────────────────────────────
+PHASE 6: OPENSSF SCORECARD
+────────────────────────────────────────────────────────────────────────
   scorecard:
     name: OpenSSF Scorecard
     runs-on: ubuntu-latest
@@ -323,25 +324,25 @@ jobs:
 
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11v4.1.1
         with:
           persist-credentials: false
 
       - name: Run OpenSSF Scorecard
-        uses: ossf/scorecard-action@62b2cac7ed8198b15735ed49ab1e5cf35480ba46 # v2.4.0
+        uses: ossf/scorecard-action@62b2cac7ed8198b15735ed49ab1e5cf35480ba46v2.4.0
         with:
           results_file: scorecard.sarif
           results_format: sarif
           publish_results: true
 
       - name: Upload SARIF to GitHub Security
-        uses: github/codeql-action/upload-sarif@a57c67b89589d2d13d5ac85a9fc4679e7539e94c # v3.27.9
+        uses: github/codeql-action/upload-sarif@a57c67b89589d2d13d5ac85a9fc4679e7539e94cv3.27.9
         with:
           sarif_file: scorecard.sarif
 
-  # ────────────────────────────────────────────────────────────────────────
-  # PHASE 7: CI GATE (Fan-In)
-  # ────────────────────────────────────────────────────────────────────────
+────────────────────────────────────────────────────────────────────────
+PHASE 7: CI GATE (Fan-In)
+────────────────────────────────────────────────────────────────────────
   ci-gate:
     name: CI Gate
     runs-on: ubuntu-latest
@@ -373,7 +374,7 @@ jobs:
           echo "  scorecard: ${{ needs.scorecard.result }}"
           echo ""
 
-          # Check for failures in required jobs
+Check for failures in required jobs
           if [[ "${{ needs.validate.result }}" == "failure" ]] || \
              [[ "${{ needs.lint.result }}" == "failure" ]] || \
              [[ "${{ needs.test.result }}" == "failure" ]]; then
@@ -391,6 +392,6 @@ jobs:
           echo "   Ready for code review and merge"
           echo ""
 
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-# END OF CI PIPELINE
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+END OF CI PIPELINE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

@@ -1,22 +1,23 @@
-# --- L9_META ---
-# l9_schema: 1
-# origin: l9-template
-# engine: graph
-# layer: [ci]
-# tags: [L9_TEMPLATE, ci, docs-sync]
-# owner: platform
-# status: active
-# --- /L9_META ---
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-# DORA META: Documentation-Code Synchronization Validator
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-# CREATED: 2026-02-15T21:34:00-04:00
-# AUTHOR: L9 Engineering (cryptoxdog)
-# PURPOSE: Ensure docs and code remain in sync (API signatures, schemas)
-# DEPENDENCIES: scripts/docs_sync/, API introspection
-# DEPLOYMENT: Runs on PR + weekly schedule
-# DORA METRICS: Sync drift <5% | Doc freshness <7 days
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+#
+--- L9_META ---
+l9_schema: 1
+origin: l9-template
+engine: graph
+layer: [ci]
+tags: [L9_TEMPLATE, ci, docs-sync]
+owner: platform
+status: active
+--- /L9_META ---
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+DORA META: Documentation-Code Synchronization Validator
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+CREATED: 2026-02-15T21:34:00-04:00
+AUTHOR: L9 Engineering (cryptoxdog)
+PURPOSE: Ensure docs and code remain in sync (API signatures, schemas)
+DEPENDENCIES: scripts/docs_sync/, API introspection
+DEPLOYMENT: Runs on PR + weekly schedule
+DORA METRICS: Sync drift <5% | Doc freshness <7 days
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 name: Docs-Code Sync Validation
 
@@ -28,7 +29,7 @@ on:
       - 'readme/**'
       - 'docs/**'
   schedule:
-    - cron: '0 0 * * 1' # Weekly on Monday
+    - cron: '0 0 * * 1'Weekly on Monday
   workflow_dispatch:
 
 concurrency:
@@ -46,10 +47,10 @@ jobs:
 
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11v4.1.1
 
       - name: Set up Python 3.12
-        uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v5.3.0
+        uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2bv5.3.0
         with:
           python-version: '3.12'
           cache: 'pip'
@@ -78,10 +79,10 @@ jobs:
         run: |
           find readme/ docs/ -name "*.md" -type f | while read file; do
             echo "Checking links in: $file"
-            # Basic link validation (no broken internal links)
+Basic link validation (no broken internal links)
             grep -oP '\[.*?\]\(\K[^)]+' "$file" | while read link; do
               if [[ "$link" =~ ^\./ ]] || [[ "$link" =~ ^/ ]]; then
-                target="${link#./}"
+                target="${link./}"
                 if [ ! -f "$target" ] && [ ! -d "$target" ]; then
                   echo "❌ Broken link in $file: $link"
                   exit 1
@@ -90,8 +91,8 @@ jobs:
             done
           done
 
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-# DORA META END
-# LAST_MODIFIED: 2026-02-15T21:34:00-04:00
-# CHANGE_SUMMARY: Script existence check, action version fixes
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+DORA META END
+LAST_MODIFIED: 2026-02-15T21:34:00-04:00
+CHANGE_SUMMARY: Script existence check, action version fixes
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

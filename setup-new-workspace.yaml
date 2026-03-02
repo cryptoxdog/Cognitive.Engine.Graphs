@@ -1,14 +1,15 @@
-# --- L9_META ---
-# l9_schema: 1
-# origin: l9-template
-# engine: graph
-# layer: [bootstrap]
-# tags: [L9_TEMPLATE, bootstrap, workspace]
-# owner: platform
-# status: active
-# --- /L9_META ---
+#
+--- L9_META ---
+l9_schema: 1
+origin: l9-template
+engine: graph
+layer: [bootstrap]
+tags: [L9_TEMPLATE, bootstrap, workspace]
+owner: platform
+status: active
+--- /L9_META ---
 ---
-# === SUITE 6 CANONICAL HEADER ===
+=== SUITE 6 CANONICAL HEADER ===
 suite: "Cursor Governance Suite 6 (L9 + Suite 6)"
 version: "9.0.0"
 component_id: "INT-WS-002"
@@ -22,50 +23,50 @@ updated: "2026-02-11T00:00:00Z"
 author: "Igor Beylin"
 maintainer: "Igor Beylin"
 
-# === GOVERNANCE METADATA ===
+=== GOVERNANCE METADATA ===
 governance_level: "critical"
 compliance_required: true
 audit_trail: true
 security_classification: "internal"
 enforcement_level:
 
-# === TECHNICAL METADATA ===
+=== TECHNICAL METADATA ===
 dependencies: ["python3>=3.8", "pyyaml", "bash"]
 integrates_with: ["ENV-LD-001", "FND-LG-002", "EXE-API-001"]
 api_endpoints: []
 data_sources: ["GlobalCommands"]
 outputs: [".suite6-config.json", ".cursor-commands/", "verification_reports"]
 
-# === OPERATIONAL METADATA ===
+=== OPERATIONAL METADATA ===
 execution_mode: "manual"
 monitoring_required: true
 logging_level: "info"
 performance_tier: "setup"
 
-# === BUSINESS METADATA ===
+=== BUSINESS METADATA ===
 purpose: "Minimal-footprint, 200% enforceable workspace setup protocol"
 summary: "YAML-powered executable setup protocol replacing 1,318-line verbose documentation with 250-line enforceable specification"
 business_value: "5x faster setup, 10x easier maintenance, 200% enforcement, script-parseable automation"
 success_metrics: ["setup_time < 15min", "enforcement_rate = 2.0", "automation_ready = true"]
 
-# === TAGS & CLASSIFICATION ===
+=== TAGS & CLASSIFICATION ===
 tags: ["workspace_setup", "yaml", "executable", "minimal", "enforceable"]
 keywords: ["setup", "workspace", "yaml", "enforcement", "automation"]
 related_components: ["ENV-LD-001", "FND-LG-002"]
 ---
 
-# ═══════════════════════════════════════════════════════════
-#   SUITE 6 WORKSPACE SETUP - MINIMAL FOOTPRINT PROTOCOL
-# ═══════════════════════════════════════════════════════════
+═══════════════════════════════════════════════════════════
+SUITE 6 WORKSPACE SETUP - MINIMAL FOOTPRINT PROTOCOL
+═══════════════════════════════════════════════════════════
 
 protocol_name: "Suite 6 Workspace Setup"
 protocol_version: "9.0.0"
 enforcement_level: "200%"
 total_duration_minutes: 15
 
-# ═══════════════════════════════════════════════════════════
-#   PHASE 1: PREFLIGHT CHECKS
-# ═══════════════════════════════════════════════════════════
+═══════════════════════════════════════════════════════════
+PHASE 1: PREFLIGHT CHECKS
+═══════════════════════════════════════════════════════════
 
 preflight:
   required_checks:
@@ -89,15 +90,15 @@ preflight:
       validation: "not_empty"
       blocking: true
 
-# ═══════════════════════════════════════════════════════════
-#   PHASE 2: MANDATORY STARTUP SEQUENCE
-# ═══════════════════════════════════════════════════════════
+═══════════════════════════════════════════════════════════
+PHASE 2: MANDATORY STARTUP SEQUENCE
+═══════════════════════════════════════════════════════════
 
 startup_sequence:
 
-  # ─────────────────────────────────────────────────────────
-  # STEP 0: Session Startup Protocol (FIRST)
-  # ─────────────────────────────────────────────────────────
+─────────────────────────────────────────────────────────
+STEP 0: Session Startup Protocol (FIRST)
+─────────────────────────────────────────────────────────
   step_0:
     file: "profiles/session-startup-protocol.md"
     component_id: "PRF-SSP-001"
@@ -106,9 +107,9 @@ startup_sequence:
     skip: never
     enforcement: "200%"
 
-  # ─────────────────────────────────────────────────────────
-  # STEP 1: Core Governance Rules
-  # ─────────────────────────────────────────────────────────
+─────────────────────────────────────────────────────────
+STEP 1: Core Governance Rules
+─────────────────────────────────────────────────────────
   step_1:
     files:
       - path: ".cursorrules"
@@ -120,9 +121,9 @@ startup_sequence:
     skip: never
     enforcement:
 
-  # ─────────────────────────────────────────────────────────
-  # STEP 1.5: Reasoning Stack Activation
-  # ─────────────────────────────────────────────────────────
+─────────────────────────────────────────────────────────
+STEP 1.5: Reasoning Stack Activation
+─────────────────────────────────────────────────────────
   step_1_5:
     file: "startup/REASONING_STACK.yaml"
     component_id: "REASONING-STACK-001"
@@ -139,9 +140,9 @@ startup_sequence:
       - "Error Correction (3-phase)"
       - "10 Power Commands"
 
-  # ─────────────────────────────────────────────────────────
-  # STEP 2: Learning Files (12+ files, recursive)
-  # ─────────────────────────────────────────────────────────
+─────────────────────────────────────────────────────────
+STEP 2: Learning Files (12+ files, recursive)
+─────────────────────────────────────────────────────────
   step_2:
     path: ".cursor-commands/learning/"
     method: "recursive"
@@ -154,9 +155,9 @@ startup_sequence:
       - failures/
       - patterns/
       - solutions/
-  # ─────────────────────────────────────────────────────────
-  # STEP 3: Suite 6 Config Check
-  # ─────────────────────────────────────────────────────────
+─────────────────────────────────────────────────────────
+STEP 3: Suite 6 Config Check
+─────────────────────────────────────────────────────────
   step_3:
     file: ".suite6-config.json"
     purpose: "Verify governance enabled"
@@ -164,9 +165,9 @@ startup_sequence:
     skip: "only_if_checked_in_last_10_minutes"
     enforcement: "100%"
 
-  # ─────────────────────────────────────────────────────────
-  # STEP 3.5: MCP Memory Health Check
-  # ─────────────────────────────────────────────────────────
+─────────────────────────────────────────────────────────
+STEP 3.5: MCP Memory Health Check
+─────────────────────────────────────────────────────────
   step_3_5:
     name: "MCP Memory Health Check"
     command_portable: "python3 .cursor/memory/cursor_memory_client.py health"
@@ -199,9 +200,9 @@ startup_sequence:
       - All MCP tools: save_memory, search_memory, get_memory_stats
       Sync from L9: run .cursor/sync-portable.sh
 
-  # ─────────────────────────────────────────────────────────
-  # STEP 4-4.8: Startup Files (5 files)
-  # ─────────────────────────────────────────────────────────
+─────────────────────────────────────────────────────────
+STEP 4-4.8: Startup Files (5 files)
+─────────────────────────────────────────────────────────
   step_4:
     file: "startup/system_capabilities.md"
     component_id: "DOC-CAP-001"
@@ -242,9 +243,9 @@ startup_sequence:
     skip: "only_if_time_constrained"
     enforcement: "100%"
 
-  # ─────────────────────────────────────────────────────────
-  # STEP 5-7: Reasoning Profiles (3 files)
-  # ─────────────────────────────────────────────────────────
+─────────────────────────────────────────────────────────
+STEP 5-7: Reasoning Profiles (3 files)
+─────────────────────────────────────────────────────────
   step_5:
     file: "profiles/reasoning_l9.md"
     component_id: "INT-RSN-001"
@@ -269,9 +270,9 @@ startup_sequence:
     skip: never
     enforcement: "200%"
 
-  # ─────────────────────────────────────────────────────────
-  # STEP 7-9: Standard Operating Modes (3 files)
-  # ─────────────────────────────────────────────────────────
+─────────────────────────────────────────────────────────
+STEP 7-9: Standard Operating Modes (3 files)
+─────────────────────────────────────────────────────────
   step_7_ynp:
     file: "profiles/ynp_mode.md"
     component_id: "CMD-001"
@@ -296,9 +297,9 @@ startup_sequence:
     skip: never
     enforcement: "200%"
 
-  # ─────────────────────────────────────────────────────────
-  # STEP 10-14: Slash Commands (6 files)
-  # ─────────────────────────────────────────────────────────
+─────────────────────────────────────────────────────────
+STEP 10-14: Slash Commands (6 files)
+─────────────────────────────────────────────────────────
   step_10:
     file: "commands/reasoning.md"
     component_id: "CMD-002"
@@ -347,9 +348,9 @@ startup_sequence:
     skip: never
     enforcement: "200%"
 
-  # ─────────────────────────────────────────────────────────
-  # STEP 15-16: Supporting Profiles (2 files)
-  # ─────────────────────────────────────────────────────────
+─────────────────────────────────────────────────────────
+STEP 15-16: Supporting Profiles (2 files)
+─────────────────────────────────────────────────────────
   step_15:
     file: "profiles/workflow-governance.md"
     component_id: "EXE-WF-001"
@@ -366,9 +367,9 @@ startup_sequence:
     skip: never
     enforcement: "200%"
 
-  # ─────────────────────────────────────────────────────────
-  # STEP 17-20: Feature Files (4 files)
-  # ─────────────────────────────────────────────────────────
+─────────────────────────────────────────────────────────
+STEP 17-20: Feature Files (4 files)
+─────────────────────────────────────────────────────────
   step_17:
     file: "intelligence/meta-learning/meta-learning-log.md"
     component_id: "INT-ML-001"
@@ -401,9 +402,9 @@ startup_sequence:
     skip: never
     enforcement: "200%"
 
-  # ─────────────────────────────────────────────────────────
-  # STEP 21: Foundation DSL Compiler
-  # ─────────────────────────────────────────────────────────
+─────────────────────────────────────────────────────────
+STEP 21: Foundation DSL Compiler
+─────────────────────────────────────────────────────────
   step_21:
     file: "foundation/logic/dsl-compiler.md"
     component_id: "FND-DSL-001"
@@ -412,9 +413,9 @@ startup_sequence:
     skip: never
     enforcement: "200%"
 
-  # ─────────────────────────────────────────────────────────
-  # STEP 22-23: Foundation Python Engines (Validation Only)
-  # ─────────────────────────────────────────────────────────
+─────────────────────────────────────────────────────────
+STEP 22-23: Foundation Python Engines (Validation Only)
+─────────────────────────────────────────────────────────
   step_22:
     file: "foundation/logic/hybrid_kernel.py"
     component_id: "FND-HK-001"
@@ -435,9 +436,9 @@ startup_sequence:
     skip: never
     enforcement: "200%"
 
-  # ─────────────────────────────────────────────────────────
-  # STEP 24-27: Intelligence Advanced Systems (4 files)
-  # ─────────────────────────────────────────────────────────
+─────────────────────────────────────────────────────────
+STEP 24-27: Intelligence Advanced Systems (4 files)
+─────────────────────────────────────────────────────────
   step_24:
     file: "intelligence/adaptive-reasoning.md"
     component_id: "INT-ADR-001"
@@ -470,9 +471,9 @@ startup_sequence:
     skip: never
     enforcement: "200%"
 
-  # ─────────────────────────────────────────────────────────
-  # STEP 28-30: Intelligence Risk Models (3 files)
-  # ─────────────────────────────────────────────────────────
+─────────────────────────────────────────────────────────
+STEP 28-30: Intelligence Risk Models (3 files)
+─────────────────────────────────────────────────────────
   step_28:
     file: "intelligence/models/command_execution_risk.md"
     component_id: "INT-CER-001"
@@ -497,9 +498,9 @@ startup_sequence:
     skip: never
     enforcement: "200%"
 
-  # ─────────────────────────────────────────────────────────
-  # STEP 31: Intelligence Templates (1 file)
-  # ─────────────────────────────────────────────────────────
+─────────────────────────────────────────────────────────
+STEP 31: Intelligence Templates (1 file)
+─────────────────────────────────────────────────────────
   step_31:
     file: "intelligence/reasoning/reasoning-snapshot-template.md"
     component_id: "INT-RST-001"
@@ -508,9 +509,9 @@ startup_sequence:
     skip: never
     enforcement: "200%"
 
-# ═══════════════════════════════════════════════════════════
-#   PHASE 3: INSTALLATION
-# ═══════════════════════════════════════════════════════════
+═══════════════════════════════════════════════════════════
+PHASE 3: INSTALLATION
+═══════════════════════════════════════════════════════════
 
 installation:
   step_1:
@@ -528,9 +529,9 @@ installation:
       - 'test -L .cursor-commands'
       - 'readlink .cursor-commands | grep -q "Dropbox/Cursor Governance/GlobalCommands"'
 
-# ═══════════════════════════════════════════════════════════
-#   PHASE 4: INTELLIGENCE SYSTEMS ACTIVATION
-# ═══════════════════════════════════════════════════════════
+═══════════════════════════════════════════════════════════
+PHASE 4: INTELLIGENCE SYSTEMS ACTIVATION
+═══════════════════════════════════════════════════════════
 
 intelligence_systems:
   learning_system:
@@ -562,9 +563,9 @@ intelligence_systems:
       command: 'bash "$HOME/Dropbox/Cursor Governance/GlobalCommands/ops/scripts/process_context.sh"'
       expected_output: "Context saved"
 
-# ═══════════════════════════════════════════════════════════
-#   PHASE 5: PENDING LESSONS REVIEW
-# ═══════════════════════════════════════════════════════════
+═══════════════════════════════════════════════════════════
+PHASE 5: PENDING LESSONS REVIEW
+═══════════════════════════════════════════════════════════
 
 pending_lessons_check:
   medium_quality:
@@ -594,9 +595,9 @@ pending_lessons_check:
           print(f'   Reason: Too generic or insufficient detail')
       "
 
-# ═══════════════════════════════════════════════════════════
-#   PHASE 6: VERIFICATION
-# ═══════════════════════════════════════════════════════════
+═══════════════════════════════════════════════════════════
+PHASE 6: VERIFICATION
+═══════════════════════════════════════════════════════════
 
 verification:
   automated:
@@ -632,9 +633,9 @@ verification:
       - name: "com.cursor.context.processor"
         status: "0"
 
-# ═══════════════════════════════════════════════════════════
-#   PHASE 7: FINAL ALIGNMENT VERIFICATION
-# ═══════════════════════════════════════════════════════════
+═══════════════════════════════════════════════════════════
+PHASE 7: FINAL ALIGNMENT VERIFICATION
+═══════════════════════════════════════════════════════════
 
 final_verification:
   script: "ops/scripts/verify-setup-alignment.sh"
@@ -646,9 +647,9 @@ final_verification:
     - "LaunchAgent services running (when configured)"
     - "All scripts have Suite 6 headers"
 
-# ═══════════════════════════════════════════════════════════
-#   ENFORCEMENT RULES (200% LEVEL)
-# ═══════════════════════════════════════════════════════════
+═══════════════════════════════════════════════════════════
+ENFORCEMENT RULES (200% LEVEL)
+═══════════════════════════════════════════════════════════
 
 enforcement:
   level: "200%"
@@ -692,9 +693,9 @@ enforcement:
     - metric: "enforcement_compliance"
       target: "200%"
 
-# ═══════════════════════════════════════════════════════════
-#   QUICK REFERENCE
-# ═══════════════════════════════════════════════════════════
+═══════════════════════════════════════════════════════════
+QUICK REFERENCE
+═══════════════════════════════════════════════════════════
 
 quick_reference:
   total_duration: "~15 minutes"
@@ -724,9 +725,9 @@ quick_reference:
     wrong_symlink: 'rm .cursor-commands && ln -s "$HOME/Dropbox/Cursor Governance/GlobalCommands" .cursor-commands'
     verify_symlink: 'readlink .cursor-commands'
 
-# ═══════════════════════════════════════════════════════════
-#   AUTOMATION SUPPORT
-# ═══════════════════════════════════════════════════════════
+═══════════════════════════════════════════════════════════
+AUTOMATION SUPPORT
+═══════════════════════════════════════════════════════════
 
 automation:
   parseable: true
@@ -739,21 +740,21 @@ automation:
       with open('setup-new-workspace.yaml') as f:
           config = yaml.safe_load(f)
 
-      # Iterate through startup sequence
+Iterate through startup sequence
       for step_name, step_config in config['startup_sequence'].items():
           if step_config.get('skip') == 'never':
               file_path = f".cursor-commands/{step_config['file']}"
               print(f"Loading: {file_path}")
-              # Read file and validate
+Read file and validate
 
   enforcement_script:
     language: "bash"
     code: |
-      #!/bin/bash
-      # Auto-generated from YAML
+!/bin/bash
+Auto-generated from YAML
       YAML_FILE="setup-new-workspace.yaml"
 
-      # Parse YAML and enforce all 'skip: never' rules
+Parse YAML and enforce all 'skip: never' rules
       python3 -c "
       import yaml
       with open('$YAML_FILE') as f:
@@ -773,9 +774,9 @@ automation:
       print('✅ 200% ENFORCEMENT PASSED')
       "
 
-# ═══════════════════════════════════════════════════════════
-#   SUCCESS CONFIRMATION
-# ═══════════════════════════════════════════════════════════
+═══════════════════════════════════════════════════════════
+SUCCESS CONFIRMATION
+═══════════════════════════════════════════════════════════
 
 success_confirmation:
   message: |
@@ -810,9 +811,9 @@ success_confirmation:
     - "Recursive learning system active"
     - "Probabilistic governance operational"
 
-# ═══════════════════════════════════════════════════════════
-#   METADATA
-# ═══════════════════════════════════════════════════════════
+═══════════════════════════════════════════════════════════
+METADATA
+═══════════════════════════════════════════════════════════
 
 metadata:
   replaces: "setup-new-workspace.md v6.0 (1,318 lines)"

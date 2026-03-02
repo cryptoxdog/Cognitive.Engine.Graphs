@@ -1,12 +1,13 @@
-# --- L9_META ---
-# l9_schema: 1
-# origin: domain-specific
-# engine: graph
-# layer: [config]
-# tags: [domains, legal]
-# owner: domain-team
-# status: active
-# --- /L9_META ---
+#
+--- L9_META ---
+l9_schema: 1
+origin: domain-specific
+engine: graph
+layer: [config]
+tags: [domains, legal]
+owner: domain-team
+status: active
+--- /L9_META ---
 ---
 domain:
   id: legal-discovery
@@ -121,4 +122,4 @@ compliance:
     enabled: true
     logmatchrequests: true
     logmatchresults: true
-    retentiondays: 2555  # 7 years
+    retentiondays: 25557 years
