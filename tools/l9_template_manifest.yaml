@@ -1,0 +1,37 @@
+l9_template:
+  enabled: true
+  tag: "L9_TEMPLATE"
+  version: "2026-03-01"
+  applies_to:
+    - "graph-engine"
+    - "enrichment-engine"
+    - "routing-engine"
+  purpose: >
+    Template/bootstrap artifacts for L9 constellation engines. These files define
+    repo-agnostic guardrails and an automated audit harness.
+
+files:
+  - path: ".cursorrules"
+    required: true
+    tags: ["L9_TEMPLATE", "agent-rules", "cursor"]
+  - path: "CLAUDE.md"
+    required: true
+    tags: ["L9_TEMPLATE", "agent-rules", "claude"]
+  - path: "tools/audit_engine.py"
+    required: true
+    tags: ["L9_TEMPLATE", "audit", "compliance"]
+  - path: "tools/audit_rules.yaml"
+    required: true
+    tags: ["L9_TEMPLATE", "audit-rules"]
+  - path: "tools/l9_template_manifest.yaml"
+    required: true
+    tags: ["L9_TEMPLATE", "meta"]
+  - path: ".github/workflows/audit.yml"
+    required: false
+    tags: ["L9_TEMPLATE", "ci"]
+  - path: ".pre-commit-config.yaml"
+    required: false
+    tags: ["L9_TEMPLATE", "precommit"]
+  - path: ".coderabbit.yaml"
+    required: false
+    tags: ["L9_TEMPLATE", "pr-review"]

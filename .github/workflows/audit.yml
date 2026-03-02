@@ -1,0 +1,30 @@
+name: L9 Audit
+
+on:
+  pull_request:
+  push:
+    branches: [ main ]
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install deps
+        run: |
+          pip install pyyaml
+
+      - name: Run audit
+        run: |
+          python tools/audit_engine.py
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: l9-audit
+          path: artifacts/

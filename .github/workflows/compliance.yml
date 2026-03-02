@@ -1,0 +1,69 @@
+name: Architecture Compliance Check
+
+on:
+  pull_request:
+    branches: [main, develop]
+  push:
+    branches: [main, develop]
+
+jobs:
+  compliance:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      
+      - name: Install dependencies
+        run: |
+          pip install ruff mypy pydantic pyyaml
+      
+      - name: Check for banned files
+        run: |
+          # Fail if engine/api/ or engine/middleware.py exist
+          if [ -d "engine/api" ]; then
+            echo "ERROR: engine/api/ directory exists (chassis contract violation)"
+            exit 1
+          fi
+          if [ -f "engine/middleware.py" ]; then
+            echo "ERROR: engine/middleware.py exists (tenant resolution is chassis-only)"
+            exit 1
+          fi
+      
+      - name: Check for FastAPI imports in engine/
+        run: |
+          # Allow chassis imports ONLY in engine/handlers.py
+          if find engine/ -name "*.py" ! -path "engine/handlers.py" -exec grep -l "from fastapi import\|import fastapi" {} \;; then
+            echo "ERROR: FastAPI imports found in engine/ (only handlers.py allowed)"
+            exit 1
+          fi
+      
+      - name: Check for Cypher injection patterns
+        run: |
+          # Find f-strings with Cypher labels NOT wrapped in sanitize_label()
+          if find engine/ -name "*.py" -exec grep -P 'f".*MATCH.*\(.*:\{(?!sanitize_label)' {} \; | grep -v test; then
+            echo "ERROR: Cypher label interpolation without sanitize_label() detected"
+            exit 1
+          fi
+      
+      - name: Run ruff linter
+        run: ruff check .
+      
+      - name: Run mypy type checker
+        run: mypy engine/ --strict --ignore-missing-imports
+      
+      - name: Validate domain specs
+        run: |
+          # Ensure all YAML specs can be loaded by Pydantic
+          python -c "
+          from pathlib import Path
+          import yaml
+          from engine.config.schema import DomainSpec
+          for path in Path('domains/').glob('*_domain_spec.yaml'):
+              with open(path) as f:
+                  DomainSpec.model_validate(yaml.safe_load(f))
+          print('All domain specs valid')
+          "

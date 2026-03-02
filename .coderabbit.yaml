@@ -1,0 +1,92 @@
+# CodeRabbit configuration for L9 Graph Engine
+# Enforces chassis contract + security rules at PR review time
+
+reviews:
+  auto_review:
+    # Skip bot PRs
+    ignore_usernames:
+      - "dependabot[bot]"
+      - "renovate[bot]"
+    
+    # Review all PRs except WIP/draft
+    labels:
+      - "!wip"
+      - "!draft"
+    
+    # Review tone
+    tone_instructions: "Be assertive but constructive. Flag architectural violations as MUST FIX."
+    
+  # Path-based review instructions
+  path_instructions:
+    - path: "engine/handlers.py"
+      instructions: |
+        - Verify all action handlers have signature: async def handle_X(tenant: str, payload: dict) -> dict
+        - Verify register_all() registers all handlers via chassis.router.register_handler
+        - Block any FastAPI imports (FastAPI, APIRouter, Depends)
+        - Verify sanitize_label() is used before all Cypher label/type interpolation
+    
+    - path: "engine/**/*.py"
+      instructions: |
+        - Block any imports of: fastapi, starlette, uvicorn (chassis owns HTTP)
+        - Block any tenant resolution functions (chassis provides tenant)
+        - Require type hints on all function signatures
+        - Require Pydantic models for all structured data
+        - Flag any f-string Cypher with label/type interpolation → suggest sanitize_label()
+    
+    - path: "engine/api/**/*.py"
+      instructions: |
+        - CRITICAL: This directory should not exist. Flag for deletion if present.
+        - Reason: Custom FastAPI routes violate L9 chassis contract.
+    
+    - path: "engine/middleware.py"
+      instructions: |
+        - CRITICAL: This file should not exist. Flag for deletion if present.
+        - Reason: Tenant resolution is a chassis responsibility.
+    
+    - path: "engine/sync/generator.py"
+      instructions: |
+        - Verify all labels pass sanitize_label() before Cypher interpolation
+        - Check: MERGE (n:{label}) patterns use sanitize_label(label)
+        - Check: Taxonomy edges and child sync use sanitize_label() on types
+    
+    - path: "engine/gates/compiler.py"
+      instructions: |
+        - Verify Cypher uses parameterized queries for values ($query, $batch)
+        - Labels/types can be interpolated IF sanitized via sanitize_label()
+    
+    - path: "tests/**/*.py"
+      instructions: |
+        - Unit tests must NOT import testcontainers or connect to real Neo4j
+        - Integration tests MUST use testcontainers-neo4j, not mocks
+        - Compliance tests must verify prohibited factors are blocked
+    
+    - path: "domains/*.yaml"
+      instructions: |
+        - Validate against DomainSpec Pydantic schema
+        - Flag any labels/types that don't match ^[A-Za-z_][A-Za-z0-9_]*$
+        - Verify gds_jobs have valid algorithm names (louvain, cooccurrence, etc.)
+    
+    - path: "pyproject.toml"
+      instructions: |
+        - Do NOT add fastapi, starlette, or uvicorn to dependencies (chassis provides)
+        - Verify ruff, mypy, pytest, testcontainers in dev dependencies
+
+  # Ignore generated files
+  path_filters:
+    - "!**/__pycache__/**"
+    - "!.venv/**"
+    - "!*.egg-info/**"
+    - "!htmlcov/**"
+
+# Knowledge base (custom rules)
+knowledge_base:
+  learnings:
+    - "L9 engines never create FastAPI routes. Use action handlers: async def handle_X(tenant: str, payload: dict) -> dict"
+    - "Tenant resolution is chassis-only. Engine receives tenant as handler argument."
+    - "All Cypher labels/types must pass sanitize_label() before f-string interpolation."
+    - "PacketEnvelope wraps all persisted events. Use inflate_ingress/deflate_egress at chassis boundary."
+    - "engine/api/ and engine/middleware.py should not exist post-refactor."
+
+# Chat and additional context
+chat:
+  auto_reply: true

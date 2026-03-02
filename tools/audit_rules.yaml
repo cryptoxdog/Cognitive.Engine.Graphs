@@ -1,0 +1,79 @@
+meta:
+  L9_TEMPLATE: true
+  name: "L9 Engine Audit Rules"
+  version: "2026-03-01"
+
+rules:
+  - id: "ARCH_NO_FASTAPI_IN_ENGINE"
+    severity: "CRITICAL"
+    description: "Engine code must not import FastAPI/Starlette/Uvicorn (chassis owns HTTP)."
+    include_globs: ["engine/**/*.py"]
+    exclude_globs: ["engine/handlers.py"]
+    patterns:
+      - "import fastapi"
+      - "from fastapi import"
+      - "import starlette"
+      - "from starlette import"
+      - "import uvicorn"
+      - "from uvicorn import"
+
+  - id: "ARCH_NO_CUSTOM_ROUTES_DIR"
+    severity: "CRITICAL"
+    description: "engine/api directory must not exist."
+    file_exists_forbidden:
+      - "engine/api"
+
+  - id: "ARCH_NO_TENANT_RESOLUTION"
+    severity: "HIGH"
+    description: "Tenant resolution must be chassis-only; engine must not implement tenant parsing logic."
+    include_globs: ["engine/**/*.py"]
+    patterns:
+      - "resolve_tenant"
+      - "X-Domain-Key"
+      - "X-Tenant-Key"
+
+  - id: "SEC_LABEL_SANITIZATION_REQUIRED"
+    severity: "CRITICAL"
+    description: "All f-string Cypher that interpolates labels/types must use sanitize_label()."
+    include_globs: ["engine/**/*.py"]
+    patterns_regex:
+      - 'f""".*MATCH\\s*\\(.*:.*\\{.*\\}.*"""'
+      - 'f".*MATCH\\s*\\(.*:.*\\{.*\\}.*"'
+      - 'f""".*MERGE\\s*\\(.*:.*\\{.*\\}.*"""'
+      - 'f".*MERGE\\s*\\(.*:.*\\{.*\\}.*"'
+    allow_if_contains:
+      - "sanitize_label("
+
+  - id: "TRACE_MATCH_FLOW_ANCHORS"
+    severity: "MEDIUM"
+    description: "Match flow should reference GateCompiler, TraversalAssembler, ScoringAssembler, GraphDriver.execute_query."
+    include_globs: ["engine/**/*.py"]
+    required_any:
+      - "handle_match"
+      - "GateCompiler("
+      - "TraversalAssembler("
+      - "ScoringAssembler("
+      - "execute_query("
+
+  - id: "TRACE_SYNC_FLOW_ANCHORS"
+    severity: "MEDIUM"
+    description: "Sync flow should reference SyncGenerator and execute_query."
+    include_globs: ["engine/**/*.py"]
+    required_any:
+      - "handle_sync"
+      - "SyncGenerator("
+      - "generate_sync_query("
+      - "execute_query("
+
+  - id: "TRACE_GDS_FLOW_ANCHORS"
+    severity: "MEDIUM"
+    description: "GDS scheduler should exist and include known algorithms."
+    include_globs: ["engine/gds/**/*.py"]
+    required_all:
+      - "class GDSScheduler"
+      - "register_jobs"
+      - "execute_job"
+      - "_run_louvain"
+      - "_run_cooccurrence"
+      - "_run_reinforcement"
+      - "_run_temporal_recency"
