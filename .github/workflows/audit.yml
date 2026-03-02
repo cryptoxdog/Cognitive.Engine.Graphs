@@ -3,11 +3,11 @@
 # origin: l9-template
 # engine: graph
 # layer: [ci]
-# tags: [L9_TEMPLATE, ci, audit]
+# tags: [L9_TEMPLATE, ci, audit, harness]
 # owner: platform
 # status: active
 # --- /L9_META ---
-name: L9 Audit + Spec Coverage
+name: L9 Audit Harness
 
 on:
   pull_request:
@@ -26,11 +26,8 @@ jobs:
 
       - run: pip install pyyaml
 
-      - name: Architecture audit
-        run: python tools/audit_engine.py
-
-      - name: Spec coverage
-        run: python tools/spec_extract.py --fail-on NONE
+      - name: Run audit harness
+        run: python tools/audit_harness.py --json
 
       - name: Upload reports
         if: always()
