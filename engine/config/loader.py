@@ -27,11 +27,21 @@ class DomainSpecError(Exception):
 
 
 class DomainPackLoader:
-    """Loads and caches domain spec YAML files with hot-reload support."""
+    """
+    Loads and caches domain spec YAML files with hot-reload support.
+
+    Thread-safety note: The _cache dict is designed for single-threaded
+    initialization at startup. It is populated during application bootstrap
+    before any concurrent requests are served. In multi-worker deployments,
+    each worker has its own DomainPackLoader instance with isolated cache.
+    Do NOT share a DomainPackLoader instance across threads or async tasks
+    that may mutate the cache concurrently.
+    """
 
     def __init__(self, config_path: str | None = None) -> None:
         raw = config_path or os.getenv("DOMAIN_SPECS_PATH") or "domains"
         self._base_path = Path(raw).resolve()
+        # NOTE: Cache is NOT thread-safe. See class docstring for usage constraints.
         self._cache: dict[str, tuple[DomainSpec, float]] = {}
 
     def load_domain(self, domain_id: str) -> DomainSpec:

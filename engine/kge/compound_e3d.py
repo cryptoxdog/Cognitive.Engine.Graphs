@@ -5,7 +5,7 @@
 # layer: [kge]
 # tags: [kge, compound-e3d, embeddings, model]
 # owner: engine-team
-# status: wip
+# status: gated
 # --- /L9_META ---
 # engine/kge/compound_e3d.py
 """

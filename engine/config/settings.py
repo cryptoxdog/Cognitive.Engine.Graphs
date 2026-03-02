@@ -18,7 +18,11 @@ Single source of truth for all L9_* configuration.
 
 from pathlib import Path
 
+from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+_DEFAULT_SECRETS = frozenset({"password", "change-me-in-production"})
 
 
 class Settings(BaseSettings):
@@ -88,6 +92,18 @@ class Settings(BaseSettings):
     kge_enabled: bool = False
     kge_embedding_dim: int = 300
     kge_confidence_threshold: float = 0.3
+
+    @model_validator(mode="after")
+    def _validate_production_secrets(self) -> "Settings":
+        """Raise if default secrets are used in production environment."""
+        if self.l9_env == "prod":
+            if self.neo4j_password in _DEFAULT_SECRETS:
+                msg = "neo4j_password must be changed from default in production"
+                raise ValueError(msg)
+            if self.api_secret_key in _DEFAULT_SECRETS:
+                msg = "api_secret_key must be changed from default in production"
+                raise ValueError(msg)
+        return self
 
     @property
     def is_production(self) -> bool:

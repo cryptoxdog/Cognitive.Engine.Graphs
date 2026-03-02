@@ -270,12 +270,12 @@ async def handle_match(tenant: str, payload: dict[str, Any]) -> dict[str, Any]:
             database=domain_spec.domain.id,
         )
     except Exception as exc:
-        logger.error("Match query failed for tenant=%s: %s", tenant, type(exc).__name__)
+        logger.error("Match query failed for tenant=%s", tenant, exc_info=True)
         raise ExecutionError(
             "Match query execution failed",
             action="match",
             tenant=tenant,
-            detail=str(exc),
+            detail="Query execution error",
         ) from exc
 
     execution_time_ms = (time.monotonic() - start_time) * 1000

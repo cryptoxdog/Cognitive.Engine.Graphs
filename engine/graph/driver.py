@@ -13,6 +13,7 @@ Neo4j driver wrapper.
 Manages connection pooling and multi-database routing.
 """
 
+import asyncio
 import logging
 import os
 
@@ -43,32 +44,35 @@ class GraphDriver:
         self.password: str = password or os.getenv("NEO4J_PASSWORD") or "password"
 
         self._driver: AsyncDriver | None = None
+        self._lock = asyncio.Lock()
 
     async def connect(self) -> None:
         """Establish driver connection."""
-        if self._driver:
-            logger.warning("Driver already connected")
-            return
+        async with self._lock:
+            if self._driver:
+                logger.warning("Driver already connected")
+                return
 
-        logger.info(f"Connecting to Neo4j at {self.uri}")
-        self._driver = AsyncGraphDatabase.driver(
-            self.uri,
-            auth=(self.username, self.password),
-            max_connection_lifetime=3600,
-            max_connection_pool_size=50,
-            connection_acquisition_timeout=60,
-        )
+            logger.info(f"Connecting to Neo4j at {self.uri}")
+            self._driver = AsyncGraphDatabase.driver(
+                self.uri,
+                auth=(self.username, self.password),
+                max_connection_lifetime=3600,
+                max_connection_pool_size=50,
+                connection_acquisition_timeout=60,
+            )
 
-        # Verify connectivity
-        await self._driver.verify_connectivity()
-        logger.info("Neo4j driver connected successfully")
+            # Verify connectivity
+            await self._driver.verify_connectivity()
+            logger.info("Neo4j driver connected successfully")
 
     async def close(self) -> None:
         """Close driver connection."""
-        if self._driver:
-            await self._driver.close()
-            self._driver = None
-            logger.info("Neo4j driver closed")
+        async with self._lock:
+            if self._driver:
+                await self._driver.close()
+                self._driver = None
+                logger.info("Neo4j driver closed")
 
     def get_driver(self) -> AsyncDriver:
         """Get driver instance."""

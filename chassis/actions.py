@@ -135,8 +135,10 @@ async def execute_action(
         responding_node="graph-engine",
     )
 
-    # TODO: Persist request_packet + response_packet to packet_store via memory substrate
-    # (Requires memory substrate integration or direct SQL insert)
+    # DEFERRED: Persist request_packet + response_packet to packet_store via memory substrate
+    # Tracking: https://github.com/cryptoxdog/Cognitive.Engine.Graphs/issues/TBD
+    # Reason: Requires memory substrate integration (PostgreSQL + PacketStore schema)
+    # Priority: Post-MVP - audit trail enhancement
 
     # Return outbound envelope as JSON
     return {

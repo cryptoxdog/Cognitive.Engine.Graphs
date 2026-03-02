@@ -19,8 +19,10 @@ All algorithms execute real Cypher against Neo4j — no stubs.
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
+from collections import deque
 from datetime import datetime
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
@@ -31,6 +33,8 @@ from engine.graph.driver import GraphDriver
 from engine.utils.security import sanitize_label
 
 logger = logging.getLogger(__name__)
+
+_MAX_HISTORY_SIZE = 1000
 
 
 class GDSScheduler:
@@ -50,7 +54,8 @@ class GDSScheduler:
         self.domain_spec = domain_spec
         self.graph_driver = graph_driver
         self.scheduler = AsyncIOScheduler()
-        self._job_history: list[dict] = []
+        self._job_history: deque[dict] = deque(maxlen=_MAX_HISTORY_SIZE)
+        self._history_lock = asyncio.Lock()
 
     @staticmethod
     def _get_job_parameter(job_spec: GDSJobSpec, param_name: str, default: float) -> float:
@@ -145,14 +150,15 @@ class GDSScheduler:
             logger.error(f"Job {job_spec.name} failed: {e}", exc_info=True)
             result = {"status": "failed", "error": str(e)}
 
-        self._job_history.append(
-            {
-                "job": job_spec.name,
-                "algorithm": job_spec.algorithm,
-                "timestamp": datetime.now().isoformat(),
-                **result,
-            }
-        )
+        async with self._history_lock:
+            self._job_history.append(
+                {
+                    "job": job_spec.name,
+                    "algorithm": job_spec.algorithm,
+                    "timestamp": datetime.now().isoformat(),
+                    **result,
+                }
+            )
         return result
 
     # ── Algorithm Implementations ──────────────────────────────
@@ -477,6 +483,12 @@ class GDSScheduler:
         self.scheduler.shutdown()
         logger.info("GDS scheduler shut down")
 
+    async def get_job_history(self) -> list[dict]:
+        """Get copy of job history (thread-safe)."""
+        async with self._history_lock:
+            return list(self._job_history)
+
     @property
     def job_history(self) -> list[dict]:
+        """Synchronous access to job history. Use get_job_history() in async contexts."""
         return list(self._job_history)
