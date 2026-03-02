@@ -3,6 +3,7 @@
 Action handlers for L9 chassis integration.
 Handlers receive (tenant: str, payload: dict) and return dict.
 """
+
 from __future__ import annotations
 
 import logging
@@ -64,8 +65,9 @@ def _require_key(payload: dict[str, Any], key: str, action: str, tenant: str) ->
     """Extract required key with structured error."""
     if key not in payload:
         raise ValidationError(
-            f"Missing required field \'{key}\' in {action} payload",
-            action=action, tenant=tenant,
+            f"Missing required field '{key}' in {action} payload",
+            action=action,
+            tenant=tenant,
         )
     return payload[key]
 
@@ -91,7 +93,9 @@ async def handle_match(tenant: str, payload: dict[str, Any]) -> dict[str, Any]:
     if compliance.enabled:
         compliance.validate_gates(domain_spec.gates)
         query = compliance.check_match_request(
-            tenant=tenant, query=query, match_direction=match_direction,
+            tenant=tenant,
+            query=query,
+            match_direction=match_direction,
         )
 
     resolver = ParameterResolver(domain_spec)
@@ -106,20 +110,19 @@ async def handle_match(tenant: str, payload: dict[str, Any]) -> dict[str, Any]:
     scoring_assembler = ScoringAssembler(domain_spec)
     scoring_clause = scoring_assembler.assemble_scoring_clause(match_direction, weights)
 
-    candidate_labels = [
-        c.label for c in domain_spec.matchentities.candidate
-        if c.matchdirection == match_direction
-    ]
+    candidate_labels = [c.label for c in domain_spec.matchentities.candidate if c.matchdirection == match_direction]
     if not candidate_labels:
         raise ValidationError(
             f"No candidate entity for direction {match_direction!r}",
-            action="match", tenant=tenant,
+            action="match",
+            tenant=tenant,
         )
     candidate_label = sanitize_label(candidate_labels[0])
 
     cypher = (
         f"MATCH (candidate:{candidate_label})\n"
-        + "\n".join(traversal_clauses) + "\n"
+        + "\n".join(traversal_clauses)
+        + "\n"
         + f"WHERE {where_clause}\n"
         + f"{scoring_clause}\n"
         + "RETURN candidate, score\n"
@@ -137,7 +140,9 @@ async def handle_match(tenant: str, payload: dict[str, Any]) -> dict[str, Any]:
         logger.error("Match query failed for tenant=%s: %s", tenant, type(exc).__name__)
         raise ExecutionError(
             "Match query execution failed",
-            action="match", tenant=tenant, detail=str(exc),
+            action="match",
+            tenant=tenant,
+            detail=str(exc),
         ) from exc
 
     execution_time_ms = (time.monotonic() - start_time) * 1000
@@ -164,7 +169,8 @@ async def handle_sync(tenant: str, payload: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(batch, list) or len(batch) == 0:
         raise ValidationError(
             "Sync batch must be a non-empty list",
-            action="sync", tenant=tenant,
+            action="sync",
+            tenant=tenant,
         )
 
     domain_spec = domain_loader.load_domain(tenant)
@@ -172,14 +178,14 @@ async def handle_sync(tenant: str, payload: dict[str, Any]) -> dict[str, Any]:
         raise ValidationError("No sync endpoints configured", action="sync", tenant=tenant)
 
     endpoint_spec = next(
-        (e for e in domain_spec.sync.endpoints
-         if e.path.rstrip("/").rsplit("/", 1)[-1] == entity_type),
+        (e for e in domain_spec.sync.endpoints if e.path.rstrip("/").rsplit("/", 1)[-1] == entity_type),
         None,
     )
     if not endpoint_spec:
         raise ValidationError(
             f"No sync endpoint for entity type {entity_type!r}",
-            action="sync", tenant=tenant,
+            action="sync",
+            tenant=tenant,
         )
 
     generator = SyncGenerator(domain_spec)
@@ -194,7 +200,9 @@ async def handle_sync(tenant: str, payload: dict[str, Any]) -> dict[str, Any]:
     except Exception as exc:
         raise ExecutionError(
             "Sync query execution failed",
-            action="sync", tenant=tenant, detail=str(exc),
+            action="sync",
+            tenant=tenant,
+            detail=str(exc),
         ) from exc
 
     return {"status": "success", "entity_type": entity_type, "synced_count": len(batch)}
@@ -208,18 +216,18 @@ async def handle_admin(tenant: str, payload: dict[str, Any]) -> dict[str, Any]:
     if subaction == "list_domains":
         return {"domains": domain_loader.list_domains()}
 
-    elif subaction == "get_domain":
+    if subaction == "get_domain":
         domain_id = _require_key(payload, "domain_id", "admin", tenant)
         spec = domain_loader.load_domain(domain_id)
         return {"domain": spec.model_dump(mode="json")}
 
-    elif subaction == "init_schema":
+    if subaction == "init_schema":
         domain_id = _require_key(payload, "domain_id", "admin", tenant)
         spec = domain_loader.load_domain(domain_id)
         count = await _init_schema(graph_driver, spec)
         return {"status": "schema_initialized", "constraints_created": count}
 
-    elif subaction == "trigger_gds":
+    if subaction == "trigger_gds":
         domain_id = _require_key(payload, "domain_id", "admin", tenant)
         job_name = _require_key(payload, "job_name", "admin", tenant)
         spec = domain_loader.load_domain(domain_id)
@@ -227,8 +235,7 @@ async def handle_admin(tenant: str, payload: dict[str, Any]) -> dict[str, Any]:
         result = await scheduler.trigger_job(job_name)
         return {"status": "triggered", "job": job_name, "result": result}
 
-    else:
-        raise ValidationError(f"Unknown admin subaction: {subaction!r}", action="admin", tenant=tenant)
+    raise ValidationError(f"Unknown admin subaction: {subaction!r}", action="admin", tenant=tenant)
 
 
 async def _init_schema(driver: GraphDriver, spec: DomainSpec) -> int:
@@ -250,10 +257,7 @@ async def _init_schema(driver: GraphDriver, spec: DomainSpec) -> int:
                     logger.warning("Constraint failed for %s.%s: %s", label, prop.name, exc)
         id_props = [p for p in node.properties if p.required and "id" in p.name.lower()]
         for prop in id_props:
-            cypher = (
-                f"CREATE CONSTRAINT IF NOT EXISTS "
-                f"FOR (n:{label}) REQUIRE n.{sanitize_label(prop.name)} IS UNIQUE"
-            )
+            cypher = f"CREATE CONSTRAINT IF NOT EXISTS FOR (n:{label}) REQUIRE n.{sanitize_label(prop.name)} IS UNIQUE"
             try:
                 await driver.execute_query(cypher, database=db)
                 count += 1
@@ -282,7 +286,8 @@ async def handle_outcomes(tenant: str, payload: dict[str, Any]) -> dict[str, Any
     if outcome not in ("success", "failure", "partial"):
         raise ValidationError(
             f"Invalid outcome: {outcome!r}. Must be success|failure|partial.",
-            action="outcomes", tenant=tenant,
+            action="outcomes",
+            tenant=tenant,
         )
 
     domain_spec = domain_loader.load_domain(tenant)
@@ -305,15 +310,21 @@ async def handle_outcomes(tenant: str, payload: dict[str, Any]) -> dict[str, Any
         await graph_driver.execute_query(
             cypher=cypher,
             parameters={
-                "outcome_id": outcome_id, "match_id": match_id,
-                "candidate_id": candidate_id, "outcome": outcome,
-                "value": payload.get("value"), "tenant": tenant,
+                "outcome_id": outcome_id,
+                "match_id": match_id,
+                "candidate_id": candidate_id,
+                "outcome": outcome,
+                "value": payload.get("value"),
+                "tenant": tenant,
             },
             database=domain_spec.domain.id,
         )
     except Exception as exc:
         raise ExecutionError(
-            "Outcome write failed", action="outcomes", tenant=tenant, detail=str(exc),
+            "Outcome write failed",
+            action="outcomes",
+            tenant=tenant,
+            detail=str(exc),
         ) from exc
 
     compliance = ComplianceEngine(domain_spec)
@@ -349,20 +360,28 @@ async def handle_resolve(tenant: str, payload: dict[str, Any]) -> dict[str, Any]
         await graph_driver.execute_query(
             cypher=cypher,
             parameters={
-                "source_id": source_id, "target_id": target_id,
-                "resolution_id": resolution_id, "confidence": confidence,
-                "signal": signal, "tenant": tenant,
+                "source_id": source_id,
+                "target_id": target_id,
+                "resolution_id": resolution_id,
+                "confidence": confidence,
+                "signal": signal,
+                "tenant": tenant,
             },
             database=domain_spec.domain.id,
         )
     except Exception as exc:
         raise ExecutionError(
-            "Entity resolution failed", action="resolve", tenant=tenant, detail=str(exc),
+            "Entity resolution failed",
+            action="resolve",
+            tenant=tenant,
+            detail=str(exc),
         ) from exc
 
     return {
-        "status": "resolved", "resolution_id": resolution_id,
-        "source_id": source_id, "target_id": target_id,
+        "status": "resolved",
+        "resolution_id": resolution_id,
+        "source_id": source_id,
+        "target_id": target_id,
     }
 
 
@@ -395,12 +414,12 @@ async def handle_healthcheck(tenant: str, payload: dict[str, Any]) -> dict[str, 
 async def handle_enrich(tenant: str, payload: dict[str, Any]) -> dict[str, Any]:
     """
     Enrich action: add computed properties to graph entities.
-    
+
     Payload schema:
       - entity_type: str       # Node label to enrich
       - entity_ids: list[str]  # Optional: specific entities (all if omitted)
       - enrichments: list[dict] # Each: {property: str, expression: str}
-    
+
     Returns:
       - enriched_count: int
       - entity_type: str
@@ -408,29 +427,29 @@ async def handle_enrich(tenant: str, payload: dict[str, Any]) -> dict[str, Any]:
     """
     graph_driver, domain_loader = _require_deps()
     domain_spec = domain_loader.load_domain(tenant)
-    
+
     entity_type = payload.get("entity_type")
     if not entity_type:
         raise ValidationError("entity_type required", action="enrich", tenant=tenant)
-    
+
     entity_ids = payload.get("entity_ids", [])
     enrichments = payload.get("enrichments", [])
-    
+
     if not enrichments:
         return {"enriched_count": 0, "entity_type": entity_type, "tenant": tenant}
-    
+
     label = sanitize_label(entity_type)
-    
+
     set_clauses = []
     for enrich in enrichments:
         prop = enrich.get("property", "")
         expr = enrich.get("expression", "")
         if prop and expr:
             set_clauses.append(f"n.{sanitize_label(prop)} = {expr}")
-    
+
     if not set_clauses:
         return {"enriched_count": 0, "entity_type": entity_type, "tenant": tenant}
-    
+
     if entity_ids:
         cypher = f"""
         MATCH (n:{label})
@@ -446,11 +465,13 @@ async def handle_enrich(tenant: str, payload: dict[str, Any]) -> dict[str, Any]:
         RETURN count(n) AS enriched_count
         """
         params = {}
-    
+
     result = await graph_driver.execute_query(
-        cypher=cypher, parameters=params, database=domain_spec.domain.id,
+        cypher=cypher,
+        parameters=params,
+        database=domain_spec.domain.id,
     )
-    
+
     count = result[0]["enriched_count"] if result else 0
     return {"enriched_count": count, "entity_type": entity_type, "tenant": tenant}
 

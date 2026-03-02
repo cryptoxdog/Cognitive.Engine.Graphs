@@ -38,7 +38,7 @@ ontology:
         - {name: firsttimebuyer, type: bool}
         - {name: dtipct, type: float, unit: percentage, managedby: computed}
         - {name: ltvpct, type: float, unit: percentage, managedby: computed}
-    
+
     - label: LoanProduct
       managedby: sync
       candidate: true
@@ -57,7 +57,7 @@ ontology:
         - {name: baseratepct, type: float, unit: percentage}
         - {name: avgclosingdays, type: int}
         - {name: louvaincommunityid, type: int, managedby: gds}
-    
+
     - label: Lender
       managedby: sync
       auxiliary: true
@@ -66,7 +66,7 @@ ontology:
         - {name: name, type: string}
         - {name: nmlsid, type: string}
         - {name: approvalratepct, type: float, unit: percentage, managedby: gds}
-    
+
     - label: State
       managedby: static
       taxonomy: true
@@ -207,4 +207,3 @@ compliance:
     logmatchrequests: true
     logmatchresults: true
     retentiondays: 90
-

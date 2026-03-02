@@ -21,10 +21,10 @@
 size_limits:
   # Lines changed warning threshold (adds comment, non-blocking)
   warn_threshold: 300
-  
+
   # Lines changed blocking threshold (fails check, blocks merge)
   block_threshold: 1000
-  
+
   # Maximum files changed in a single PR
   max_files_changed: 50
 

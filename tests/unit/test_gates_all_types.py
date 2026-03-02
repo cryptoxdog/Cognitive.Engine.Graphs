@@ -7,24 +7,20 @@ Comprehensive unit tests for gate types and GateCompiler.
 Target Coverage: 85%+
 """
 
-import pytest
 from unittest.mock import MagicMock
 
+import pytest
+
+from engine.config.schema import DomainSpec, GateSpec, GateType, NullBehavior
 from engine.gates.compiler import GateCompiler
 from engine.gates.types.all_gates import (
     BaseGate,
     BooleanGate,
-    RangeGate,
-    ThresholdGate,
-    EnumMapGate,
     ExclusionGate,
-    SelfRangeGate,
     FreshnessGate,
-    TemporalRangeGate,
+    ThresholdGate,
     TraversalGate,
-    CompositeGate,
 )
-from engine.config.schema import DomainSpec, GateSpec, GateType, NullBehavior
 
 
 def make_mock_gate_spec(**kwargs) -> MagicMock:

@@ -13,7 +13,7 @@ import json
 import re
 import sys
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -42,7 +42,7 @@ SEVERITY_ORDER = {"CRITICAL": 0, "HIGH": 1, "MEDIUM": 2, "LOW": 3}
 
 
 def now_iso() -> str:
-    return datetime.now(timezone.utc).isoformat()
+    return datetime.now(UTC).isoformat()
 
 
 def load_yaml(path: Path) -> dict[str, Any]:
@@ -100,16 +100,18 @@ def ensure_template_manifest(root: Path) -> list[Finding]:
     findings: list[Finding] = []
     manifest = root / "tools" / "l9_template_manifest.yaml"
     if not manifest.exists():
-        findings.append(Finding(
-            severity="HIGH",
-            rule_id="TEMPLATE_MANIFEST_MISSING",
-            file=str(manifest),
-            line_start=None,
-            line_end=None,
-            issue="Template manifest missing.",
-            evidence="tools/l9_template_manifest.yaml does not exist.",
-            fix="Add tools/l9_template_manifest.yaml with L9_TEMPLATE tagging for template files."
-        ))
+        findings.append(
+            Finding(
+                severity="HIGH",
+                rule_id="TEMPLATE_MANIFEST_MISSING",
+                file=str(manifest),
+                line_start=None,
+                line_end=None,
+                issue="Template manifest missing.",
+                evidence="tools/l9_template_manifest.yaml does not exist.",
+                fix="Add tools/l9_template_manifest.yaml with L9_TEMPLATE tagging for template files.",
+            )
+        )
     return findings
 
 
@@ -125,16 +127,18 @@ def audit_rules(root: Path, rules: dict[str, Any]) -> list[Finding]:
         for rel in forbidden:
             p = root / rel
             if p.exists():
-                findings.append(Finding(
-                    severity=severity,
-                    rule_id=rule_id,
-                    file=str(p),
-                    line_start=None,
-                    line_end=None,
-                    issue=desc,
-                    evidence=f"{rel} exists.",
-                    fix="Delete this directory/file; engines must not implement custom HTTP surface."
-                ))
+                findings.append(
+                    Finding(
+                        severity=severity,
+                        rule_id=rule_id,
+                        file=str(p),
+                        line_start=None,
+                        line_end=None,
+                        issue=desc,
+                        evidence=f"{rel} exists.",
+                        fix="Delete this directory/file; engines must not implement custom HTTP surface.",
+                    )
+                )
 
         include_globs = rule.get("include_globs", [])
         if include_globs:
@@ -154,43 +158,49 @@ def audit_rules(root: Path, rules: dict[str, Any]) -> list[Finding]:
                 if required_all:
                     missing = [x for x in required_all if x not in text]
                     if missing:
-                        findings.append(Finding(
-                            severity=severity,
-                            rule_id=rule_id,
-                            file=str(f),
-                            line_start=None,
-                            line_end=None,
-                            issue=desc,
-                            evidence=f"Missing required tokens: {missing}",
-                            fix="Implement required flow anchors or algorithms as per engine contract."
-                        ))
+                        findings.append(
+                            Finding(
+                                severity=severity,
+                                rule_id=rule_id,
+                                file=str(f),
+                                line_start=None,
+                                line_end=None,
+                                issue=desc,
+                                evidence=f"Missing required tokens: {missing}",
+                                fix="Implement required flow anchors or algorithms as per engine contract.",
+                            )
+                        )
 
                 if required_any:
                     if not any(x in text for x in required_any):
-                        findings.append(Finding(
-                            severity=severity,
-                            rule_id=rule_id,
-                            file=str(f),
-                            line_start=None,
-                            line_end=None,
-                            issue=desc,
-                            evidence=f"None of required-any tokens found: {required_any}",
-                            fix="Ensure lifecycle entrypoints reference expected components."
-                        ))
+                        findings.append(
+                            Finding(
+                                severity=severity,
+                                rule_id=rule_id,
+                                file=str(f),
+                                line_start=None,
+                                line_end=None,
+                                issue=desc,
+                                evidence=f"None of required-any tokens found: {required_any}",
+                                fix="Ensure lifecycle entrypoints reference expected components.",
+                            )
+                        )
 
                 for needle in patterns:
                     for ln in find_all_lines(text, needle):
                         s, e, snip = snippet_with_lines(text, ln)
-                        findings.append(Finding(
-                            severity=severity,
-                            rule_id=rule_id,
-                            file=str(f),
-                            line_start=s,
-                            line_end=e,
-                            issue=desc,
-                            evidence=snip,
-                            fix="Remove banned import/logic; rely on chassis for HTTP/tenancy/auth."
-                        ))
+                        findings.append(
+                            Finding(
+                                severity=severity,
+                                rule_id=rule_id,
+                                file=str(f),
+                                line_start=s,
+                                line_end=e,
+                                issue=desc,
+                                evidence=snip,
+                                fix="Remove banned import/logic; rely on chassis for HTTP/tenancy/auth.",
+                            )
+                        )
 
                 for rx_pat in patterns_regex:
                     hit_lines = find_regex_lines(text, rx_pat)
@@ -198,16 +208,18 @@ def audit_rules(root: Path, rules: dict[str, Any]) -> list[Finding]:
                         if allow_if_contains and any(a in text for a in allow_if_contains):
                             continue
                         s, e, snip = snippet_with_lines(text, ln)
-                        findings.append(Finding(
-                            severity=severity,
-                            rule_id=rule_id,
-                            file=str(f),
-                            line_start=s,
-                            line_end=e,
-                            issue=desc,
-                            evidence=snip,
-                            fix="Wrap labels/types with sanitize_label() before Cypher interpolation."
-                        ))
+                        findings.append(
+                            Finding(
+                                severity=severity,
+                                rule_id=rule_id,
+                                file=str(f),
+                                line_start=s,
+                                line_end=e,
+                                issue=desc,
+                                evidence=snip,
+                                fix="Wrap labels/types with sanitize_label() before Cypher interpolation.",
+                            )
+                        )
 
     return findings
 
@@ -227,7 +239,7 @@ def write_report(root: Path, meta: dict[str, Any], grouped: dict[str, list[Findi
     report_path = out_dir / "audit_report.md"
 
     lines: list[str] = []
-    lines.append(f"# L9 Engine Audit Report\n")
+    lines.append("# L9 Engine Audit Report\n")
     lines.append(f"- Generated: {meta['generated_at']}")
     lines.append(f"- Repo root: `{meta['repo_root']}`")
     lines.append(f"- Template tag: `{L9_TEMPLATE_TAG}`")
@@ -272,7 +284,7 @@ def write_coverage(root: Path, grouped: dict[str, list[Finding]]) -> None:
 
 
 def main() -> int:
-    root = Path(".").resolve()
+    root = Path().resolve()
     meta = {"generated_at": now_iso(), "repo_root": str(root)}
 
     findings = []
@@ -295,14 +307,23 @@ def main() -> int:
 
     # --- Spec coverage (if spec exists) ---
     import subprocess
+
     spec_candidates = list(root.glob("*spec*.yaml")) + list(root.glob("*spec*.yml"))
     if spec_candidates:
         result = subprocess.run(
-            [sys.executable, str(root / "tools" / "spec_extract.py"),
-             "--spec", str(spec_candidates[0]),
-             "--root", str(root),
-             "--fail-on", "NONE"],  # don't double-fail; audit_engine owns exit code
-            capture_output=True, text=True,
+            [
+                sys.executable,
+                str(root / "tools" / "spec_extract.py"),
+                "--spec",
+                str(spec_candidates[0]),
+                "--root",
+                str(root),
+                "--fail-on",
+                "NONE",
+            ],  # don't double-fail; audit_engine owns exit code
+            capture_output=True,
+            text=True,
+            check=False,
         )
         if result.returncode != 0:
             print(f"spec_extract warning: {result.stderr}", file=sys.stderr)

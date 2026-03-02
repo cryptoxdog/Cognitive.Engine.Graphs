@@ -4,11 +4,11 @@ Performance benchmarks for match query latency.
 Tests p50/p95/p99 latency against Neo4j with seeded graph data.
 Requires: pytest-benchmark or manual timing.
 """
+
 from __future__ import annotations
 
 import statistics
 import time
-from typing import List
 
 import pytest
 
@@ -22,9 +22,7 @@ class TestMatchQueryLatency:
     """Benchmark end-to-end match query execution latency."""
 
     @pytest.mark.asyncio
-    async def test_strict_match_latency_under_100ms(
-        self, graph_driver, seeded_graph, domain_spec
-    ):
+    async def test_strict_match_latency_under_100ms(self, graph_driver, seeded_graph, domain_spec):
         """
         Strict match query should complete within 100ms p95 on a
         small seeded graph (3 facilities, 4 polymers, 5 forms).
@@ -67,12 +65,10 @@ class TestMatchQueryLatency:
         await graph_driver.execute_query(cypher, parameters=query_params, database=db)
 
         # Benchmark: 50 iterations
-        latencies: List[float] = []
+        latencies: list[float] = []
         for _ in range(50):
             t0 = time.perf_counter()
-            results = await graph_driver.execute_query(
-                cypher, parameters=query_params, database=db
-            )
+            results = await graph_driver.execute_query(cypher, parameters=query_params, database=db)
             elapsed_ms = (time.perf_counter() - t0) * 1000
             latencies.append(elapsed_ms)
 
@@ -89,9 +85,7 @@ class TestMatchQueryLatency:
         assert p95 < 100, f"p95 latency {p95:.1f}ms exceeds 100ms target"
 
     @pytest.mark.asyncio
-    async def test_relaxed_match_latency_under_200ms(
-        self, graph_driver, seeded_graph, domain_spec
-    ):
+    async def test_relaxed_match_latency_under_200ms(self, graph_driver, seeded_graph, domain_spec):
         """
         Relaxed match (fewer hard gates, more scoring penalties) should
         complete within 200ms p95. Relaxed queries scan more candidates.
@@ -116,7 +110,7 @@ class TestMatchQueryLatency:
         # Warmup
         await graph_driver.execute_query(cypher, parameters=query_params, database=db)
 
-        latencies: List[float] = []
+        latencies: list[float] = []
         for _ in range(50):
             t0 = time.perf_counter()
             await graph_driver.execute_query(cypher, parameters=query_params, database=db)

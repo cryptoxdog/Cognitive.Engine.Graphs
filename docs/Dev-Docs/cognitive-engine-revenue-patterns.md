@@ -82,18 +82,18 @@ Analysis of the top 3 revenue-generating graph systems ($510B combined annual re
 def collaborative_filtering_rank(query_entity, candidate_pool):
     """
     Item-to-item collaborative filtering via graph traversal
-    
-    Core insight: Entities frequently paired in successful 
+
+    Core insight: Entities frequently paired in successful
     transactions reveal hidden affinities
     """
-    
+
     # Step 1: Find historical successes for similar queries
     similar_queries = graph.traverse(
         start=query_entity,
         relationship="SIMILAR_TO",
         depth=1
     )
-    
+
     historical_successes = []
     for similar_q in similar_queries:
         successes = graph.traverse(
@@ -103,11 +103,11 @@ def collaborative_filtering_rank(query_entity, candidate_pool):
             depth=1
         )
         historical_successes.extend(successes)
-    
+
     # Step 2: Build candidate affinity scores
     candidate_scores = {}
     for candidate in candidate_pool:
-        # How often did this candidate co-occur with 
+        # How often did this candidate co-occur with
         # historically successful candidates?
         co_occurrences = graph.traverse(
             start=candidate,
@@ -115,18 +115,18 @@ def collaborative_filtering_rank(query_entity, candidate_pool):
             targets=historical_successes,
             depth=1
         )
-        
+
         # Score = frequency × lift × recency decay
         score = sum(
             edge.frequency * edge.lift * decay(edge.timestamp)
             for edge in co_occurrences
         )
-        
+
         candidate_scores[candidate] = score
-    
+
     # Step 3: Rank and return top-K
-    return sorted(candidate_scores.items(), 
-                  key=lambda x: x[1], 
+    return sorted(candidate_scores.items(),
+                  key=lambda x: x[1],
                   reverse=True)[:K]
 ```
 
@@ -142,7 +142,7 @@ def collaborative_filtering_rank(query_entity, candidate_pool):
 MATCH (intake:MaterialIntake {polymer_family: $polymer})-[:SIMILAR_TO]->(similar_intake)
       -[:TRANSACTED_WITH {outcome: 'success'}]->(facility:Facility)
 WHERE similar_intake.contamination_pct <= intake.contamination_pct
-WITH facility, count(*) as success_count, 
+WITH facility, count(*) as success_count,
      collect(similar_intake.material_form) as successful_forms
 
 // Find materials this facility also processed successfully
@@ -151,7 +151,7 @@ WHERE material_type <> intake.material_form
 
 // Collaborative filtering: Facilities that processed X successfully
 // also processed Y successfully → recommend for Y
-RETURN facility, success_count, successful_forms, 
+RETURN facility, success_count, successful_forms,
        collect(material_type) as affinity_materials
 ORDER BY success_count DESC
 LIMIT 10
@@ -256,39 +256,39 @@ LIMIT 10
 def disambiguate_via_context(query, context_signals):
     """
     Hierarchical entity resolution with context pruning
-    
+
     Pattern: Google, Amazon, Meta all do this
     """
-    
+
     # Step 1: Map query to candidate entities (could be multiple)
     candidates = graph.traverse(
         start=query,
         relationship="COULD_BE",  # Ambiguous mapping
         depth=1
     )
-    
+
     if len(candidates) == 1:
         return candidates[0]  # No ambiguity
-    
+
     # Step 2: Score candidates via context graph
     candidate_scores = {}
     for candidate in candidates:
         score = 0.0
-        
+
         # Traverse context → candidate compatibility
         for context in context_signals:
             compatibility = graph.get_edge(
-                context, candidate, 
+                context, candidate,
                 relationship="SUPPORTS_ENTITY"
             )
             if compatibility:
                 score += compatibility.strength * context.signal_strength
-        
+
         candidate_scores[candidate] = score
-    
+
     # Step 3: Return highest-confidence disambiguation
     best_candidate = max(candidate_scores.items(), key=lambda x: x[1])
-    
+
     if best_candidate[1] > CONFIDENCE_THRESHOLD:
         return best_candidate[0]
     else:
@@ -311,7 +311,7 @@ MATCH (pe_family:PolymerFamily {name: 'PE'})
 MATCH (specific_polymer)-[compat:COMPATIBLE_WITH_FORM]->(form)
 OPTIONAL MATCH (specific_polymer)-[app_fit:USED_IN_APPLICATION]->(app)
 
-WITH specific_polymer, 
+WITH specific_polymer,
      coalesce(compat.strength, 0.0) as form_score,
      coalesce(app_fit.strength, 0.0) as app_score,
      form_score + app_score as total_score
@@ -323,7 +323,7 @@ ORDER BY total_score DESC
 LIMIT 1
 ```
 
-**Revenue Impact:** 
+**Revenue Impact:**
 - **40-50% reduction in failed matches** (wrong polymer sent to facility)
 - **20% increase in transaction volume** (suppliers trust accuracy)
 
@@ -507,17 +507,17 @@ ORDER BY similarity DESC
 def real_time_rank(base_candidates, session_context):
     """
     Base graph score + real-time signals → dynamic re-ranking
-    
+
     All 3 systems: Pre-computed base + real-time context adjustment
     """
-    
+
     # Base scores from graph traversal (pre-computed)
     base_scores = {c.id: c.graph_score for c in base_candidates}
-    
+
     # Real-time context features
     context_features = extract_context(session_context)
     # {urgency, recency, capacity, performance, ...}
-    
+
     # Dynamic re-ranking model (gradient boosting / neural net)
     final_scores = {}
     for candidate in base_candidates:
@@ -527,9 +527,9 @@ def real_time_rank(base_candidates, session_context):
             **context_features,
             **candidate.real_time_attributes
         }
-        
+
         final_scores[candidate.id] = ranking_model.predict(features)
-    
+
     return sorted(final_scores.items(), key=lambda x: x[1], reverse=True)
 ```
 
@@ -541,7 +541,7 @@ MATCH (intake:MaterialIntake)-[:MEETS_REQUIREMENTS]->(facility:Facility)
 WHERE facility.min_lot_size_lbs <= intake.quantity_lbs <= facility.max_lot_size_lbs
   AND facility.contamination_tolerance >= intake.contamination_pct
 
-WITH facility, 
+WITH facility,
      facility.structural_compatibility_score as base_score
 
 // Real-time context adjustments
@@ -628,8 +628,8 @@ MATCH path = (source)-[rel1:TYPE1]->(bridge)-[rel2:TYPE2]->(target)
 WHERE bridge.attribute > threshold
   AND rel1.strength * rel2.strength > min_path_strength
 
-WITH path, 
-     reduce(score = 1.0, r in relationships(path) | 
+WITH path,
+     reduce(score = 1.0, r in relationships(path) |
             score * r.strength * exp(-r.age_days / 180)
      ) as path_score
 
@@ -695,7 +695,7 @@ WHERE NOT exists((borrower)-[:APPLICATION]->()-[:OFFERED_BY]->(lender))
 // Path scoring: borrower similarity × close success × lender performance
 WITH lender, product, loan_category, path,
      reduce(score = 1.0, rel in relationships(path) |
-            score * coalesce(rel.similarity_score, 0.8) * 
+            score * coalesce(rel.similarity_score, 0.8) *
                     coalesce(rel.close_rate, 0.7) *
                     coalesce(rel.approval_rate, 0.8)
      ) as transitive_score,
@@ -740,7 +740,7 @@ LIMIT 10
 # Add to app/config/scoring.yaml
 collaborative_filtering:
   enabled: true
-  
+
   co_occurrence_edges:
     # Build CO_OCCURRED_WITH edges from transaction history
     source_relationship: "TRANSACTED_WITH"
@@ -750,7 +750,7 @@ collaborative_filtering:
       - frequency  # How often A and B co-occurred
       - lift       # How much more than random (frequency / baseline)
       - confidence # P(B | A)
-  
+
   affinity_scoring:
     weight: 0.25  # 25% of total match score
     decay_days: 180
@@ -766,10 +766,10 @@ from neo4j import AsyncGraphDatabase
 async def build_co_occurrence_edges(tx, window_days: int = 90):
     """
     Build CO_OCCURRED_WITH edges from transaction history
-    
+
     Pattern: Amazon/Google/Meta all compute co-occurrence at scale
     """
-    
+
     query = """
     // Find pairs of facilities that processed similar materials
     MATCH (intake1:MaterialIntake)-[:TRANSACTED_WITH]->(facility:Facility)
@@ -777,30 +777,30 @@ async def build_co_occurrence_edges(tx, window_days: int = 90):
     WHERE intake1 <> intake2
       AND intake1.polymer_family = intake2.polymer_family
       AND datetime(intake1.transaction_date) > datetime() - duration({days: $window_days})
-    
+
     // Aggregate co-occurrence frequency
-    WITH facility, 
+    WITH facility,
          intake1.material_form as form1,
          intake2.material_form as form2,
          count(*) as co_occurrence_count
     WHERE form1 <> form2
-    
+
     // Calculate lift (how much more than random)
-    WITH form1, form2, 
+    WITH form1, form2,
          sum(co_occurrence_count) as total_co_occurrences,
          sum(co_occurrence_count) * 1.0 / $baseline_frequency as lift
     WHERE lift > 1.5
-    
+
     // Create CO_OCCURRED_WITH edges
     MERGE (f1:MaterialForm {name: form1})-[co:CO_OCCURRED_WITH]-(f2:MaterialForm {name: form2})
     SET co.frequency = total_co_occurrences,
         co.lift = lift,
         co.confidence = total_co_occurrences * 1.0 / sum(total_co_occurrences),
         co.last_updated = datetime()
-    
+
     RETURN count(co) as edges_created
     """
-    
+
     result = await tx.run(query, window_days=window_days, baseline_frequency=100.0)
     return await result.single()
 ```
@@ -825,16 +825,16 @@ class MatchRequest(BaseModel):
 async def match_with_context(request: MatchRequest):
     """
     Enhanced matching with real-time context re-ranking
-    
+
     Pattern: Google/Amazon/Meta all adjust scores at query time
     """
-    
+
     # Step 1: Base graph matching (existing gates + structural score)
     base_candidates = await graph_service.match(request)
-    
+
     if not request.real_time_context:
         return base_candidates  # No context, return base scores
-    
+
     # Step 2: Real-time re-ranking
     context_features = {
         'urgency_multiplier': {
@@ -845,13 +845,13 @@ async def match_with_context(request: MatchRequest):
         'capacity_boost': request.real_time_context.current_capacity or {},
         'performance_boost': request.real_time_context.recent_performance or {}
     }
-    
+
     # Step 3: Apply re-ranking model (XGBoost trained on graph + context features)
     reranked_candidates = await rerank_with_context(
-        base_candidates, 
+        base_candidates,
         context_features
     )
-    
+
     return reranked_candidates
 ```
 
@@ -862,12 +862,12 @@ async def match_with_context(request: MatchRequest):
 
 scoring_dimensions:
   # ... existing dimensions ...
-  
+
   collaborative_filtering:
     weight: 0.20
     description: "Historical success patterns from similar borrower-lender pairs"
     cypher_file: "collaborative_filtering_score.cypher"
-    
+
   real_time_context:
     weight: 0.15
     description: "Dynamic adjustment based on urgency, capacity, recency"
@@ -882,10 +882,10 @@ hooks:
   pre_match:
     - name: "derive_parameters"
       description: "Compute DTI, LTV, down payment % from raw financials"
-      
+
     - name: "context_resolution"
       description: "Disambiguate loan purpose via property + intent context"
-      
+
   post_match:
     - name: "real_time_rerank"
       description: "Adjust scores based on session context"
@@ -906,7 +906,7 @@ hooks:
 | **Time-to-Match** | 48 hours | 24-28 hours | **-42-50%** |
 | **Facility Network Utilization** | 65% | 75-85% | **+15-31%** |
 
-**Revenue Impact:** 
+**Revenue Impact:**
 - Per transaction: $500-2,000 brokerage fee
 - Volume increase: 30-50% more transactions annually
 - **Total: +35-60% annual revenue** from cognitive engine vs rule-based matching

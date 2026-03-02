@@ -67,7 +67,7 @@ ontology:
         - {name: firsttimebuyer, type: bool}
         - {name: dtipct, type: float, unit: percentage, managedby: computed}
         - {name: ltvpct, type: float, unit: percentage, managedby: computed}
-    
+
     - label: LoanProduct
       managedby: sync
       candidate: true
@@ -86,7 +86,7 @@ ontology:
         - {name: baseratepct, type: float, unit: percentage}
         - {name: avgclosingdays, type: int}
         - {name: louvaincommunityid, type: int, managedby: gds}
-    
+
     - label: Lender
       managedby: sync
       auxiliary: true
@@ -95,7 +95,7 @@ ontology:
         - {name: name, type: string}
         - {name: nmlsid, type: string}
         - {name: approvalratepct, type: float, unit: percentage, managedby: gds}
-    
+
     - label: State
       managedby: static
       taxonomy: true
@@ -261,7 +261,7 @@ ontology:
         - {name: insuranceplan, type: string}
         - {name: primarycondition, type: string}
         - {name: urgency, type: enum, values: [routine, urgent, emergency]}
-    
+
     - label: Provider
       managedby: sync
       candidate: true
@@ -276,13 +276,13 @@ ontology:
         - {name: longitude, type: float}
         - {name: avgwaitdays, type: int}
         - {name: qualityscore, type: float}
-    
+
     - label: Specialty
       managedby: static
       taxonomy: true
       properties:
         - {name: code, type: string}
-    
+
     - label: InsurancePlan
       managedby: static
       taxonomy: true
@@ -399,7 +399,7 @@ ontology:
         - {name: pickupdate, type: datetime}
         - {name: deliverydate, type: datetime}
         - {name: ratepermile, type: float, unit: rate_per_distance}
-    
+
     - label: Carrier
       managedby: sync
       candidate: true
@@ -508,7 +508,7 @@ ontology:
         - {name: hasinsuranceclaim, type: bool}
         - {name: budgetusd, type: float, unit: currency}
         - {name: desiredstartdate, type: date}
-    
+
     - label: Contractor
       managedby: sync
       candidate: true
@@ -523,7 +523,7 @@ ontology:
         - {name: insurancelicensed, type: bool}
         - {name: emergencyavailable, type: bool}
         - {name: nextavailabledate, type: date}
-    
+
     - label: Material
       managedby: sync
       auxiliary: true
@@ -630,7 +630,7 @@ ontology:
         - {name: deadline, type: datetime}
         - {name: requiredskills, type: string}
         - {name: delegatable, type: bool}
-    
+
     - label: Expert
       managedby: sync
       candidate: true
@@ -643,7 +643,7 @@ ontology:
         - {name: avgresponsetimehours, type: float}
         - {name: taskcompletionrate, type: float, unit: percentage}
         - {name: specialization, type: enum}
-    
+
     - label: Workflow
       managedby: static
       auxiliary: true
@@ -743,7 +743,7 @@ ontology:
         - {name: mindate, type: date}
         - {name: requirescode, type: bool}
         - {name: requiresdataset, type: bool}
-    
+
     - label: Paper
       managedby: sync
       candidate: true
@@ -757,7 +757,7 @@ ontology:
         - {name: hascode, type: bool}
         - {name: hasdataset, type: bool}
         - {name: reproducibilityscore, type: float}
-    
+
     - label: Dataset
       managedby: sync
       auxiliary: true
@@ -848,7 +848,7 @@ ontology:
         - {name: category, type: enum, values: [search, compute, create, transform, analyze]}
         - {name: requiredcapabilities, type: string}
         - {name: maxexecutiontimeseconds, type: int}
-    
+
     - label: Tool
       managedby: sync
       candidate: true
@@ -861,7 +861,7 @@ ontology:
         - {name: avgexecutiontimeseconds, type: int}
         - {name: reliabilityscore, type: float}
         - {name: costpercall, type: float, unit: currency}
-    
+
     - label: Capability
       managedby: static
       taxonomy: true
@@ -948,7 +948,7 @@ ontology:
         - {name: affectedfiles, type: string}
         - {name: priority, type: enum, values: [low, medium, high, critical]}
         - {name: estimatedcomplexity, type: enum, values: [trivial, easy, medium, hard]}
-    
+
     - label: Contributor
       managedby: sync
       candidate: true
@@ -960,7 +960,7 @@ ontology:
         - {name: activeprs, type: int}
         - {name: avgresolutiontimehours, type: float}
         - {name: contributionscore, type: float}
-    
+
     - label: CodeModule
       managedby: static
       taxonomy: true
@@ -1047,7 +1047,7 @@ ontology:
         - {name: topics, type: string}
         - {name: daterangestart, type: date}
         - {name: daterangeend, type: date}
-    
+
     - label: LegalDocument
       managedby: sync
       candidate: true
@@ -1060,7 +1060,7 @@ ontology:
         - {name: relevancescore, type: float}
         - {name: privileged, type: bool}
         - {name: citationcount, type: int}
-    
+
     - label: Precedent
       managedby: sync
       auxiliary: true

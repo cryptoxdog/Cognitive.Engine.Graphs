@@ -22,7 +22,7 @@
 | Owner | `plasticos-platform-team` | `igor-beylin` |
 | Domain ID | `plasticos` | `plastics-recycling-brokerage` |
 
-**v0.3.0** was a **stress-test reference** proving the engine handles every feature type.  
+**v0.3.0** was a **stress-test reference** proving the engine handles every feature type.
 **v0.4.0** is a **production deployment spec** with architecture, rollout phases, and safety checks.
 
 ---
@@ -78,7 +78,7 @@ This section didn't exist in v0.3.0.
 |--------|--------|
 | `Grade`, `InferenceRule`, `KBContaminantSpec`, `QualityTier` | `Grade`, `CapabilityProfile`, `Application`, `Certification`, `Additive` |
 
-**Removed:** `InferenceRule`, `KBContaminantSpec`, `QualityTier`  
+**Removed:** `InferenceRule`, `KBContaminantSpec`, `QualityTier`
 **Added:** `CapabilityProfile`, `Application`, `Certification`, `Additive`
 
 #### Auxiliary Nodes
@@ -218,7 +218,7 @@ This section didn't exist in v0.3.0.
 
 ### Summary
 
-**v0.3.0** = Comprehensive stress-test spec proving engine feature coverage  
+**v0.3.0** = Comprehensive stress-test spec proving engine feature coverage
 **v0.4.0** = Production-ready spec with architecture, phased rollout, and additive guarantees
 
 The core matching logic (14 gates, 4 base scoring dimensions) is preserved. v0.4.0 adds topology layers for KGE/GDS enrichment without changing the match query output.

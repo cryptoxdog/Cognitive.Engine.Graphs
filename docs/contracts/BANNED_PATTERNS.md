@@ -49,5 +49,3 @@ Quick-reference for ALL agents. If you see yourself writing any of these, STOP.
 | `Field(alias="...")` | Use snake_case directly | PYDANTIC_YAML_MAPPING.md |
 | `candidateprop` | `field` (per GateSpec) | FIELD_NAMES.md contract |
 ```
-
-

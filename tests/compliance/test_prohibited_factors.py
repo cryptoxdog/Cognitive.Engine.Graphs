@@ -10,11 +10,12 @@ These tests verify that the engine correctly blocks prohibited factors at
 compile-time, preventing discriminatory matching criteria.
 """
 
-import pytest
 from unittest.mock import MagicMock
 
+import pytest
+
 from engine.compliance.prohibited_factors import ProhibitedFactorValidator
-from engine.config.schema import DomainSpec, GateSpec, GateType
+from engine.config.schema import DomainSpec, GateSpec
 
 
 def make_mock_domain_spec(blocked_fields: list[str] | None = None, enabled: bool = True) -> MagicMock:

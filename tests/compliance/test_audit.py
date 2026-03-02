@@ -8,7 +8,8 @@ Target Coverage: 90%+
 """
 
 import pytest
-from engine.compliance.audit import AuditLogger, AuditAction, AuditSeverity, DEFAULT_RETENTION
+
+from engine.compliance.audit import DEFAULT_RETENTION, AuditAction, AuditLogger, AuditSeverity
 
 
 @pytest.mark.compliance

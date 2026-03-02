@@ -1,5 +1,6 @@
 # tests/test_compliance_engine.py
 """Tests for ComplianceEngine orchestrator."""
+
 from __future__ import annotations
 
 from unittest.mock import MagicMock

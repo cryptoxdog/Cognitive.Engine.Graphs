@@ -28,7 +28,7 @@ ontology:
         - {name: affectedfiles, type: string}
         - {name: priority, type: enum, values: [low, medium, high, critical]}
         - {name: estimatedcomplexity, type: enum, values: [trivial, easy, medium, hard]}
-    
+
     - label: Contributor
       managedby: sync
       candidate: true
@@ -40,7 +40,7 @@ ontology:
         - {name: activeprs, type: int}
         - {name: avgresolutiontimehours, type: float}
         - {name: contributionscore, type: float}
-    
+
     - label: CodeModule
       managedby: static
       taxonomy: true
@@ -101,4 +101,3 @@ scoring:
       expression: "size([x IN candidate.expertise WHERE x IN $query.labels]) / size($query.labels)"
       weightkey: wexpertise
       defaultweight: 0.25
-

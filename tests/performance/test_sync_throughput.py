@@ -3,17 +3,17 @@ tests/performance/test_sync_throughput.py
 Performance benchmarks for batch sync throughput.
 Measures entities/second for UNWIND/MERGE sync operations against Neo4j.
 """
+
 from __future__ import annotations
 
 import statistics
 import time
 import uuid
-from typing import List
 
 import pytest
 
-from engine.sync.generator import SyncGenerator
 from engine.config.schema import SyncEndpointSpec, SyncStrategy
+from engine.sync.generator import SyncGenerator
 
 
 @pytest.mark.performance
@@ -21,7 +21,7 @@ class TestSyncThroughput:
     """Benchmark batch sync throughput against live Neo4j."""
 
     @staticmethod
-    def _generate_facility_batch(size: int, tenant: str) -> List[dict]:
+    def _generate_facility_batch(size: int, tenant: str) -> list[dict]:
         """Generate a batch of synthetic facility entities."""
         return [
             {
@@ -45,9 +45,7 @@ class TestSyncThroughput:
         ]
 
     @pytest.mark.asyncio
-    async def test_facility_sync_1000_entities_throughput(
-        self, graph_driver, domain_spec
-    ):
+    async def test_facility_sync_1000_entities_throughput(self, graph_driver, domain_spec):
         """
         Benchmark: sync 1000 facilities via UNWIND/MERGE.
         Target: >500 entities/sec on local Neo4j.
@@ -70,7 +68,7 @@ class TestSyncThroughput:
         cypher = generator.generate_sync_query(sync_spec, batch)
 
         # Benchmark: 5 iterations
-        latencies: List[float] = []
+        latencies: list[float] = []
         for _ in range(5):
             # Clean before each iteration
             await graph_driver.execute_query(
@@ -105,9 +103,7 @@ class TestSyncThroughput:
         )
         assert count_result[0]["cnt"] == batch_size
 
-        assert throughput > 500, (
-            f"Throughput {throughput:.0f} entities/sec below 500 target"
-        )
+        assert throughput > 500, f"Throughput {throughput:.0f} entities/sec below 500 target"
 
         # Cleanup
         await graph_driver.execute_query(
@@ -133,15 +129,10 @@ class TestSyncThroughput:
         MERGE (f:Facility {facility_id: row.facility_id})
         SET f += row
         """
-        await graph_driver.execute_query(
-            seed_cypher, parameters={"batch": batch}, database=db
-        )
+        await graph_driver.execute_query(seed_cypher, parameters={"batch": batch}, database=db)
 
         # Build update batch
-        update_batch = [
-            {"facility_id": 100_000 + i, "contamination_tolerance": 0.07}
-            for i in range(batch_size)
-        ]
+        update_batch = [{"facility_id": 100_000 + i, "contamination_tolerance": 0.07} for i in range(batch_size)]
 
         update_cypher = """
         UNWIND $batch AS row
@@ -150,12 +141,10 @@ class TestSyncThroughput:
             f.updated_at = datetime()
         """
 
-        latencies: List[float] = []
+        latencies: list[float] = []
         for _ in range(5):
             t0 = time.perf_counter()
-            await graph_driver.execute_query(
-                update_cypher, parameters={"batch": update_batch}, database=db
-            )
+            await graph_driver.execute_query(update_cypher, parameters={"batch": update_batch}, database=db)
             latencies.append(time.perf_counter() - t0)
 
         avg_sec = statistics.mean(latencies)
@@ -176,9 +165,7 @@ class TestSyncThroughput:
         )
         assert result[0]["cnt"] == batch_size
 
-        assert throughput > 1000, (
-            f"Update throughput {throughput:.0f}/sec below 1000 target"
-        )
+        assert throughput > 1000, f"Update throughput {throughput:.0f}/sec below 1000 target"
 
         await graph_driver.execute_query(
             "MATCH (f:Facility {tenant: $tenant}) DETACH DELETE f",

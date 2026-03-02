@@ -1,14 +1,13 @@
 # tests/test_handlers.py
 """Tests for engine/handlers.py - all 6 action handlers."""
+
 from __future__ import annotations
 
-from typing import Any
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
 from engine.handlers import (
-    ExecutionError,
     ValidationError,
     handle_admin,
     handle_health,
@@ -89,9 +88,13 @@ def _inject_deps() -> None:
 
 @pytest.mark.asyncio
 async def test_match_returns_structure() -> None:
-    result = await handle_match("t", {
-        "query": {"polymer": "HDPE"}, "match_direction": "buyer_to_seller",
-    })
+    result = await handle_match(
+        "t",
+        {
+            "query": {"polymer": "HDPE"},
+            "match_direction": "buyer_to_seller",
+        },
+    )
     assert "candidates" in result
     assert "query_id" in result
     assert isinstance(result["execution_time_ms"], float)
@@ -117,10 +120,13 @@ async def test_match_bad_direction() -> None:
 
 @pytest.mark.asyncio
 async def test_sync_success() -> None:
-    result = await handle_sync("t", {
-        "entity_type": "facility",
-        "batch": [{"facility_id": "F1"}],
-    })
+    result = await handle_sync(
+        "t",
+        {
+            "entity_type": "facility",
+            "batch": [{"facility_id": "F1"}],
+        },
+    )
     assert result["status"] == "success"
     assert result["synced_count"] == 1
 
@@ -163,9 +169,14 @@ async def test_admin_unknown_subaction() -> None:
 
 @pytest.mark.asyncio
 async def test_outcomes_success() -> None:
-    result = await handle_outcomes("t", {
-        "match_id": "q_abc", "candidate_id": "F42", "outcome": "success",
-    })
+    result = await handle_outcomes(
+        "t",
+        {
+            "match_id": "q_abc",
+            "candidate_id": "F42",
+            "outcome": "success",
+        },
+    )
     assert result["status"] == "recorded"
     assert result["outcome_id"].startswith("out_")
 
@@ -173,18 +184,28 @@ async def test_outcomes_success() -> None:
 @pytest.mark.asyncio
 async def test_outcomes_invalid_outcome() -> None:
     with pytest.raises(ValidationError, match="Invalid outcome"):
-        await handle_outcomes("t", {
-            "match_id": "q_abc", "candidate_id": "F42", "outcome": "maybe",
-        })
+        await handle_outcomes(
+            "t",
+            {
+                "match_id": "q_abc",
+                "candidate_id": "F42",
+                "outcome": "maybe",
+            },
+        )
 
 
 @pytest.mark.asyncio
 async def test_resolve_success() -> None:
-    result = await handle_resolve("t", {
-        "entity_type": "MaterialProfile",
-        "source_id": "MP1", "target_id": "MP2",
-        "confidence": 0.95, "signal": "llm_consensus",
-    })
+    result = await handle_resolve(
+        "t",
+        {
+            "entity_type": "MaterialProfile",
+            "source_id": "MP1",
+            "target_id": "MP2",
+            "confidence": 0.95,
+            "signal": "llm_consensus",
+        },
+    )
     assert result["status"] == "resolved"
     assert result["resolution_id"].startswith("res_")
 
@@ -204,6 +225,7 @@ async def test_health_ok() -> None:
 @pytest.mark.asyncio
 async def test_health_degraded() -> None:
     from engine.handlers import _graph_driver
+
     _graph_driver.execute_query = AsyncMock(side_effect=ConnectionError("refused"))
     result = await handle_health("t", {})
     assert result["status"] == "degraded"

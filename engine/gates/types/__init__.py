@@ -26,14 +26,14 @@ from engine.gates.types.all_gates import (
 
 __all__ = [
     "BaseGate",
-    "RangeGate",
-    "ThresholdGate",
     "BooleanGate",
     "CompositeGate",
     "EnumMapGate",
     "ExclusionGate",
-    "SelfRangeGate",
     "FreshnessGate",
+    "RangeGate",
+    "SelfRangeGate",
     "TemporalRangeGate",
+    "ThresholdGate",
     "TraversalGate",
 ]

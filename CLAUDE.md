@@ -81,7 +81,7 @@ make deploy ENV=staging # Deploy to target environment (Railway/ArgoCD)
    ```python
    # BAD
    cypher = f"MATCH (n:{spec.targetnode})"
-   
+
    # GOOD
    sanitized = sanitize_label(spec.targetnode)
    cypher = f"MATCH (n:{sanitized})"
@@ -126,7 +126,7 @@ from engine.packet.packet_envelope import PacketEnvelope, PacketMetadata
 ```
 
 ## Imports to Reference (Not Duplicate)
-@docs/L9_Platform_Architecture.md — Chassis contract, universal envelope, action handler signature  
+@docs/L9_Platform_Architecture.md — Chassis contract, universal envelope, action handler signature
 @docs/L9_AI_Constellation_Infrastructure_Reference.md — PacketEnvelope schema, memory substrate, observability
 
 ## Contracts

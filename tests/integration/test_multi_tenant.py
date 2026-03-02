@@ -6,12 +6,10 @@ Validates that tenants cannot see each other's data at the graph level.
 Note: Tenant resolution is now a chassis responsibility. These tests focus on
 graph-level isolation only.
 """
+
 from __future__ import annotations
 
 import pytest
-import pytest_asyncio
-
-from engine.graph.driver import GraphDriver
 
 
 @pytest.mark.integration

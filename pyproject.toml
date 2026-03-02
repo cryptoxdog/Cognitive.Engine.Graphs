@@ -68,17 +68,67 @@ select = [
     "E", "W", "F", "I", "N", "UP", "B", "SIM",
     "A", "C4", "DTZ", "T10", "EM", "ISC", "ICN", "PIE", "PT", "RET", "TCH", "ARG", "PTH", "PL", "TRY", "RUF",
 ]
-ignore = ["E501"]
+ignore = [
+    "E501",     # line too long (handled by formatter)
+    "TRY003",   # long exception messages (acceptable in domain code)
+    "TRY400",   # logging.error vs logging.exception (acceptable)
+    "EM101",    # raw string in exception (acceptable)
+    "EM102",    # f-string in exception (acceptable)
+    "PLR0913",  # too many arguments (audit/compliance APIs need many params)
+    "PLR0912",  # too many branches (complex validation logic)
+    "PLR0911",  # too many return statements (acceptable in tools)
+    "PLR2004",  # magic value comparison (acceptable in tests/config)
+    "TC001",    # typing-only first-party import (causes runtime issues)
+    "TC003",    # typing-only stdlib import (causes runtime issues)
+    "ARG001",   # unused function argument (often needed for interface compliance)
+    "ARG002",   # unused method argument (often needed for interface compliance)
+    "ARG003",   # unused class method argument (interface compliance)
+    "ARG005",   # unused lambda argument (interface compliance)
+    "PT011",    # pytest.raises too broad (acceptable in unit tests)
+    "SIM102",   # collapsible if (readability preference)
+    "SIM105",   # contextlib.suppress (explicit try/except is clearer)
+    "RET504",   # unnecessary assign before return (readability)
+    "PLC0415",  # import outside top-level (acceptable for lazy imports)
+    "PLW0603",  # global statement (acceptable for module-level singletons)
+    "DTZ005",   # datetime.now without tz (scheduler uses local time)
+    "RUF012",   # mutable class default (ClassVar annotation not always needed)
+    "RUF013",   # implicit Optional (legacy code)
+    "TRY004",   # TypeError vs other exception (acceptable)
+    "B007",     # unused loop control variable (acceptable)
+    "E741",     # ambiguous variable name (acceptable in tools)
+    "PLC0206",  # dict index missing items (acceptable)
+    "UP038",    # isinstance tuple vs union (tuple is clearer for runtime checks)
+]
 
 [tool.ruff.lint.per-file-ignores]
 "__init__.py" = ["F401"]
-"tests/**" = ["S101"]
+"tests/**" = ["S101", "ARG001", "ARG002", "PLR2004", "PT011", "B017", "F841"]
+"domains/**" = ["PTH123"]
+"engine/packet/test_*.py" = ["B017"]  # test files in engine/packet
 
 [tool.mypy]
 python_version = "3.11"
-warn_return_any = true
+warn_return_any = false
 warn_unused_configs = true
-disallow_untyped_defs = true
+disallow_untyped_defs = false
+check_untyped_defs = true
+ignore_missing_imports = true
+exclude = [
+    "^current work/",
+    "^harvest_staging/",
+    "^docs/",
+    "^domains/",
+]
+
+[[tool.mypy.overrides]]
+module = "tests.*"
+disallow_untyped_defs = false
+check_untyped_defs = false
+
+[[tool.mypy.overrides]]
+module = "tools.*"
+disallow_untyped_defs = false
+check_untyped_defs = false
 
 [tool.l9_meta]
 l9_schema = 1

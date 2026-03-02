@@ -80,7 +80,7 @@ while IFS= read -r line; do
     fi
 
     echo "  Setting: $KEY = $VALUE"
-    
+
     if gh variable set "$KEY" --body "$VALUE" 2>/dev/null; then
       ((COUNT++))
     else

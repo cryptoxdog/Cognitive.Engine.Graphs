@@ -32,7 +32,7 @@ ontology:
         - {name: pickupdate, type: datetime}
         - {name: deliverydate, type: datetime}
         - {name: ratepermile, type: float, unit: rate_per_distance}
-    
+
     - label: Carrier
       managedby: sync
       candidate: true
@@ -113,4 +113,3 @@ compliance:
     enabled: true
     logmatchrequests: true
     retentiondays: 180
-

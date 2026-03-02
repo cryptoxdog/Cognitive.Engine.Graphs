@@ -15,23 +15,26 @@ Integrates with PacketEnvelope.security.pii_fields.
 
 Exports: PIIHandler
 """
+
 from __future__ import annotations
 
 import hashlib
 import logging
 import re
 from enum import Enum
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
 
 
 # ── PII Field Classification ──────────────────────────────
 
+
 class PIICategory(str, Enum):
     """PII sensitivity categories."""
+
     NAME = "name"
     EMAIL = "email"
     PHONE = "phone"
@@ -44,15 +47,15 @@ class PIICategory(str, Enum):
 
 
 class PIISensitivity(str, Enum):
-    LOW = "low"         # business name, city
-    MEDIUM = "medium"   # email, phone
-    HIGH = "high"       # SSN, DOB, financial account
+    LOW = "low"  # business name, city
+    MEDIUM = "medium"  # email, phone
+    HIGH = "high"  # SSN, DOB, financial account
     CRITICAL = "critical"  # combined identity (name + SSN + DOB)
 
 
 # ── Patterns ──────────────────────────────────────────────
 
-_PII_PATTERNS: Dict[PIICategory, re.Pattern] = {
+_PII_PATTERNS: dict[PIICategory, re.Pattern] = {
     PIICategory.EMAIL: re.compile(
         r"[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}",
     ),
@@ -68,7 +71,7 @@ _PII_PATTERNS: Dict[PIICategory, re.Pattern] = {
 }
 
 # Known PII field names (case-insensitive substring match)
-_PII_FIELD_HINTS: Dict[str, Tuple[PIICategory, PIISensitivity]] = {
+_PII_FIELD_HINTS: dict[str, tuple[PIICategory, PIISensitivity]] = {
     "email": (PIICategory.EMAIL, PIISensitivity.MEDIUM),
     "phone": (PIICategory.PHONE, PIISensitivity.MEDIUM),
     "ssn": (PIICategory.SSN, PIISensitivity.HIGH),
@@ -92,6 +95,7 @@ _PII_FIELD_HINTS: Dict[str, Tuple[PIICategory, PIISensitivity]] = {
 
 class PIIDetection(BaseModel):
     """Result of PII detection on a single field."""
+
     field_path: str
     category: PIICategory
     sensitivity: PIISensitivity
@@ -129,7 +133,7 @@ class PIIHandler:
 
     def __init__(
         self,
-        additional_pii_fields: Optional[Dict[str, Tuple[PIICategory, PIISensitivity]]] = None,
+        additional_pii_fields: dict[str, tuple[PIICategory, PIISensitivity]] | None = None,
         mask_char: str = "*",
     ):
         self._field_hints = dict(_PII_FIELD_HINTS)
@@ -142,14 +146,14 @@ class PIIHandler:
 
     def detect_pii(
         self,
-        payload: Dict[str, Any],
+        payload: dict[str, Any],
         prefix: str = "",
-    ) -> List[PIIDetection]:
+    ) -> list[PIIDetection]:
         """
         Detect PII fields in a payload dict (recursive).
         Returns list of PIIDetection for every field containing PII.
         """
-        detections: List[PIIDetection] = []
+        detections: list[PIIDetection] = []
         for key, value in payload.items():
             field_path = f"{prefix}.{key}" if prefix else key
 
@@ -162,12 +166,14 @@ class PIIHandler:
             key_lower = key.lower()
             for hint, (category, sensitivity) in self._field_hints.items():
                 if hint in key_lower:
-                    detections.append(PIIDetection(
-                        field_path=field_path,
-                        category=category,
-                        sensitivity=sensitivity,
-                        detected_by="field_name",
-                    ))
+                    detections.append(
+                        PIIDetection(
+                            field_path=field_path,
+                            category=category,
+                            sensitivity=sensitivity,
+                            detected_by="field_name",
+                        )
+                    )
                     break
             else:
                 # Check value patterns (strings only)
@@ -178,17 +184,19 @@ class PIIHandler:
                                 category.value,
                                 (category, PIISensitivity.MEDIUM),
                             )[1]
-                            detections.append(PIIDetection(
-                                field_path=field_path,
-                                category=category,
-                                sensitivity=sensitivity,
-                                detected_by="pattern_match",
-                            ))
+                            detections.append(
+                                PIIDetection(
+                                    field_path=field_path,
+                                    category=category,
+                                    sensitivity=sensitivity,
+                                    detected_by="pattern_match",
+                                )
+                            )
                             break
 
         return detections
 
-    def get_pii_field_paths(self, payload: Dict[str, Any]) -> Tuple[str, ...]:
+    def get_pii_field_paths(self, payload: dict[str, Any]) -> tuple[str, ...]:
         """
         Return tuple of field paths containing PII.
         For PacketEnvelope.security.pii_fields.
@@ -200,10 +208,10 @@ class PIIHandler:
 
     def mask_fields(
         self,
-        payload: Dict[str, Any],
-        fields: Optional[List[str]] = None,
+        payload: dict[str, Any],
+        fields: list[str] | None = None,
         mask_all_detected: bool = False,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Mask PII fields in payload. Returns a new dict (does not mutate input).
 
@@ -227,7 +235,7 @@ class PIIHandler:
 
         return result
 
-    def _mask_field_at_path(self, data: Dict[str, Any], path_parts: List[str]) -> None:
+    def _mask_field_at_path(self, data: dict[str, Any], path_parts: list[str]) -> None:
         """Mask a field at a nested path in-place."""
         if len(path_parts) == 1:
             key = path_parts[0]
@@ -245,7 +253,9 @@ class PIIHandler:
         if "@" in s:
             # Email: show domain hint
             parts = s.split("@")
-            return f"{self._mask_char * 3}@{self._mask_char * 3}.{parts[-1].split('.')[-1] if '.' in parts[-1] else 'com'}"
+            return (
+                f"{self._mask_char * 3}@{self._mask_char * 3}.{parts[-1].split('.')[-1] if '.' in parts[-1] else 'com'}"
+            )
         if len(s) >= 9 and s.replace("-", "").replace(" ", "").isdigit():
             # SSN / account number: mask all but last 4
             clean = s.replace("-", "").replace(" ", "")
@@ -259,10 +269,10 @@ class PIIHandler:
 
     def redact(
         self,
-        payload: Dict[str, Any],
-        fields: Optional[List[str]] = None,
+        payload: dict[str, Any],
+        fields: list[str] | None = None,
         redact_all_detected: bool = False,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Remove PII fields entirely from payload. Returns a new dict.
         """
@@ -280,7 +290,7 @@ class PIIHandler:
 
         return result
 
-    def _redact_field_at_path(self, data: Dict[str, Any], path_parts: List[str]) -> None:
+    def _redact_field_at_path(self, data: dict[str, Any], path_parts: list[str]) -> None:
         """Remove field at nested path."""
         if len(path_parts) == 1:
             data.pop(path_parts[0], None)
@@ -303,7 +313,7 @@ class PIIHandler:
         data_subject_id: str,
         graph_driver: Any = None,
         db_pool: Any = None,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         GDPR right-to-erasure: delete all data for a data subject.
 
@@ -317,7 +327,7 @@ class PIIHandler:
         NOTE: Actual DB calls depend on injected drivers. This method
         provides the orchestration contract.
         """
-        summary: Dict[str, Any] = {
+        summary: dict[str, Any] = {
             "data_subject_id": data_subject_id,
             "packets_deleted": 0,
             "graph_nodes_deleted": 0,
@@ -327,9 +337,7 @@ class PIIHandler:
         if db_pool:
             try:
                 async with db_pool.acquire() as conn:
-                    result = await conn.execute(
-                        "SELECT gdpr_erase_subject($1)", data_subject_id
-                    )
+                    result = await conn.execute("SELECT gdpr_erase_subject($1)", data_subject_id)
                     summary["packets_deleted"] = result
             except Exception as e:
                 logger.error(f"GDPR erasure DB error for {data_subject_id}: {e}")
@@ -338,8 +346,7 @@ class PIIHandler:
         if graph_driver:
             try:
                 result = await graph_driver.execute_query(
-                    "MATCH (n {data_subject_id: $dsid}) DETACH DELETE n "
-                    "RETURN count(n) AS deleted",
+                    "MATCH (n {data_subject_id: $dsid}) DETACH DELETE n RETURN count(n) AS deleted",
                     parameters={"dsid": data_subject_id},
                 )
                 if result:

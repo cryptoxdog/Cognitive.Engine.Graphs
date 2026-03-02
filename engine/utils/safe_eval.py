@@ -13,14 +13,16 @@ engine/utils/safe_eval.py
 AST-whitelist expression evaluator. Replaces eval() for derived parameters
 and unit conversion formulas.
 """
+
 from __future__ import annotations
 
 import ast
 import math
 import operator
+from collections.abc import Callable
 from typing import Any
 
-_SAFE_OPS = {
+_SAFE_BINARY_OPS: dict[type[ast.operator], Callable[[Any, Any], Any]] = {
     ast.Add: operator.add,
     ast.Sub: operator.sub,
     ast.Mult: operator.mul,
@@ -28,6 +30,9 @@ _SAFE_OPS = {
     ast.FloorDiv: operator.floordiv,
     ast.Mod: operator.mod,
     ast.Pow: operator.pow,
+}
+
+_SAFE_UNARY_OPS: dict[type[ast.unaryop], Callable[[Any], Any]] = {
     ast.USub: operator.neg,
     ast.UAdd: operator.pos,
 }
@@ -59,27 +64,28 @@ def _eval_node(node: ast.AST, ctx: dict[str, Any]) -> Any:
         if not isinstance(node.value, (int, float)):
             raise ValueError(f"Only numeric constants allowed, got {type(node.value).__name__}")
         return node.value
-    elif isinstance(node, ast.Name):
+    if isinstance(node, ast.Name):
         if node.id in _SAFE_FUNCS:
             return _SAFE_FUNCS[node.id]
         if node.id not in ctx:
             raise ValueError(f"Unknown variable: {node.id!r}")
         return ctx[node.id]
-    elif isinstance(node, ast.BinOp):
-        op = _SAFE_OPS.get(type(node.op))
-        if op is None:
-            raise ValueError(f"Unsupported operator: {type(node.op).__name__}")
-        return op(_eval_node(node.left, ctx), _eval_node(node.right, ctx))
-    elif isinstance(node, ast.UnaryOp):
-        op = _SAFE_OPS.get(type(node.op))
-        if op is None:
-            raise ValueError(f"Unsupported unary operator: {type(node.op).__name__}")
-        return op(_eval_node(node.operand, ctx))
-    elif isinstance(node, ast.Call):
+    if isinstance(node, ast.BinOp):
+        bin_op_type = type(node.op)
+        if bin_op_type not in _SAFE_BINARY_OPS:
+            raise ValueError(f"Unsupported operator: {bin_op_type.__name__}")
+        bin_op_func = _SAFE_BINARY_OPS[bin_op_type]
+        return bin_op_func(_eval_node(node.left, ctx), _eval_node(node.right, ctx))
+    if isinstance(node, ast.UnaryOp):
+        unary_op_type = type(node.op)
+        if unary_op_type not in _SAFE_UNARY_OPS:
+            raise ValueError(f"Unsupported unary operator: {unary_op_type.__name__}")
+        unary_op_func = _SAFE_UNARY_OPS[unary_op_type]
+        return unary_op_func(_eval_node(node.operand, ctx))
+    if isinstance(node, ast.Call):
         func = _eval_node(node.func, ctx)
         if func not in _SAFE_FUNCS.values():
             raise ValueError(f"Function not whitelisted: {ast.dump(node.func)}")
         args = [_eval_node(a, ctx) for a in node.args]
         return func(*args)
-    else:
-        raise ValueError(f"Disallowed expression node: {type(node).__name__}")
+    raise ValueError(f"Disallowed expression node: {type(node).__name__}")

@@ -30,7 +30,7 @@ ontology:
         - {name: deadline, type: datetime}
         - {name: requiredskills, type: string}
         - {name: delegatable, type: bool}
-    
+
     - label: Expert
       managedby: sync
       candidate: true
@@ -43,7 +43,7 @@ ontology:
         - {name: avgresponsetimehours, type: float}
         - {name: taskcompletionrate, type: float, unit: percentage}
         - {name: specialization, type: enum}
-    
+
     - label: Workflow
       managedby: static
       auxiliary: true
@@ -118,4 +118,3 @@ scoring:
       maxvalue: 100
       weightkey: wutilization
       defaultweight: 0.20
-

@@ -79,4 +79,3 @@ gate_compilation_time = register_histogram(
 - Engines NEVER generate their own trace IDs
 
 ```
-

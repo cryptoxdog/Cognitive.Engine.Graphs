@@ -8,7 +8,8 @@ Target Coverage: 95%+
 """
 
 import pytest
-from engine.compliance.pii import PIIHandler, PIICategory, PIISensitivity
+
+from engine.compliance.pii import PIICategory, PIIHandler, PIISensitivity
 
 
 @pytest.mark.compliance

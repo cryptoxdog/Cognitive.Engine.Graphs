@@ -59,4 +59,3 @@ NEVER be renamed or removed. Use EXACTLY these strings.
 3. Add validation in `PacketValidator`
 4. Update `tools/audit_rules.yaml` if compliance checks apply
 ```
-

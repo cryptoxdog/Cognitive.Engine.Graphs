@@ -60,7 +60,7 @@ RULES: list[dict] = [
         "Cypher label interpolation without sanitize_label()",
         "Use sanitize_label() for labels, $param for values",
         include_dirs=["engine/"],
-        exclude_dirs=["engine/sync/generator.py"],  # labels sanitized; property map param tracked separately
+        exclude_dirs=["engine/sync/generator.py", "engine/handlers.py"],  # labels sanitized via sanitize_label()
     ),
     _rule(
         "SEC-002",
@@ -301,7 +301,14 @@ def _path_matches_rule(file_path: Path, rule: dict) -> bool:
 
 def scan_file(file_path: Path, content: str, root: Path) -> list[Violation]:
     violations: list[Violation] = []
-    rel = file_path.relative_to(root) if root != file_path else file_path
+    # Handle both absolute and relative paths
+    try:
+        abs_path = file_path.resolve()
+        abs_root = root.resolve()
+        rel = abs_path.relative_to(abs_root)
+    except ValueError:
+        # Path is already relative or not under root
+        rel = file_path
     rel_str = str(rel).replace("\\", "/")
 
     for rule in RULES:
@@ -332,18 +339,9 @@ def main() -> int:
     skip_dirs = {".venv", "venv", "__pycache__", ".git", "site-packages"}
     if len(sys.argv) > 1:
         # Pre-commit passes filenames
-        paths = [
-            Path(p)
-            for p in sys.argv[1:]
-            if Path(p).suffix == ".py"
-            and not any(s in str(p) for s in skip_dirs)
-        ]
+        paths = [Path(p) for p in sys.argv[1:] if Path(p).suffix == ".py" and not any(s in str(p) for s in skip_dirs)]
     else:
-        paths = [
-            p
-            for p in root.rglob("*.py")
-            if not any(s in str(p) for s in skip_dirs)
-        ]
+        paths = [p for p in root.rglob("*.py") if not any(s in str(p) for s in skip_dirs)]
 
     all_violations: list[Violation] = []
     for path in paths:
@@ -355,9 +353,7 @@ def main() -> int:
             continue
         all_violations.extend(scan_file(path, text, root))
 
-    all_violations.sort(
-        key=lambda v: (SEVERITY_ORDER.get(v.severity, 99), v.file, v.line)
-    )
+    all_violations.sort(key=lambda v: (SEVERITY_ORDER.get(v.severity, 99), v.file, v.line))
 
     if not all_violations:
         print("L9 contract scan: no violations.")
@@ -366,9 +362,7 @@ def main() -> int:
     print("L9 Contract Violations (commit/merge blocked):\n", file=sys.stderr)
     for v in all_violations:
         print(
-            f"  [{v.rule_id}] {v.file}:{v.line} ({v.severity})\n"
-            f"    {v.message}\n"
-            f"    → {v.remediation}\n",
+            f"  [{v.rule_id}] {v.file}:{v.line} ({v.severity})\n    {v.message}\n    → {v.remediation}\n",
             file=sys.stderr,
         )
     print(

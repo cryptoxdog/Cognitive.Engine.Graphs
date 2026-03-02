@@ -73,9 +73,9 @@ class NullHandler:
         if null_behavior == NullBehavior.PASS:
             # If any value is NULL, pass the gate (OR gate logic)
             return f"({null_check})"
-        else:  # FAIL
-            # If any value is NULL, fail the gate (require all non-NULL)
-            return null_check
+        # FAIL
+        # If any value is NULL, fail the gate (require all non-NULL)
+        return null_check
 
     @classmethod
     def wrap_gate_with_null_logic(
@@ -110,19 +110,17 @@ class NullHandler:
             if null_conditions:
                 null_clause = " OR ".join(null_conditions)
                 return f"({null_clause} OR ({gate_cypher}))"
-            else:
-                return gate_cypher
+            return gate_cypher
 
-        else:  # FAIL
-            # NULL values fail gate: (value IS NOT NULL AND gate_logic)
-            null_conditions = []
-            if candidate_prop:
-                null_conditions.append(f"{candidate_prop} IS NOT NULL")
-            if query_param:
-                null_conditions.append(f"{query_param} IS NOT NULL")
+        # FAIL
+        # NULL values fail gate: (value IS NOT NULL AND gate_logic)
+        null_conditions = []
+        if candidate_prop:
+            null_conditions.append(f"{candidate_prop} IS NOT NULL")
+        if query_param:
+            null_conditions.append(f"{query_param} IS NOT NULL")
 
-            if null_conditions:
-                null_clause = " AND ".join(null_conditions)
-                return f"({null_clause} AND ({gate_cypher}))"
-            else:
-                return gate_cypher
+        if null_conditions:
+            null_clause = " AND ".join(null_conditions)
+            return f"({null_clause} AND ({gate_cypher}))"
+        return gate_cypher

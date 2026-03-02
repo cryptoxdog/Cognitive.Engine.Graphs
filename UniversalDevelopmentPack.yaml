@@ -43,7 +43,7 @@ metadata:
 # ============================================================================
 
 core_principles:
-  
+
   # Principle 1: Autonomous Operations
   autonomous_operations:
     enabled: true
@@ -54,7 +54,7 @@ core_principles:
       - "Trigger rollback automatically for critical failures"
       - "Log all autonomous actions for audit trail"
     enforcement: "mandatory"
-    
+
   # Principle 2: Validation Gates
   validation_gates:
     enabled: true
@@ -67,7 +67,7 @@ core_principles:
       - name: "Post-deployment verification"
         checks: ["health check", "integration test", "monitoring active"]
     block_on_failure: true
-    
+
   # Principle 3: Memory System
   memory_system:
     enabled: true
@@ -79,7 +79,7 @@ core_principles:
       - "Score patterns (success +1.0, partial +0.5, failure -1.0)"
     storage: "memory_index.json"
     aggregation_interval: "daily"
-    
+
   # Principle 4: Metrics-Driven Improvement
   metrics_driven:
     enabled: true
@@ -98,7 +98,7 @@ core_principles:
         target: "0%"
         measurement: "Same mistake repeated / total mistakes"
     telemetry_output: "metrics.json"
-    
+
   # Principle 5: Production-Ready by Default
   production_ready_default:
     enabled: true
@@ -117,13 +117,13 @@ core_principles:
 # ============================================================================
 
 reasoning_framework:
-  
+
   # Use L9 Unified Reasoning Pack for complex tasks
   l9_integration:
     enabled: true
     reference: "L9_UNIFIED_REASONING_PACK_v2.md"
     trigger: "complexity >= moderate"
-    
+
   # Adaptive Reasoning
   adaptive_reasoning:
     enabled: true
@@ -150,7 +150,7 @@ reasoning_framework:
         blocks_required: 8
         time_budget: "very_high"
         meta_reasoning: true
-    
+
   # Reasoning Metrics
   reasoning_metrics:
     enabled: true
@@ -166,7 +166,7 @@ reasoning_framework:
 # ============================================================================
 
 quality_standards:
-  
+
   # Code Quality
   code_quality:
     style:
@@ -184,7 +184,7 @@ quality_standards:
       - "Max function length: 50 lines"
       - "Max file length: 500 lines"
       - "Max nesting depth: 3"
-    
+
   # Documentation Quality
   documentation_quality:
     inline:
@@ -199,7 +199,7 @@ quality_standards:
       required: true
       format: "YAML frontmatter"
       fields: ["title", "purpose", "summary", "version", "created", "updated", "owner", "tags", "domain", "type", "production_ready"]
-    
+
   # Error Handling Quality
   error_handling_quality:
     requirements:
@@ -213,7 +213,7 @@ quality_standards:
       - "Try-except-else-finally (Python)"
       - "Result types (Rust-style Ok/Err)"
       - "Error boundaries (React-style)"
-    
+
   # Testing Quality
   testing_quality:
     coverage_target: 0.80
@@ -235,7 +235,7 @@ quality_standards:
 # ============================================================================
 
 workflow_patterns:
-  
+
   # Pipeline Orchestration
   pipeline_orchestration:
     enabled: true
@@ -254,7 +254,7 @@ workflow_patterns:
       - name: "Rollback (if needed)"
         actions: ["Revert changes", "Restore state", "Log rollback"]
     auto_rollback: true
-    
+
   # Anomaly Response
   anomaly_response:
     enabled: true
@@ -269,7 +269,7 @@ workflow_patterns:
     remediation:
       auto_remediate: ["minor", "moderate"]
       manual_approval: ["critical"]
-    
+
   # Health Scoring
   health_scoring:
     enabled: true
@@ -294,7 +294,7 @@ workflow_patterns:
 # ============================================================================
 
 development_workflow:
-  
+
   # Pre-Development
   pre_development:
     steps:
@@ -303,7 +303,7 @@ development_workflow:
       - "Validate assumptions"
       - "Define success criteria"
       - "Estimate complexity"
-    
+
   # During Development
   during_development:
     steps:
@@ -316,7 +316,7 @@ development_workflow:
       - "Lint on save"
       - "Type check on save"
       - "Run tests on commit"
-    
+
   # Post-Development
   post_development:
     steps:
@@ -338,7 +338,7 @@ development_workflow:
 # ============================================================================
 
 learning_system:
-  
+
   # Meta-Learning
   meta_learning:
     enabled: true
@@ -356,7 +356,7 @@ learning_system:
     compilation:
       output: "style_guide.md"
       update_frequency: "weekly"
-    
+
   # Pattern Detection
   pattern_detection:
     enabled: true
@@ -366,7 +366,7 @@ learning_system:
       - "Failure patterns (avoid)"
       - "Efficiency patterns (optimize)"
     accuracy_target: 0.94
-    
+
   # Continuous Evolution
   continuous_evolution:
     enabled: true
@@ -386,7 +386,7 @@ learning_system:
 # ============================================================================
 
 communication_standards:
-  
+
   # Output Format
   output_format:
     style: "conversational"
@@ -399,7 +399,7 @@ communication_standards:
       - "Target 250-500 tokens per response"
       - "Cap at 800 tokens (use prime + annex if needed)"
       - "Remove filler, use active voice"
-    
+
   # Confidence Scoring
   confidence_scoring:
     required: true
@@ -411,7 +411,7 @@ communication_standards:
       "0.60-0.74": "Low confidence (unclear rationale, significant trade-offs)"
       "<0.60": "Very low confidence (uncertain, needs review)"
     placement: "End of output"
-    
+
   # Assumptions & Trade-offs
   assumptions_tradeoffs:
     required: true
@@ -426,7 +426,7 @@ communication_standards:
 # ============================================================================
 
 security_governance:
-  
+
   # Security Standards
   security_standards:
     authentication:
@@ -443,7 +443,7 @@ security_governance:
       - "Encrypt data in transit (TLS 1.3)"
       - "Hash passwords (bcrypt, scrypt, Argon2)"
       - "Sanitize all inputs"
-    
+
   # Governance Rules
   governance_rules:
     hard_rules:
@@ -452,7 +452,7 @@ security_governance:
       - "No deprecated dependencies (check before adding)"
       - "No manual secrets (use secret managers)"
     enforcement: "fatal"
-    
+
   # Audit Trail
   audit_trail:
     enabled: true
@@ -469,7 +469,7 @@ security_governance:
 # ============================================================================
 
 performance_optimization:
-  
+
   # Optimization Targets
   targets:
     latency:
@@ -483,7 +483,7 @@ performance_optimization:
       cpu: "<70% average"
       memory: "<80% average"
       disk: "<80% average"
-    
+
   # Optimization Strategies
   strategies:
     caching:
@@ -498,7 +498,7 @@ performance_optimization:
       - "Use async/await for I/O operations"
       - "Batch operations when possible"
       - "Lazy load when appropriate"
-    
+
   # Monitoring
   monitoring:
     enabled: true
@@ -517,7 +517,7 @@ performance_optimization:
 # ============================================================================
 
 integration_patterns:
-  
+
   # API Integration
   api_integration:
     standards:
@@ -532,7 +532,7 @@ integration_patterns:
     authentication:
       - "API keys for service-to-service"
       - "OAuth for user-delegated access"
-    
+
   # Database Integration
   database_integration:
     patterns:
@@ -543,7 +543,7 @@ integration_patterns:
       - "Version controlled"
       - "Reversible (up/down)"
       - "Tested in staging first"
-    
+
   # Message Queue Integration
   message_queue_integration:
     patterns:
@@ -560,13 +560,13 @@ integration_patterns:
 # ============================================================================
 
 deployment_patterns:
-  
+
   # Deployment Strategy
   deployment_strategy:
     preferred: "blue-green"
     alternatives: ["canary", "rolling"]
     rollback_plan: "required"
-    
+
   # Environment Management
   environment_management:
     environments: ["dev", "staging", "prod"]
@@ -574,14 +574,14 @@ deployment_patterns:
     validation_gates:
       staging: ["integration tests", "security scan"]
       prod: ["smoke tests", "health check", "rollback plan"]
-    
+
   # Infrastructure as Code
   infrastructure_as_code:
     enabled: true
     tools: ["Terraform", "CloudFormation", "Pulumi"]
     version_control: true
     peer_review: true
-    
+
   # Continuous Integration/Deployment
   ci_cd:
     enabled: true
@@ -602,7 +602,7 @@ deployment_patterns:
 # ============================================================================
 
 observability:
-  
+
   # Logging
   logging:
     levels: ["DEBUG", "INFO", "WARN", "ERROR", "FATAL"]
@@ -615,19 +615,19 @@ observability:
       dev: "7 days"
       staging: "30 days"
       prod: "90 days"
-    
+
   # Metrics
   metrics:
     types: ["counter", "gauge", "histogram", "summary"]
     collection: "Prometheus-compatible"
     dashboards: "Grafana"
-    
+
   # Tracing
   tracing:
     enabled: true
     standard: "OpenTelemetry"
     sampling_rate: 0.01
-    
+
   # Alerting
   alerting:
     channels: ["email", "slack", "pagerduty"]
@@ -639,7 +639,7 @@ observability:
 # ============================================================================
 
 collaboration_patterns:
-  
+
   # Version Control
   version_control:
     system: "Git"
@@ -651,7 +651,7 @@ collaboration_patterns:
       required: true
       reviewers: 1
       checks: ["tests passing", "no conflicts"]
-    
+
   # Code Review
   code_review:
     focus_areas:
@@ -661,7 +661,7 @@ collaboration_patterns:
       - "Security"
       - "Test coverage"
     turnaround_time: "24 hours"
-    
+
   # Documentation
   documentation:
     types:
@@ -670,7 +670,7 @@ collaboration_patterns:
       - "API docs (endpoints, schemas)"
       - "Runbooks (operations)"
     update_frequency: "on every change"
-    
+
   # Knowledge Sharing
   knowledge_sharing:
     methods:
@@ -685,7 +685,7 @@ collaboration_patterns:
 # ============================================================================
 
 forbidden_practices:
-  
+
   # Code
   code:
     - "Hardcoded credentials"
@@ -693,21 +693,21 @@ forbidden_practices:
     - "Magic numbers (use named constants)"
     - "Global state (use dependency injection)"
     - "Swallowing exceptions (log or re-throw)"
-    
+
   # Architecture
   architecture:
     - "Tight coupling"
     - "God objects (single class doing too much)"
     - "Circular dependencies"
     - "Premature optimization"
-    
+
   # Process
   process:
     - "Deploying without tests"
     - "Deploying on Fridays (unless emergency)"
     - "Skipping code review"
     - "Manual deployments (use CI/CD)"
-    
+
   # Communication
   communication:
     - "Hedging (just say it)"
@@ -720,19 +720,19 @@ forbidden_practices:
 # ============================================================================
 
 integration:
-  
+
   # Load Order
   load_order:
     - "UniversalDevelopmentPack.yaml (this file)"
     - "UserPrefPack_v1.4.yaml (user-specific preferences)"
     - "L9_UNIFIED_REASONING_PACK_v2.md (reasoning framework)"
     - "Domain-specific packs (e.g., CursorPreferencePack.md)"
-    
+
   # Conflict Resolution
   conflict_resolution:
     priority: "User > Domain > Universal"
     rule: "More specific overrides more general"
-    
+
   # Continuous Evolution
   continuous_evolution:
     enabled: true

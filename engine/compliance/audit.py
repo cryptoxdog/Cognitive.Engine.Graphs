@@ -15,14 +15,15 @@ Integrates with PacketEnvelope governance fields and external SIEM.
 
 Exports: AuditLogger
 """
+
 from __future__ import annotations
 
-import json
 import logging
 import uuid
-from datetime import datetime, timezone
+from collections.abc import Sequence
+from datetime import UTC, datetime
 from enum import Enum
-from typing import Any, Dict, List, Optional, Sequence
+from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -31,8 +32,10 @@ logger = logging.getLogger(__name__)
 
 # ── Enums ──────────────────────────────────────────────────
 
+
 class AuditAction(str, Enum):
     """Auditable action categories."""
+
     ACCESS = "access"
     MUTATION = "mutation"
     QUERY = "query"
@@ -53,30 +56,33 @@ class AuditSeverity(str, Enum):
 
 # ── Models ─────────────────────────────────────────────────
 
+
 class AuditEntry(BaseModel):
     """Immutable audit log entry."""
+
     audit_id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(UTC))
     action: AuditAction
     severity: AuditSeverity = AuditSeverity.INFO
-    actor: str                          # who performed the action
-    tenant: str                         # org isolation key
-    trace_id: Optional[str] = None      # W3C trace context
-    resource: Optional[str] = None      # e.g., "Facility:42", "PacketEnvelope:abc"
-    resource_type: Optional[str] = None # e.g., "Facility", "MaterialProfile"
-    detail: Optional[str] = None        # human-readable description
-    payload_hash: Optional[str] = None  # SHA-256 of related payload
-    compliance_tags: List[str] = Field(default_factory=list)  # GDPR, SOC2, ECOA
-    pii_fields_accessed: List[str] = Field(default_factory=list)
-    data_subject_id: Optional[str] = None  # GDPR right-to-delete tracking
-    outcome: str = "success"            # success | failure | denied
-    metadata: Dict[str, Any] = Field(default_factory=dict)
+    actor: str  # who performed the action
+    tenant: str  # org isolation key
+    trace_id: str | None = None  # W3C trace context
+    resource: str | None = None  # e.g., "Facility:42", "PacketEnvelope:abc"
+    resource_type: str | None = None  # e.g., "Facility", "MaterialProfile"
+    detail: str | None = None  # human-readable description
+    payload_hash: str | None = None  # SHA-256 of related payload
+    compliance_tags: list[str] = Field(default_factory=list)  # GDPR, SOC2, ECOA
+    pii_fields_accessed: list[str] = Field(default_factory=list)
+    data_subject_id: str | None = None  # GDPR right-to-delete tracking
+    outcome: str = "success"  # success | failure | denied
+    metadata: dict[str, Any] = Field(default_factory=dict)
 
     model_config = {"frozen": True}
 
 
 class RetentionPolicy(BaseModel):
     """Per-compliance-tag retention rules."""
+
     tag: str
     retention_days: int
     require_encryption: bool = False
@@ -85,7 +91,7 @@ class RetentionPolicy(BaseModel):
 
 # ── Default Retention ──────────────────────────────────────
 
-DEFAULT_RETENTION: Dict[str, RetentionPolicy] = {
+DEFAULT_RETENTION: dict[str, RetentionPolicy] = {
     "SOC2": RetentionPolicy(tag="SOC2", retention_days=2555, require_immutable_storage=True),
     "GDPR": RetentionPolicy(tag="GDPR", retention_days=1825, require_encryption=True),
     "HIPAA": RetentionPolicy(tag="HIPAA", retention_days=2190, require_encryption=True, require_immutable_storage=True),
@@ -96,6 +102,7 @@ DEFAULT_RETENTION: Dict[str, RetentionPolicy] = {
 
 
 # ── AuditLogger ────────────────────────────────────────────
+
 
 class AuditLogger:
     """
@@ -116,13 +123,13 @@ class AuditLogger:
 
     def __init__(
         self,
-        retention_policies: Optional[Dict[str, RetentionPolicy]] = None,
-        siem_endpoint: Optional[str] = None,
+        retention_policies: dict[str, RetentionPolicy] | None = None,
+        siem_endpoint: str | None = None,
         buffer_size: int = 100,
     ):
         self._retention = retention_policies or DEFAULT_RETENTION
         self._siem_endpoint = siem_endpoint
-        self._buffer: List[AuditEntry] = []
+        self._buffer: list[AuditEntry] = []
         self._buffer_size = buffer_size
         self._log = logging.getLogger("l9.audit")
 
@@ -133,28 +140,30 @@ class AuditLogger:
         actor: str,
         tenant: str,
         resource: str,
-        resource_type: Optional[str] = None,
-        trace_id: Optional[str] = None,
-        compliance_tags: Optional[List[str]] = None,
-        pii_fields_accessed: Optional[List[str]] = None,
-        data_subject_id: Optional[str] = None,
-        metadata: Optional[Dict[str, Any]] = None,
+        resource_type: str | None = None,
+        trace_id: str | None = None,
+        compliance_tags: list[str] | None = None,
+        pii_fields_accessed: list[str] | None = None,
+        data_subject_id: str | None = None,
+        metadata: dict[str, Any] | None = None,
     ) -> AuditEntry:
         """Log a data access event."""
         severity = AuditSeverity.WARNING if pii_fields_accessed else AuditSeverity.INFO
-        return self._emit(AuditEntry(
-            action=AuditAction.ACCESS,
-            severity=severity,
-            actor=actor,
-            tenant=tenant,
-            resource=resource,
-            resource_type=resource_type,
-            trace_id=trace_id,
-            compliance_tags=compliance_tags or [],
-            pii_fields_accessed=pii_fields_accessed or [],
-            data_subject_id=data_subject_id,
-            metadata=metadata or {},
-        ))
+        return self._emit(
+            AuditEntry(
+                action=AuditAction.ACCESS,
+                severity=severity,
+                actor=actor,
+                tenant=tenant,
+                resource=resource,
+                resource_type=resource_type,
+                trace_id=trace_id,
+                compliance_tags=compliance_tags or [],
+                pii_fields_accessed=pii_fields_accessed or [],
+                data_subject_id=data_subject_id,
+                metadata=metadata or {},
+            )
+        )
 
     def log_mutation(
         self,
@@ -162,47 +171,51 @@ class AuditLogger:
         tenant: str,
         resource: str,
         detail: str,
-        resource_type: Optional[str] = None,
-        trace_id: Optional[str] = None,
-        payload_hash: Optional[str] = None,
-        compliance_tags: Optional[List[str]] = None,
-        metadata: Optional[Dict[str, Any]] = None,
+        resource_type: str | None = None,
+        trace_id: str | None = None,
+        payload_hash: str | None = None,
+        compliance_tags: list[str] | None = None,
+        metadata: dict[str, Any] | None = None,
     ) -> AuditEntry:
         """Log a data mutation event (create, update, delete, sync)."""
-        return self._emit(AuditEntry(
-            action=AuditAction.MUTATION,
-            severity=AuditSeverity.INFO,
-            actor=actor,
-            tenant=tenant,
-            resource=resource,
-            resource_type=resource_type,
-            detail=detail,
-            trace_id=trace_id,
-            payload_hash=payload_hash,
-            compliance_tags=compliance_tags or [],
-            metadata=metadata or {},
-        ))
+        return self._emit(
+            AuditEntry(
+                action=AuditAction.MUTATION,
+                severity=AuditSeverity.INFO,
+                actor=actor,
+                tenant=tenant,
+                resource=resource,
+                resource_type=resource_type,
+                detail=detail,
+                trace_id=trace_id,
+                payload_hash=payload_hash,
+                compliance_tags=compliance_tags or [],
+                metadata=metadata or {},
+            )
+        )
 
     def log_query(
         self,
         actor: str,
         tenant: str,
         detail: str,
-        trace_id: Optional[str] = None,
-        compliance_tags: Optional[List[str]] = None,
-        metadata: Optional[Dict[str, Any]] = None,
+        trace_id: str | None = None,
+        compliance_tags: list[str] | None = None,
+        metadata: dict[str, Any] | None = None,
     ) -> AuditEntry:
         """Log a query execution event (match, search, resolve)."""
-        return self._emit(AuditEntry(
-            action=AuditAction.QUERY,
-            severity=AuditSeverity.INFO,
-            actor=actor,
-            tenant=tenant,
-            detail=detail,
-            trace_id=trace_id,
-            compliance_tags=compliance_tags or [],
-            metadata=metadata or {},
-        ))
+        return self._emit(
+            AuditEntry(
+                action=AuditAction.QUERY,
+                severity=AuditSeverity.INFO,
+                actor=actor,
+                tenant=tenant,
+                detail=detail,
+                trace_id=trace_id,
+                compliance_tags=compliance_tags or [],
+                metadata=metadata or {},
+            )
+        )
 
     def log_pii_erasure(
         self,
@@ -210,21 +223,23 @@ class AuditLogger:
         tenant: str,
         data_subject_id: str,
         detail: str,
-        trace_id: Optional[str] = None,
-        metadata: Optional[Dict[str, Any]] = None,
+        trace_id: str | None = None,
+        metadata: dict[str, Any] | None = None,
     ) -> AuditEntry:
         """Log a GDPR right-to-erasure operation. Always CRITICAL severity."""
-        return self._emit(AuditEntry(
-            action=AuditAction.PII_ERASURE,
-            severity=AuditSeverity.CRITICAL,
-            actor=actor,
-            tenant=tenant,
-            data_subject_id=data_subject_id,
-            detail=detail,
-            trace_id=trace_id,
-            compliance_tags=["GDPR"],
-            metadata=metadata or {},
-        ))
+        return self._emit(
+            AuditEntry(
+                action=AuditAction.PII_ERASURE,
+                severity=AuditSeverity.CRITICAL,
+                actor=actor,
+                tenant=tenant,
+                data_subject_id=data_subject_id,
+                detail=detail,
+                trace_id=trace_id,
+                compliance_tags=["GDPR"],
+                metadata=metadata or {},
+            )
+        )
 
     def log_delegation(
         self,
@@ -232,22 +247,24 @@ class AuditLogger:
         tenant: str,
         resource: str,
         detail: str,
-        trace_id: Optional[str] = None,
-        compliance_tags: Optional[List[str]] = None,
-        metadata: Optional[Dict[str, Any]] = None,
+        trace_id: str | None = None,
+        compliance_tags: list[str] | None = None,
+        metadata: dict[str, Any] | None = None,
     ) -> AuditEntry:
         """Log a cross-node delegation event."""
-        return self._emit(AuditEntry(
-            action=AuditAction.DELEGATION,
-            severity=AuditSeverity.WARNING,
-            actor=actor,
-            tenant=tenant,
-            resource=resource,
-            detail=detail,
-            trace_id=trace_id,
-            compliance_tags=compliance_tags or [],
-            metadata=metadata or {},
-        ))
+        return self._emit(
+            AuditEntry(
+                action=AuditAction.DELEGATION,
+                severity=AuditSeverity.WARNING,
+                actor=actor,
+                tenant=tenant,
+                resource=resource,
+                detail=detail,
+                trace_id=trace_id,
+                compliance_tags=compliance_tags or [],
+                metadata=metadata or {},
+            )
+        )
 
     # ── Retention ──────────────────────────────────────────
 
@@ -262,13 +279,13 @@ class AuditLogger:
                 days.append(policy.retention_days)
         return max(days) if days else 365
 
-    def get_retention_policy(self, tag: str) -> Optional[RetentionPolicy]:
+    def get_retention_policy(self, tag: str) -> RetentionPolicy | None:
         """Get retention policy for a specific compliance tag."""
         return self._retention.get(tag)
 
     # ── Buffer / Flush ─────────────────────────────────────
 
-    def flush(self) -> List[AuditEntry]:
+    def flush(self) -> list[AuditEntry]:
         """Flush buffered entries (for batch insert to packet_audit_log)."""
         entries = list(self._buffer)
         self._buffer.clear()

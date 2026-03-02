@@ -16,12 +16,12 @@ learning edge weights, and temporal recency pruning.
 
 All algorithms execute real Cypher against Neo4j — no stubs.
 """
+
 from __future__ import annotations
 
 import json
 import logging
 from datetime import datetime
-from typing import Dict, List, Optional
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
@@ -49,7 +49,7 @@ class GDSScheduler:
         self.domain_spec = domain_spec
         self.graph_driver = graph_driver
         self.scheduler = AsyncIOScheduler()
-        self._job_history: List[Dict] = []
+        self._job_history: list[dict] = []
 
     def register_jobs(self) -> None:
         """Register all GDS jobs from domain spec."""
@@ -74,7 +74,7 @@ class GDSScheduler:
         )
         logger.info(f"Scheduled job {job_spec.name} with cron {job_spec.schedule.cron}")
 
-    async def execute_job(self, job_spec: GDSJobSpec) -> Dict:
+    async def execute_job(self, job_spec: GDSJobSpec) -> dict:
         """Execute GDS job and record result."""
         logger.info(f"Starting GDS job {job_spec.name} — algorithm={job_spec.algorithm}")
         start = datetime.now()
@@ -107,17 +107,19 @@ class GDSScheduler:
             logger.error(f"Job {job_spec.name} failed: {e}", exc_info=True)
             result = {"status": "failed", "error": str(e)}
 
-        self._job_history.append({
-            "job": job_spec.name,
-            "algorithm": job_spec.algorithm,
-            "timestamp": datetime.now().isoformat(),
-            **result,
-        })
+        self._job_history.append(
+            {
+                "job": job_spec.name,
+                "algorithm": job_spec.algorithm,
+                "timestamp": datetime.now().isoformat(),
+                **result,
+            }
+        )
         return result
 
     # ── Algorithm Implementations ──────────────────────────────
 
-    async def _run_louvain(self, job_spec: GDSJobSpec) -> Dict:
+    async def _run_louvain(self, job_spec: GDSJobSpec) -> dict:
         """Run Louvain community detection via GDS."""
         db = self.domain_spec.domain.id
         graph_name = f"{job_spec.name}_graph"
@@ -163,7 +165,7 @@ class GDSScheduler:
             except Exception as drop_err:
                 logger.error(f"Failed to drop projected graph '{graph_name}': {drop_err}")
 
-    async def _run_cooccurrence(self, job_spec: GDSJobSpec) -> Dict:
+    async def _run_cooccurrence(self, job_spec: GDSJobSpec) -> dict:
         """Build co-occurrence edges from bipartite projection."""
         if not job_spec.sourceedge or not job_spec.writeedge:
             raise ValueError(f"Job {job_spec.name}: sourceedge and writeedge required")
@@ -176,14 +178,12 @@ class GDSScheduler:
         SET r.weight = weight, r.updated_at = datetime()
         RETURN count(r) AS edges_created
         """
-        result = await self.graph_driver.execute_query(
-            cypher, database=self.domain_spec.domain.id
-        )
+        result = await self.graph_driver.execute_query(cypher, database=self.domain_spec.domain.id)
         edges = result[0]["edges_created"] if result else 0
         logger.info(f"Co-occurrence: {edges} edges created/updated")
         return {"edges_created": edges}
 
-    async def _run_reinforcement(self, job_spec: GDSJobSpec) -> Dict:
+    async def _run_reinforcement(self, job_spec: GDSJobSpec) -> dict:
         """
         Weight edges by transaction outcome feedback.
 
@@ -273,16 +273,13 @@ class GDSScheduler:
         accepted_count = accepted_result[0]["accepted_edges"] if accepted_result else 0
         rejected_count = rejected_result[0]["rejected_edges"] if rejected_result else 0
 
-        logger.info(
-            f"Reinforcement: {accepted_count} accepted edges, "
-            f"{rejected_count} rejected edges"
-        )
+        logger.info(f"Reinforcement: {accepted_count} accepted edges, {rejected_count} rejected edges")
         return {
             "accepted_edges": accepted_count,
             "rejected_edges": rejected_count,
         }
 
-    async def _run_temporal_recency(self, job_spec: GDSJobSpec) -> Dict:
+    async def _run_temporal_recency(self, job_spec: GDSJobSpec) -> dict:
         """
         Create/update RECENTLY_TRANSACTED_WITH edges with recency decay.
 
@@ -328,7 +325,7 @@ class GDSScheduler:
         logger.info(f"Temporal recency: {created} edges created, {pruned} pruned")
         return {"edges_created": created, "edges_pruned": pruned}
 
-    async def _run_geoproximity(self, job_spec: GDSJobSpec) -> Dict:
+    async def _run_geoproximity(self, job_spec: GDSJobSpec) -> dict:
         """Build COLOCATED_WITH edges based on haversine distance."""
         db = self.domain_spec.domain.id
         max_km = 500
@@ -355,7 +352,7 @@ class GDSScheduler:
         logger.info(f"Geo-proximity: {edges} COLOCATED_WITH edges")
         return {"edges_created": edges}
 
-    async def _run_equipment_sync(self, job_spec: GDSJobSpec) -> Dict:
+    async def _run_equipment_sync(self, job_spec: GDSJobSpec) -> dict:
         """Materialize boolean Facility props as HAS_EQUIPMENT edges."""
         db = self.domain_spec.domain.id
         cypher = """
@@ -383,7 +380,7 @@ class GDSScheduler:
 
     # ── Lifecycle ──────────────────────────────────────────
 
-    async def trigger_job(self, job_name: str) -> Dict:
+    async def trigger_job(self, job_name: str) -> dict:
         """Manually trigger a registered job by name."""
         for job_spec in self.domain_spec.gdsjobs:
             if job_spec.name == job_name:
@@ -399,5 +396,5 @@ class GDSScheduler:
         logger.info("GDS scheduler shut down")
 
     @property
-    def job_history(self) -> List[Dict]:
+    def job_history(self) -> list[dict]:
         return list(self._job_history)

@@ -15,10 +15,10 @@ Handles all 10 gate types, null semantics, role exemptions, and direction filter
 
 Exports: GateCompiler
 """
+
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, List, Optional
 
 from engine.config.schema import (
     DomainSpec,
@@ -55,7 +55,7 @@ class GateCompiler:
 
     def __init__(self, domain_spec: DomainSpec):
         self.domain_spec = domain_spec
-        self._gates: List[GateSpec] = domain_spec.gates if domain_spec.gates else []
+        self._gates: list[GateSpec] = domain_spec.gates if domain_spec.gates else []
         self._compliance = getattr(domain_spec, "compliance", None)
 
     # ── Public API ─────────────────────────────────────────
@@ -74,7 +74,7 @@ class GateCompiler:
     def compile_all_gates(
         self,
         match_direction: str,
-        role: Optional[str] = None,
+        role: str | None = None,
     ) -> str:
         """
         Compile all gates into a combined WHERE clause.
@@ -86,7 +86,7 @@ class GateCompiler:
         Returns:
             Combined Cypher WHERE clause (without the WHERE keyword)
         """
-        fragments: List[str] = []
+        fragments: list[str] = []
 
         for gate in self._gates:
             # Direction filter
@@ -110,14 +110,14 @@ class GateCompiler:
     def compile_relaxed(
         self,
         match_direction: str,
-        role: Optional[str] = None,
+        role: str | None = None,
     ) -> str:
         """
         Compile gates for relaxed matching.
         Non-critical gates become score penalties instead of hard filters.
         Only gates with relaxedpenalty == 0.0 are included as hard WHERE.
         """
-        hard_fragments: List[str] = []
+        hard_fragments: list[str] = []
 
         for gate in self._gates:
             if gate.matchdirections and match_direction not in gate.matchdirections:
@@ -215,9 +215,7 @@ class GateCompiler:
         combinator = f" {gate.logic or 'AND'} "
         sub_fragments = []
         for sub_gate_name in gate.subgates:
-            sub_gate_spec = next(
-                (g for g in self._gates if g.name == sub_gate_name), None
-            )
+            sub_gate_spec = next((g for g in self._gates if g.name == sub_gate_name), None)
             if sub_gate_spec is None:
                 logger.warning(f"Subgate '{sub_gate_name}' not found, skipping")
                 continue
@@ -252,10 +250,7 @@ class GateCompiler:
         """
         duration_field = "days"
         duration_value = gate.maxagedays or 1
-        return (
-            f"candidate.{gate.candidateprop} >= "
-            f"datetime() - duration({{{duration_field}: {duration_value}}})"
-        )
+        return f"candidate.{gate.candidateprop} >= datetime() - duration({{{duration_field}: {duration_value}}})"
 
     def _compile_temporal_range(self, gate: GateSpec) -> str:
         """
@@ -263,10 +258,7 @@ class GateCompiler:
         """
         start_param = gate.queryparam_start or f"{gate.queryparam}_start"
         end_param = gate.queryparam_end or f"{gate.queryparam}_end"
-        return (
-            f"candidate.{gate.candidateprop} >= ${start_param} AND "
-            f"candidate.{gate.candidateprop} <= ${end_param}"
-        )
+        return f"candidate.{gate.candidateprop} >= ${start_param} AND candidate.{gate.candidateprop} <= ${end_param}"
 
     def _compile_traversal(self, gate: GateSpec) -> str:
         """

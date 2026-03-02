@@ -3,12 +3,12 @@ tests/integration/test_null_semantics.py
 Integration tests for NULL semantics in gate compilation and query execution.
 Validates NullBehavior.PASS, FAIL, and SKIP against live Neo4j with seeded data.
 """
+
 from __future__ import annotations
 
 import pytest
-import pytest_asyncio
 
-from engine.config.schema import GateSpec, GateType, NullBehavior
+from engine.config.schema import GateType, NullBehavior
 from engine.gates.null_semantics import NullHandler
 
 
@@ -17,9 +17,7 @@ class TestNullSemanticsPassBehavior:
     """NullBehavior.PASS: NULL property values should pass the gate (inclusive)."""
 
     @pytest.mark.asyncio
-    async def test_null_candidate_property_passes_range_gate(
-        self, graph_driver, seeded_graph
-    ):
+    async def test_null_candidate_property_passes_range_gate(self, graph_driver, seeded_graph):
         """
         Range gate with PASS null behavior: candidates with NULL min/max
         density should still appear in results.
@@ -64,14 +62,10 @@ class TestNullSemanticsPassBehavior:
         assert 9901 in facility_ids, "NULL density facility should PASS range gate"
 
         # Cleanup
-        await graph_driver.execute_query(
-            "MATCH (f:Facility {facility_id: 9901}) DETACH DELETE f", database=db
-        )
+        await graph_driver.execute_query("MATCH (f:Facility {facility_id: 9901}) DETACH DELETE f", database=db)
 
     @pytest.mark.asyncio
-    async def test_null_query_param_passes_threshold_gate(
-        self, graph_driver, seeded_graph
-    ):
+    async def test_null_query_param_passes_threshold_gate(self, graph_driver, seeded_graph):
         """
         Threshold gate with PASS: if the query parameter is NULL,
         the gate should pass (no constraint applied).
@@ -96,14 +90,12 @@ class TestNullSemanticsPassBehavior:
             database=db,
         )
 
-        assert len(results) == len(seeded_graph["facility_ids"]), (
-            "All facilities should pass threshold gate when query param is NULL"
-        )
+        assert len(results) == len(
+            seeded_graph["facility_ids"]
+        ), "All facilities should pass threshold gate when query param is NULL"
 
     @pytest.mark.asyncio
-    async def test_null_boolean_property_fails_boolean_gate(
-        self, graph_driver, seeded_graph
-    ):
+    async def test_null_boolean_property_fails_boolean_gate(self, graph_driver, seeded_graph):
         """
         Boolean gate with FAIL (default for boolean): NULL pvc_tolerant
         should exclude the candidate.
@@ -142,9 +134,7 @@ class TestNullSemanticsPassBehavior:
         facility_ids = [r["fid"] for r in results]
         assert 9902 not in facility_ids, "NULL boolean should FAIL boolean gate"
 
-        await graph_driver.execute_query(
-            "MATCH (f:Facility {facility_id: 9902}) DETACH DELETE f", database=db
-        )
+        await graph_driver.execute_query("MATCH (f:Facility {facility_id: 9902}) DETACH DELETE f", database=db)
 
 
 @pytest.mark.integration

@@ -13,6 +13,7 @@ engine/gates/registry.py
 Maps GateType enum values → gate implementation classes.
 Used by CompositeGate for recursive subgate compilation.
 """
+
 from __future__ import annotations
 
 from engine.config.schema import GateType

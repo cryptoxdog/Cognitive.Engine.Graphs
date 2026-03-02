@@ -48,7 +48,6 @@ class BaseGate(ABC):
         Returns:
             Cypher clause (without NULL handling)
         """
-        pass
 
     def _prop_ref(self, prop: str) -> str:
         """Format property reference."""
@@ -198,9 +197,8 @@ class EnumMapGate(BaseGate):
 
             case_expr = " ".join(cases)
             return f"CASE {case_expr} ELSE false END"
-        else:
-            # Simple membership check
-            return f"{param} IN {prop}"
+        # Simple membership check
+        return f"{param} IN {prop}"
 
 
 # ============================================================================
@@ -328,14 +326,14 @@ class TraversalGate(BaseGate):
 
 __all__ = [
     "BaseGate",
-    "RangeGate",
-    "ThresholdGate",
     "BooleanGate",
     "CompositeGate",
     "EnumMapGate",
     "ExclusionGate",
-    "SelfRangeGate",
     "FreshnessGate",
+    "RangeGate",
+    "SelfRangeGate",
     "TemporalRangeGate",
+    "ThresholdGate",
     "TraversalGate",
 ]

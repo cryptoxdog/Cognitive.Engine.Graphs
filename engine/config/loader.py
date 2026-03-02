@@ -3,6 +3,7 @@
 Domain pack loader.
 Discovers, validates, caches, and hot-reloads domain spec YAML files.
 """
+
 from __future__ import annotations
 
 import logging
@@ -29,7 +30,7 @@ class DomainPackLoader:
     """Loads and caches domain spec YAML files with hot-reload support."""
 
     def __init__(self, config_path: str | None = None) -> None:
-        raw = config_path or os.getenv("DOMAIN_SPECS_PATH", "domains")
+        raw = config_path or os.getenv("DOMAIN_SPECS_PATH") or "domains"
         self._base_path = Path(raw).resolve()
         self._cache: dict[str, tuple[DomainSpec, float]] = {}
 
@@ -59,18 +60,13 @@ class DomainPackLoader:
         """Discover all domain directories containing spec.yaml."""
         if not self._base_path.is_dir():
             return []
-        return [
-            d.name for d in sorted(self._base_path.iterdir())
-            if d.is_dir() and (d / "spec.yaml").exists()
-        ]
+        return [d.name for d in sorted(self._base_path.iterdir()) if d.is_dir() and (d / "spec.yaml").exists()]
 
     def _resolve_spec_path(self, domain_id: str) -> Path:
         """Resolve and validate spec file path — prevents path traversal."""
         candidate = (self._base_path / domain_id / "spec.yaml").resolve()
         if not str(candidate).startswith(str(self._base_path)):
-            raise DomainNotFoundError(
-                f"Invalid domain path: {domain_id!r} resolves outside base directory"
-            )
+            raise DomainNotFoundError(f"Invalid domain path: {domain_id!r} resolves outside base directory")
         if not candidate.exists():
             raise DomainNotFoundError(f"Domain spec not found: {candidate}")
         return candidate
@@ -88,4 +84,4 @@ class DomainPackLoader:
         try:
             return DomainSpec.model_validate(raw)
         except PydanticValidationError as exc:
-            raise DomainSpecError(f"Domain \'{domain_id}\' validation failed:\n{exc}") from exc
+            raise DomainSpecError(f"Domain '{domain_id}' validation failed:\n{exc}") from exc

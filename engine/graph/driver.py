@@ -38,9 +38,9 @@ class GraphDriver:
             username: Neo4j username (defaults to NEO4J_USERNAME env var)
             password: Neo4j password (defaults to NEO4J_PASSWORD env var)
         """
-        self.uri = uri or os.getenv("NEO4J_URI", "bolt://localhost:7687")
-        self.username = username or os.getenv("NEO4J_USERNAME", "neo4j")
-        self.password = password or os.getenv("NEO4J_PASSWORD", "password")
+        self.uri: str = uri or os.getenv("NEO4J_URI") or "bolt://localhost:7687"
+        self.username: str = username or os.getenv("NEO4J_USERNAME") or "neo4j"
+        self.password: str = password or os.getenv("NEO4J_PASSWORD") or "password"
 
         self._driver: AsyncDriver | None = None
 

@@ -29,7 +29,7 @@ ontology:
         - {name: topics, type: string}
         - {name: daterangestart, type: date}
         - {name: daterangeend, type: date}
-    
+
     - label: LegalDocument
       managedby: sync
       candidate: true
@@ -42,7 +42,7 @@ ontology:
         - {name: relevancescore, type: float}
         - {name: privileged, type: bool}
         - {name: citationcount, type: int}
-    
+
     - label: Precedent
       managedby: sync
       auxiliary: true
@@ -122,4 +122,3 @@ compliance:
     logmatchrequests: true
     logmatchresults: true
     retentiondays: 2555  # 7 years
-

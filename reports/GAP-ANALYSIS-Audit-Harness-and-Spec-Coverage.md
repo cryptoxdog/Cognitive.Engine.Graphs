@@ -1,7 +1,7 @@
 # GAP ANALYSIS: Audit Harness & Spec Coverage
 
-**Scope:** Audit harness explanation, spec coverage extractor, and “what the harness does / doesn’t do” (from `current work/yes that sounds like the logical next step - i ena.md`).  
-**Date:** 2026-03-02  
+**Scope:** Audit harness explanation, spec coverage extractor, and “what the harness does / doesn’t do” (from `current work/yes that sounds like the logical next step - i ena.md`).
+**Date:** 2026-03-02
 **Status:** Gaps 1 and 2 closed (0 MISSING; harness doc complete in repo).
 
 ---
@@ -53,7 +53,7 @@
 | Reduce PARTIAL (optional) | 1 | Low–Medium |
 | CI strict + pre-commit (optional) | 2 | Low |
 
-**Total gaps:** 5 (2 high/medium impact, 3 optional).  
+**Total gaps:** 5 (2 high/medium impact, 3 optional).
 **Rough effort:** ~0.5–1 day to close MISSING + doc; optional items as needed.
 
 ---
@@ -70,8 +70,8 @@
 
 ## Summary
 
-- **Harness and spec extractor:** Implemented and wired (audit_engine, Makefile, CI, manifest).  
-- **Gaps 1 and 2 closed:** 0 MISSING (enrich/healthcheck handlers present); harness doc complete in `docs/Audit Harness-Explained.md`.  
+- **Harness and spec extractor:** Implemented and wired (audit_engine, Makefile, CI, manifest).
+- **Gaps 1 and 2 closed:** 0 MISSING (enrich/healthcheck handlers present); harness doc complete in `docs/Audit Harness-Explained.md`.
 - **Remaining (optional):** CI `--fail-on MISSING`, pre-commit for `make audit`, reduce PARTIALs if desired.
 
 ---

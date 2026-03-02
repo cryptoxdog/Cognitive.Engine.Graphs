@@ -171,24 +171,24 @@ jobs:
           echo "License Compliance Check"
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
           echo ""
-          
+
           ALLOW="${{ vars.PIP_LICENSES_ALLOW || 'MIT;Apache-2.0;BSD-3-Clause;BSD-2-Clause;ISC;Python Software Foundation License;Mozilla Public License 2.0 (MPL 2.0)' }}"
           DENY="${{ vars.PIP_LICENSES_DENY || 'GPL-3.0;AGPL-3.0;LGPL-3.0' }}"
-          
+
           echo "Allowed licenses: $ALLOW"
           echo "Denied licenses: $DENY"
           echo ""
-          
+
           # Generate report
           pip-licenses --format=json --output-file=licenses.json
           pip-licenses --format=markdown --output-file=licenses.md
-          
+
           # Check compliance
           pip-licenses \
             --allow-only="$ALLOW" \
             --fail-on="$DENY" \
             --format=plain-vertical
-          
+
           echo ""
           echo "✅ All dependencies use approved licenses"
 

@@ -4,15 +4,18 @@ Compliance orchestrator.
 Coordinates prohibited-factor validation, PII handling, and audit logging
 across match, sync, and admin request lifecycles.
 """
+
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from engine.compliance.audit import AuditAction, AuditLogger, AuditSeverity
+from engine.compliance.audit import AuditLogger
 from engine.compliance.pii import PIIHandler
 from engine.compliance.prohibited_factors import ProhibitedFactorValidator
-from engine.config.schema import DomainSpec, GateSpec
+
+if TYPE_CHECKING:
+    from engine.config.schema import DomainSpec, GateSpec
 
 logger = logging.getLogger(__name__)
 
@@ -23,16 +26,17 @@ class ComplianceEngine:
     def __init__(self, domain_spec: DomainSpec) -> None:
         self._spec = domain_spec
         self._prohibited = ProhibitedFactorValidator(domain_spec)
-        self._pii = PIIHandler(domain_spec)
-        self._audit = AuditLogger(domain_spec)
+        self._pii = PIIHandler()  # Uses default PII field hints
+        self._audit = AuditLogger()  # Uses default retention policies
         self._enabled = bool(
             domain_spec.compliance
-            and any([
-                domain_spec.compliance.prohibitedfactors
-                and domain_spec.compliance.prohibitedfactors.enabled,
-                domain_spec.compliance.pii and domain_spec.compliance.pii.enabled,
-                domain_spec.compliance.audit and domain_spec.compliance.audit.enabled,
-            ])
+            and any(
+                [
+                    domain_spec.compliance.prohibitedfactors and domain_spec.compliance.prohibitedfactors.enabled,
+                    domain_spec.compliance.pii and domain_spec.compliance.pii.enabled,
+                    domain_spec.compliance.audit and domain_spec.compliance.audit.enabled,
+                ]
+            )
         )
 
     @property
@@ -57,14 +61,17 @@ class ComplianceEngine:
         trace_id: str | None = None,
     ) -> dict[str, Any]:
         """Run pre-match compliance checks. Returns sanitized query."""
-        self._audit.log(
-            action=AuditAction.MATCH,
+        self._audit.log_query(
             actor=tenant,
             tenant=tenant,
             detail=f"Match request direction={match_direction}",
             trace_id=trace_id,
         )
-        return self._pii.mask_query(query)
+        # Detect and mask PII in query
+        pii_fields = self._pii.get_pii_field_paths(query)
+        if pii_fields:
+            return self._pii.mask_fields(query, list(pii_fields))
+        return query
 
     def check_sync_request(
         self,
@@ -75,10 +82,10 @@ class ComplianceEngine:
         trace_id: str | None = None,
     ) -> None:
         """Audit sync operations."""
-        self._audit.log(
-            action=AuditAction.SYNC,
+        self._audit.log_mutation(
             actor=tenant,
             tenant=tenant,
+            resource=entity_type,
             detail=f"Sync {entity_type} batch_size={batch_size}",
             trace_id=trace_id,
         )
@@ -91,7 +98,11 @@ class ComplianceEngine:
         """Redact PII from response before returning to client."""
         if not self._enabled:
             return response
-        return self._pii.redact_response(response)
+        # Detect and redact PII fields
+        pii_fields = self._pii.get_pii_field_paths(response)
+        if pii_fields:
+            return self._pii.redact(response, list(pii_fields))
+        return response
 
     def log_outcome(
         self,
@@ -102,10 +113,10 @@ class ComplianceEngine:
         trace_id: str | None = None,
     ) -> None:
         """Audit outcome feedback."""
-        self._audit.log(
-            action=AuditAction.MUTATION,
+        self._audit.log_mutation(
             actor=tenant,
             tenant=tenant,
+            resource=outcome_id,
             detail=f"Outcome recorded: {outcome_id} result={outcome}",
             trace_id=trace_id,
         )
@@ -118,11 +129,10 @@ class ComplianceEngine:
         trace_id: str | None = None,
     ) -> None:
         """Audit admin operations."""
-        self._audit.log(
-            action=AuditAction.ADMIN,
-            severity=AuditSeverity.WARNING,
+        self._audit.log_delegation(
             actor=tenant,
             tenant=tenant,
+            resource="admin",
             detail=f"Admin subaction={subaction}",
             trace_id=trace_id,
         )

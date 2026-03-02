@@ -3,6 +3,7 @@
 Scoring assembler: dimensions -> WITH clause.
 Compiles scoring dimensions into Cypher WITH clause with weighted aggregation.
 """
+
 from __future__ import annotations
 
 import logging
@@ -20,7 +21,9 @@ class ScoringAssembler:
         self.scoring_spec = domain_spec.scoring
 
     def assemble_scoring_clause(
-        self, match_direction: str, weights: dict[str, float],
+        self,
+        match_direction: str,
+        weights: dict[str, float],
     ) -> str:
         """Assemble WITH clause for scoring."""
         dimension_exprs: list[str] = []
@@ -59,7 +62,7 @@ class ScoringAssembler:
             return self._compile_candidateproperty(dim)
         if dim.computation == ComputationType.CUSTOMCYPHER:
             if not dim.expression:
-                raise ValueError(f"Dimension \'{dim.name}\': customcypher requires \'expression\'")
+                raise ValueError(f"Dimension '{dim.name}': customcypher requires 'expression'")
             return dim.expression
 
         compiler = dispatch.get(dim.computation)
@@ -84,18 +87,12 @@ class ScoringAssembler:
 
     def _compile_communitymatch(self, dim: ScoringDimensionSpec) -> str:
         bias = dim.bias or 1.5
-        return (
-            f"CASE WHEN candidate.{dim.candidateprop} = $query.{dim.queryprop} "
-            f"THEN {bias} ELSE 1.0 END"
-        )
+        return f"CASE WHEN candidate.{dim.candidateprop} = $query.{dim.queryprop} THEN {bias} ELSE 1.0 END"
 
     def _compile_inverselinear(self, dim: ScoringDimensionSpec) -> str:
         min_val = dim.minvalue or 0.0
         max_val = dim.maxvalue or 100.0
-        return (
-            f"1.0 - (coalesce(candidate.{dim.candidateprop}, {max_val}) - {min_val}) "
-            f"/ ({max_val} - {min_val})"
-        )
+        return f"1.0 - (coalesce(candidate.{dim.candidateprop}, {max_val}) - {min_val}) / ({max_val} - {min_val})"
 
     def _compile_candidateproperty(self, dim: ScoringDimensionSpec) -> str:
         """C-06 FIX: defaultwhennull emitted as validated numeric literal."""
@@ -106,10 +103,7 @@ class ScoringAssembler:
         rate_prop = dim.candidateprop or "rate"
         confidence_prop = dim.queryprop or "confidence"
         default = float(dim.defaultwhennull)
-        return (
-            f"coalesce(candidate.{rate_prop}, {default}) * "
-            f"coalesce(candidate.{confidence_prop}, 1.0)"
-        )
+        return f"coalesce(candidate.{rate_prop}, {default}) * coalesce(candidate.{confidence_prop}, 1.0)"
 
     def _compile_pricealignment(self, dim: ScoringDimensionSpec) -> str:
         cand_prop = dim.candidateprop or "price_per_unit"
@@ -134,7 +128,7 @@ class ScoringAssembler:
     def _compile_traversalalias(self, dim: ScoringDimensionSpec) -> str:
         """Read a property from a traversal step alias."""
         if not dim.alias:
-            raise ValueError(f"Dimension \'{dim.name}\': traversalalias requires \'alias\' field")
+            raise ValueError(f"Dimension '{dim.name}': traversalalias requires 'alias' field")
         prop = dim.candidateprop or "score"
         default = float(dim.defaultwhennull)
         return f"coalesce({dim.alias}.{prop}, {default})"
@@ -147,7 +141,7 @@ class ScoringAssembler:
             return f"coalesce({dim.alias}.{prop}, {default})"
         if dim.candidateprop:
             return f"coalesce(candidate.{dim.candidateprop}, {default})"
-        raise ValueError(f"Dimension \'{dim.name}\': kge requires \'alias\' or \'candidateprop\'")
+        raise ValueError(f"Dimension '{dim.name}': kge requires 'alias' or 'candidateprop'")
 
     def _build_score_expression(self, weight_exprs: list[str]) -> str:
         if not weight_exprs:

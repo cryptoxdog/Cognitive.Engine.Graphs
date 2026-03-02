@@ -50,4 +50,3 @@ from fastapi import Depends  # BANNED — chassis concern
 ```
 
 ```
-

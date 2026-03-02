@@ -1,5 +1,6 @@
 # tests/test_config_loader.py
 """Tests for DomainPackLoader cache invalidation and path security."""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -10,16 +11,20 @@ import yaml
 from engine.config.loader import DomainNotFoundError, DomainPackLoader
 
 
-@pytest.fixture()
+@pytest.fixture
 def domains_dir(tmp_path: Path) -> Path:
     domain_dir = tmp_path / "testdomain"
     domain_dir.mkdir()
     minimal_spec = {
         "domain": {"id": "testdomain", "name": "Test", "version": "1.0"},
         "ontology": {
-            "nodes": [{"label": "Widget", "managedby": "static", "properties": [
-                {"name": "widget_id", "type": "string", "required": True}
-            ]}],
+            "nodes": [
+                {
+                    "label": "Widget",
+                    "managedby": "static",
+                    "properties": [{"name": "widget_id", "type": "string", "required": True}],
+                }
+            ],
             "edges": [],
         },
         "matchentities": {

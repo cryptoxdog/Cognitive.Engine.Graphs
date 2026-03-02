@@ -88,4 +88,3 @@ Every hop is signed, every delegation is scoped, every packet is hashable, every
 <div align="center">⁂</div>
 
 [^1]: PacketEnvelope-PacketStore-Architecture.md
-

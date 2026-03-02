@@ -25,14 +25,14 @@ Outputs:
     artifacts/coverage_matrix.json   — IMPLEMENTED / PARTIAL / MISSING per feature
     artifacts/coverage_report.md     — human-readable markdown report
 """
+
 from __future__ import annotations
 
 import argparse
 import json
-import re
 import sys
-from dataclasses import dataclass, field, asdict
-from datetime import datetime, timezone
+from dataclasses import asdict, dataclass, field
+from datetime import UTC, datetime
 from enum import Enum
 from pathlib import Path
 from typing import Any
@@ -88,54 +88,70 @@ def extract_gate_features(spec: dict) -> list[SpecFeature]:
         gate_types = gates_section.get("types", gates_section.get("gate_types", {}))
         if isinstance(gate_types, dict):
             for gate_name, gate_def in gate_types.items():
-                features.append(SpecFeature(
-                    category="gates",
-                    name=gate_name,
-                    spec_reference=f"gates.types.{gate_name}",
-                    search_tokens=[
-                        gate_name,
-                        gate_name.replace("_", ""),
-                        f"class {gate_name.title().replace('_', '')}Gate",
-                        f'"{gate_name}"',
-                        f"'{gate_name}'",
-                        f"GateType.{gate_name.upper()}",
-                    ],
-                    search_files=["engine/gates/**/*.py"],
-                ))
+                features.append(
+                    SpecFeature(
+                        category="gates",
+                        name=gate_name,
+                        spec_reference=f"gates.types.{gate_name}",
+                        search_tokens=[
+                            gate_name,
+                            gate_name.replace("_", ""),
+                            f"class {gate_name.title().replace('_', '')}Gate",
+                            f'"{gate_name}"',
+                            f"'{gate_name}'",
+                            f"GateType.{gate_name.upper()}",
+                        ],
+                        search_files=["engine/gates/**/*.py"],
+                    )
+                )
         elif isinstance(gate_types, list):
             for item in gate_types:
                 name = item if isinstance(item, str) else item.get("type", item.get("name", str(item)))
-                features.append(SpecFeature(
-                    category="gates",
-                    name=str(name),
-                    spec_reference=f"gates.types.{name}",
-                    search_tokens=[
-                        str(name),
-                        str(name).replace("_", ""),
-                        f"class {str(name).title().replace('_', '')}Gate",
-                        f'"{name}"',
-                        f"GateType.{str(name).upper()}",
-                    ],
-                    search_files=["engine/gates/**/*.py"],
-                ))
+                features.append(
+                    SpecFeature(
+                        category="gates",
+                        name=str(name),
+                        spec_reference=f"gates.types.{name}",
+                        search_tokens=[
+                            str(name),
+                            str(name).replace("_", ""),
+                            f"class {str(name).title().replace('_', '')}Gate",
+                            f'"{name}"',
+                            f"GateType.{str(name).upper()}",
+                        ],
+                        search_files=["engine/gates/**/*.py"],
+                    )
+                )
 
     if not features:
         all_text = json.dumps(spec)
         known_gates = [
-            "range", "threshold", "boolean", "composite", "enum_map",
-            "exclusion", "self_range", "freshness", "temporal_range",
-            "traversal", "multi_range", "weighted_enum", "geo_radius",
+            "range",
+            "threshold",
+            "boolean",
+            "composite",
+            "enum_map",
+            "exclusion",
+            "self_range",
+            "freshness",
+            "temporal_range",
+            "traversal",
+            "multi_range",
+            "weighted_enum",
+            "geo_radius",
             "set_intersection",
         ]
         for g in known_gates:
             if g in all_text or g.replace("_", "") in all_text:
-                features.append(SpecFeature(
-                    category="gates",
-                    name=g,
-                    spec_reference=f"gates (detected in spec text)",
-                    search_tokens=[g, g.replace("_", ""), f'"{g}"', f"GateType.{g.upper()}"],
-                    search_files=["engine/gates/**/*.py"],
-                ))
+                features.append(
+                    SpecFeature(
+                        category="gates",
+                        name=g,
+                        spec_reference="gates (detected in spec text)",
+                        search_tokens=[g, g.replace("_", ""), f'"{g}"', f"GateType.{g.upper()}"],
+                        search_files=["engine/gates/**/*.py"],
+                    )
+                )
 
     return features
 
@@ -149,36 +165,50 @@ def extract_scoring_features(spec: dict) -> list[SpecFeature]:
         if isinstance(dims, (dict, list)):
             items = dims.items() if isinstance(dims, dict) else enumerate(dims)
             for key, val in items:
-                name = val if isinstance(val, str) else (val.get("type", val.get("name", str(key))) if isinstance(val, dict) else str(val))
-                features.append(SpecFeature(
-                    category="scoring",
-                    name=str(name),
-                    spec_reference=f"scoring.{name}",
-                    search_tokens=[
-                        str(name),
-                        str(name).replace("_", ""),
-                        f'"{name}"',
-                        f"ScoringType.{str(name).upper()}",
-                    ],
-                    search_files=["engine/scoring/**/*.py"],
-                ))
+                name = (
+                    val
+                    if isinstance(val, str)
+                    else (val.get("type", val.get("name", str(key))) if isinstance(val, dict) else str(val))
+                )
+                features.append(
+                    SpecFeature(
+                        category="scoring",
+                        name=str(name),
+                        spec_reference=f"scoring.{name}",
+                        search_tokens=[
+                            str(name),
+                            str(name).replace("_", ""),
+                            f'"{name}"',
+                            f"ScoringType.{str(name).upper()}",
+                        ],
+                        search_files=["engine/scoring/**/*.py"],
+                    )
+                )
 
     if not features:
         all_text = json.dumps(spec)
         known_scoring = [
-            "geo_decay", "log_normalized", "community_match",
-            "inverse_linear", "candidate_property", "custom_cypher",
-            "temporal_decay", "outcome_weighted", "set_overlap",
+            "geo_decay",
+            "log_normalized",
+            "community_match",
+            "inverse_linear",
+            "candidate_property",
+            "custom_cypher",
+            "temporal_decay",
+            "outcome_weighted",
+            "set_overlap",
         ]
         for s in known_scoring:
             if s in all_text or s.replace("_", "") in all_text:
-                features.append(SpecFeature(
-                    category="scoring",
-                    name=s,
-                    spec_reference=f"scoring (detected in spec text)",
-                    search_tokens=[s, s.replace("_", ""), f'"{s}"'],
-                    search_files=["engine/scoring/**/*.py"],
-                ))
+                features.append(
+                    SpecFeature(
+                        category="scoring",
+                        name=s,
+                        spec_reference="scoring (detected in spec text)",
+                        search_tokens=[s, s.replace("_", ""), f'"{s}"'],
+                        search_files=["engine/scoring/**/*.py"],
+                    )
+                )
 
     return features
 
@@ -191,23 +221,29 @@ def extract_ontology_features(spec: dict) -> list[SpecFeature]:
         items = ontology.get(section_key, [])
         if isinstance(items, list):
             for item in items:
-                name = item if isinstance(item, str) else item.get("label", item.get("type", item.get("name", str(item))))
-                features.append(SpecFeature(
-                    category=category_label,
-                    name=str(name),
-                    spec_reference=f"ontology.{section_key}.{name}",
-                    search_tokens=[f'"{name}"', f"'{name}'", str(name)],
-                    search_files=["engine/**/*.py", "domains/**/*.yaml"],
-                ))
+                name = (
+                    item if isinstance(item, str) else item.get("label", item.get("type", item.get("name", str(item))))
+                )
+                features.append(
+                    SpecFeature(
+                        category=category_label,
+                        name=str(name),
+                        spec_reference=f"ontology.{section_key}.{name}",
+                        search_tokens=[f'"{name}"', f"'{name}'", str(name)],
+                        search_files=["engine/**/*.py", "domains/**/*.yaml"],
+                    )
+                )
         elif isinstance(items, dict):
             for name in items:
-                features.append(SpecFeature(
-                    category=category_label,
-                    name=str(name),
-                    spec_reference=f"ontology.{section_key}.{name}",
-                    search_tokens=[f'"{name}"', f"'{name}'", str(name)],
-                    search_files=["engine/**/*.py", "domains/**/*.yaml"],
-                ))
+                features.append(
+                    SpecFeature(
+                        category=category_label,
+                        name=str(name),
+                        spec_reference=f"ontology.{section_key}.{name}",
+                        search_tokens=[f'"{name}"', f"'{name}'", str(name)],
+                        search_files=["engine/**/*.py", "domains/**/*.yaml"],
+                    )
+                )
 
     return features
 
@@ -220,37 +256,45 @@ def extract_v11_additions(spec: dict) -> list[SpecFeature]:
 
     features = []
     for node in v11_nodes:
-        features.append(SpecFeature(
-            category="v1.1_node",
-            name=node,
-            spec_reference=f"v1.1 addition: {node} node",
-            search_tokens=[node, f'"{node}"', f"'{node}'"],
-            search_files=["engine/**/*.py", "domains/**/*.yaml"],
-        ))
+        features.append(
+            SpecFeature(
+                category="v1.1_node",
+                name=node,
+                spec_reference=f"v1.1 addition: {node} node",
+                search_tokens=[node, f'"{node}"', f"'{node}'"],
+                search_files=["engine/**/*.py", "domains/**/*.yaml"],
+            )
+        )
     for edge in v11_edges:
-        features.append(SpecFeature(
-            category="v1.1_edge",
-            name=edge,
-            spec_reference=f"v1.1 addition: {edge} edge",
-            search_tokens=[edge, f'"{edge}"', f"'{edge}'"],
-            search_files=["engine/**/*.py", "domains/**/*.yaml"],
-        ))
+        features.append(
+            SpecFeature(
+                category="v1.1_edge",
+                name=edge,
+                spec_reference=f"v1.1 addition: {edge} edge",
+                search_tokens=[edge, f'"{edge}"', f"'{edge}'"],
+                search_files=["engine/**/*.py", "domains/**/*.yaml"],
+            )
+        )
     for ep in v11_endpoints:
-        features.append(SpecFeature(
-            category="v1.1_action",
-            name=ep,
-            spec_reference=f"v1.1 addition: {ep} action/endpoint",
-            search_tokens=[f"handle_{ep}", f'"{ep}"', f"'{ep}'", ep],
-            search_files=["engine/handlers.py", "engine/**/*.py"],
-        ))
+        features.append(
+            SpecFeature(
+                category="v1.1_action",
+                name=ep,
+                spec_reference=f"v1.1 addition: {ep} action/endpoint",
+                search_tokens=[f"handle_{ep}", f'"{ep}"', f"'{ep}'", ep],
+                search_files=["engine/handlers.py", "engine/**/*.py"],
+            )
+        )
     for sc in v11_scoring:
-        features.append(SpecFeature(
-            category="v1.1_scoring",
-            name=sc,
-            spec_reference=f"v1.1 addition: {sc} scoring type",
-            search_tokens=[sc, sc.replace("_", ""), f'"{sc}"'],
-            search_files=["engine/scoring/**/*.py"],
-        ))
+        features.append(
+            SpecFeature(
+                category="v1.1_scoring",
+                name=sc,
+                spec_reference=f"v1.1 addition: {sc} scoring type",
+                search_tokens=[sc, sc.replace("_", ""), f'"{sc}"'],
+                search_files=["engine/scoring/**/*.py"],
+            )
+        )
 
     return features
 
@@ -259,13 +303,15 @@ def extract_action_features(spec: dict) -> list[SpecFeature]:
     actions = ["match", "sync", "admin", "query", "enrich", "healthcheck"]
     features = []
     for action in actions:
-        features.append(SpecFeature(
-            category="action_handler",
-            name=action,
-            spec_reference=f"chassis action: {action}",
-            search_tokens=[f"handle_{action}", f'"{action}"', f"register_handler(\"{action}\""],
-            search_files=["engine/handlers.py"],
-        ))
+        features.append(
+            SpecFeature(
+                category="action_handler",
+                name=action,
+                spec_reference=f"chassis action: {action}",
+                search_tokens=[f"handle_{action}", f'"{action}"', f'register_handler("{action}"'],
+                search_files=["engine/handlers.py"],
+            )
+        )
     return features
 
 
@@ -273,33 +319,44 @@ def extract_gds_features(spec: dict) -> list[SpecFeature]:
     gds = deep_get(spec, "gds_jobs", default=deep_get(spec, "gds", default={}))
     features = []
 
-    known_algos = ["louvain", "cooccurrence", "reinforcement", "temporal_recency",
-                   "similarity", "pagerank", "label_propagation"]
+    known_algos = [
+        "louvain",
+        "cooccurrence",
+        "reinforcement",
+        "temporal_recency",
+        "similarity",
+        "pagerank",
+        "label_propagation",
+    ]
 
     if isinstance(gds, dict):
         jobs = gds.get("jobs", gds.get("algorithms", []))
         if isinstance(jobs, list):
             for job in jobs:
                 name = job if isinstance(job, str) else job.get("algorithm", job.get("name", str(job)))
-                features.append(SpecFeature(
-                    category="gds_algorithm",
-                    name=str(name),
-                    spec_reference=f"gds_jobs.{name}",
-                    search_tokens=[str(name), f"_run_{name}", f'"{name}"'],
-                    search_files=["engine/gds/**/*.py"],
-                ))
+                features.append(
+                    SpecFeature(
+                        category="gds_algorithm",
+                        name=str(name),
+                        spec_reference=f"gds_jobs.{name}",
+                        search_tokens=[str(name), f"_run_{name}", f'"{name}"'],
+                        search_files=["engine/gds/**/*.py"],
+                    )
+                )
 
     if not features:
         all_text = json.dumps(spec)
         for algo in known_algos:
             if algo in all_text:
-                features.append(SpecFeature(
-                    category="gds_algorithm",
-                    name=algo,
-                    spec_reference=f"gds (detected in spec text)",
-                    search_tokens=[algo, f"_run_{algo}", f'"{algo}"'],
-                    search_files=["engine/gds/**/*.py"],
-                ))
+                features.append(
+                    SpecFeature(
+                        category="gds_algorithm",
+                        name=algo,
+                        spec_reference="gds (detected in spec text)",
+                        search_tokens=[algo, f"_run_{algo}", f'"{algo}"'],
+                        search_files=["engine/gds/**/*.py"],
+                    )
+                )
 
     return features
 
@@ -383,7 +440,7 @@ def write_coverage_matrix(out_dir: Path, features: list[SpecFeature]) -> None:
         for k in totals:
             totals[k] += cat_data[k]
 
-    matrix = {"categories": by_category, "totals": totals, "generated_at": datetime.now(timezone.utc).isoformat()}
+    matrix = {"categories": by_category, "totals": totals, "generated_at": datetime.now(UTC).isoformat()}
     (out_dir / "coverage_matrix.json").write_text(json.dumps(matrix, indent=2), encoding="utf-8")
 
 
@@ -391,7 +448,7 @@ def write_coverage_report(out_dir: Path, features: list[SpecFeature], matrix: di
     out_dir.mkdir(parents=True, exist_ok=True)
     lines: list[str] = []
     lines.append("# L9 Spec Coverage Report")
-    lines.append(f"\n- Generated: {datetime.now(timezone.utc).isoformat()}")
+    lines.append(f"\n- Generated: {datetime.now(UTC).isoformat()}")
     lines.append(f"- Template tag: `{L9_TEMPLATE_TAG}`")
     lines.append("")
 
@@ -405,7 +462,9 @@ def write_coverage_report(out_dir: Path, features: list[SpecFeature], matrix: di
         lines.append(f"| {cat} | {data['IMPLEMENTED']} | {data['PARTIAL']} | {data['MISSING']} | {data['total']} |")
 
     totals = json.loads((out_dir / "coverage_matrix.json").read_text())["totals"]
-    lines.append(f"| **TOTAL** | **{totals['IMPLEMENTED']}** | **{totals['PARTIAL']}** | **{totals['MISSING']}** | **{totals['total']}** |")
+    lines.append(
+        f"| **TOTAL** | **{totals['IMPLEMENTED']}** | **{totals['PARTIAL']}** | **{totals['MISSING']}** | **{totals['total']}** |"
+    )
     lines.append("")
 
     for status_filter in [Status.MISSING.value, Status.PARTIAL.value, Status.IMPLEMENTED.value]:
@@ -435,8 +494,12 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="L9 Spec Coverage Extractor")
     parser.add_argument("--spec", default=None, help="Path to spec YAML (auto-detected if omitted)")
     parser.add_argument("--root", default=".", help="Repo root directory")
-    parser.add_argument("--fail-on", default="MISSING", choices=["MISSING", "PARTIAL", "NONE"],
-                        help="Exit 1 if any features have this status (or worse)")
+    parser.add_argument(
+        "--fail-on",
+        default="MISSING",
+        choices=["MISSING", "PARTIAL", "NONE"],
+        help="Exit 1 if any features have this status (or worse)",
+    )
     args = parser.parse_args()
 
     root = Path(args.root).resolve()
@@ -474,7 +537,9 @@ def main() -> int:
     write_coverage_report(out_dir, features, matrix_data)
 
     totals = matrix_data["totals"]
-    print(f"\nCoverage: {totals['IMPLEMENTED']} implemented, {totals['PARTIAL']} partial, {totals['MISSING']} missing (of {totals['total']})")
+    print(
+        f"\nCoverage: {totals['IMPLEMENTED']} implemented, {totals['PARTIAL']} partial, {totals['MISSING']} missing (of {totals['total']})"
+    )
     print(f"Report: {out_dir / 'coverage_report.md'}")
     print(f"Matrix: {out_dir / 'coverage_matrix.json'}")
     print(f"Checklist: {out_dir / 'spec_checklist.json'}")

@@ -20,16 +20,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      
+
       - name: Install dependencies
         run: |
           pip install ruff mypy pydantic pyyaml
-      
+
       - name: Check for banned files
         run: |
           # Fail if engine/api/ or engine/middleware.py exist
@@ -41,7 +41,7 @@ jobs:
             echo "ERROR: engine/middleware.py exists (tenant resolution is chassis-only)"
             exit 1
           fi
-      
+
       - name: Check for FastAPI imports in engine/
         run: |
           # Allow chassis imports ONLY in engine/handlers.py
@@ -49,7 +49,7 @@ jobs:
             echo "ERROR: FastAPI imports found in engine/ (only handlers.py allowed)"
             exit 1
           fi
-      
+
       - name: Check for Cypher injection patterns
         run: |
           # Find f-strings with Cypher labels NOT wrapped in sanitize_label()
@@ -57,13 +57,13 @@ jobs:
             echo "ERROR: Cypher label interpolation without sanitize_label() detected"
             exit 1
           fi
-      
+
       - name: Run ruff linter
         run: ruff check .
-      
+
       - name: Run mypy type checker
         run: mypy engine/ --strict --ignore-missing-imports
-      
+
       - name: Validate domain specs
         run: |
           # Ensure all YAML specs can be loaded by Pydantic

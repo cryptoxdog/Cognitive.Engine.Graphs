@@ -78,4 +78,3 @@ for key in query:
 - CI compliance.yml blocks PRs with violations
 
 ```
-

@@ -15,13 +15,15 @@ seeded graph data, and cleanup orchestration.
 
 Note: FastAPI routes removed — engine now uses chassis integration via handlers.py.
 """
+
 from __future__ import annotations
 
 import asyncio
 import os
 import uuid
+from collections.abc import AsyncGenerator
 from pathlib import Path
-from typing import Any, AsyncGenerator, Dict
+from typing import Any
 
 import pytest
 import pytest_asyncio
@@ -31,8 +33,8 @@ from engine.config.schema import DomainSpec
 from engine.graph.driver import GraphDriver
 from engine.handlers import init_dependencies
 
-
 # ── Event Loop ─────────────────────────────────────────────
+
 
 @pytest.fixture(scope="session")
 def event_loop():
@@ -43,6 +45,7 @@ def event_loop():
 
 
 # ── Neo4j Testcontainer ───────────────────────────────────
+
 
 @pytest.fixture(scope="session")
 def neo4j_container():
@@ -79,6 +82,7 @@ def neo4j_container():
 
 # ── Graph Driver ──────────────────────────────────────────
 
+
 @pytest_asyncio.fixture(scope="session")
 async def graph_driver(neo4j_container) -> AsyncGenerator[GraphDriver, None]:
     """Session-scoped async Neo4j driver."""
@@ -93,6 +97,7 @@ async def graph_driver(neo4j_container) -> AsyncGenerator[GraphDriver, None]:
 
 
 # ── Domain Spec Fixtures ──────────────────────────────────
+
 
 @pytest.fixture(scope="session")
 def domain_spec_path() -> Path:
@@ -122,24 +127,40 @@ def minimal_domain_spec() -> DomainSpec:
         "domain": {"id": "test", "name": "Test Domain", "version": "0.0.1"},
         "ontology": {
             "nodes": [
-                {"label": "Facility", "managed_by": "sync", "candidate": True,
-                 "match_direction": "intake_to_buyer", "properties": [
-                     {"name": "facility_id", "type": "int", "required": True},
-                     {"name": "name", "type": "string"},
-                     {"name": "lat", "type": "float"},
-                     {"name": "lon", "type": "float"},
-                     {"name": "credit_score", "type": "float"},
-                     {"name": "min_density", "type": "float"},
-                     {"name": "max_density", "type": "float"},
-                 ]},
-                {"label": "MaterialIntake", "managed_by": "api", "query_entity": True,
-                 "match_direction": "intake_to_buyer", "properties": [
-                     {"name": "intake_id", "type": "int", "required": True},
-                 ]},
+                {
+                    "label": "Facility",
+                    "managed_by": "sync",
+                    "candidate": True,
+                    "match_direction": "intake_to_buyer",
+                    "properties": [
+                        {"name": "facility_id", "type": "int", "required": True},
+                        {"name": "name", "type": "string"},
+                        {"name": "lat", "type": "float"},
+                        {"name": "lon", "type": "float"},
+                        {"name": "credit_score", "type": "float"},
+                        {"name": "min_density", "type": "float"},
+                        {"name": "max_density", "type": "float"},
+                    ],
+                },
+                {
+                    "label": "MaterialIntake",
+                    "managed_by": "api",
+                    "query_entity": True,
+                    "match_direction": "intake_to_buyer",
+                    "properties": [
+                        {"name": "intake_id", "type": "int", "required": True},
+                    ],
+                },
             ],
             "edges": [
-                {"type": "EXCLUDED_FROM", "from": "Facility", "to": "Facility",
-                 "direction": "DIRECTED", "category": "exclusion", "managed_by": "sync"},
+                {
+                    "type": "EXCLUDED_FROM",
+                    "from": "Facility",
+                    "to": "Facility",
+                    "direction": "DIRECTED",
+                    "category": "exclusion",
+                    "managed_by": "sync",
+                },
             ],
         },
         "match_entities": {
@@ -162,6 +183,7 @@ def domain_loader(domain_spec_path: Path) -> DomainPackLoader:
 
 # ── Handler Dependencies ──────────────────────────────────
 
+
 @pytest_asyncio.fixture(scope="session")
 async def initialized_handlers(graph_driver: GraphDriver, domain_loader: DomainPackLoader):
     """Initialize engine handlers with dependencies for testing."""
@@ -170,6 +192,7 @@ async def initialized_handlers(graph_driver: GraphDriver, domain_loader: DomainP
 
 
 # ── Tenant Fixtures ───────────────────────────────────────
+
 
 @pytest.fixture
 def test_tenant() -> str:
@@ -180,29 +203,72 @@ def test_tenant() -> str:
 # ── Seed Data ─────────────────────────────────────────────
 
 SEED_FACILITIES = [
-    {"facility_id": 1, "name": "Alpha Recycling", "lat": 34.05, "lon": -118.24,
-     "process_type": "extrusion", "facility_role": "processor",
-     "min_density": 0.90, "max_density": 0.97, "min_mfi": 2.0, "max_mfi": 25.0,
-     "contamination_tolerance": 0.03, "pvc_tolerant": False, "food_grade_certified": True,
-     "has_extruder": True, "has_wash_line": True, "handles_regrind": True, "handles_flake": True,
-     "gate_mode": "strict"},
-    {"facility_id": 2, "name": "Beta Compounding", "lat": 33.77, "lon": -118.19,
-     "process_type": "injection", "facility_role": "compounder",
-     "min_density": 0.85, "max_density": 1.05, "min_mfi": 5.0, "max_mfi": 50.0,
-     "contamination_tolerance": 0.05, "pvc_tolerant": True, "food_grade_certified": False,
-     "has_granulator": True, "has_extruder": True, "handles_regrind": True, "handles_flake": False,
-     "gate_mode": "strict"},
-    {"facility_id": 3, "name": "Gamma MRF", "lat": 40.71, "lon": -74.01,
-     "process_type": "sorting", "facility_role": "mrf",
-     "min_density": 0.80, "max_density": 1.20, "min_mfi": 0.5, "max_mfi": 100.0,
-     "contamination_tolerance": 0.10, "pvc_tolerant": True, "food_grade_certified": False,
-     "has_sorting_line": True, "has_shredder": True, "handles_regrind": True,
-     "handles_flake": True, "handles_rollstock": True, "gate_mode": "relaxed"},
+    {
+        "facility_id": 1,
+        "name": "Alpha Recycling",
+        "lat": 34.05,
+        "lon": -118.24,
+        "process_type": "extrusion",
+        "facility_role": "processor",
+        "min_density": 0.90,
+        "max_density": 0.97,
+        "min_mfi": 2.0,
+        "max_mfi": 25.0,
+        "contamination_tolerance": 0.03,
+        "pvc_tolerant": False,
+        "food_grade_certified": True,
+        "has_extruder": True,
+        "has_wash_line": True,
+        "handles_regrind": True,
+        "handles_flake": True,
+        "gate_mode": "strict",
+    },
+    {
+        "facility_id": 2,
+        "name": "Beta Compounding",
+        "lat": 33.77,
+        "lon": -118.19,
+        "process_type": "injection",
+        "facility_role": "compounder",
+        "min_density": 0.85,
+        "max_density": 1.05,
+        "min_mfi": 5.0,
+        "max_mfi": 50.0,
+        "contamination_tolerance": 0.05,
+        "pvc_tolerant": True,
+        "food_grade_certified": False,
+        "has_granulator": True,
+        "has_extruder": True,
+        "handles_regrind": True,
+        "handles_flake": False,
+        "gate_mode": "strict",
+    },
+    {
+        "facility_id": 3,
+        "name": "Gamma MRF",
+        "lat": 40.71,
+        "lon": -74.01,
+        "process_type": "sorting",
+        "facility_role": "mrf",
+        "min_density": 0.80,
+        "max_density": 1.20,
+        "min_mfi": 0.5,
+        "max_mfi": 100.0,
+        "contamination_tolerance": 0.10,
+        "pvc_tolerant": True,
+        "food_grade_certified": False,
+        "has_sorting_line": True,
+        "has_shredder": True,
+        "handles_regrind": True,
+        "handles_flake": True,
+        "handles_rollstock": True,
+        "gate_mode": "relaxed",
+    },
 ]
 
 
 @pytest_asyncio.fixture
-async def seeded_graph(graph_driver: GraphDriver, test_tenant: str) -> AsyncGenerator[Dict[str, Any], None]:
+async def seeded_graph(graph_driver: GraphDriver, test_tenant: str) -> AsyncGenerator[dict[str, Any], None]:
     """
     Seed deterministic test data into Neo4j. Returns metadata about what was seeded.
     Cleans up after test completes.
@@ -277,9 +343,11 @@ async def seeded_graph(graph_driver: GraphDriver, test_tenant: str) -> AsyncGene
 
 # ── Helpers ───────────────────────────────────────────────
 
+
 @pytest.fixture
 def make_headers(test_tenant: str):
     """Factory for request headers with tenant injection."""
+
     def _make(tenant: str = None, extra: dict = None) -> dict:
         headers = {
             "Content-Type": "application/json",
@@ -288,4 +356,5 @@ def make_headers(test_tenant: str):
         if extra:
             headers.update(extra)
         return headers
+
     return _make

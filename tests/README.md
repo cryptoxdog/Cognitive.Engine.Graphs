@@ -126,12 +126,12 @@ def test_threshold_gate_lte_pass():
         operator="<=",
         nullbehavior="fail"
     )
-    
+
     cypher = gate.compile(
         candidate_alias="c",
         query_alias="$query"
     )
-    
+
     assert "c.mincreditscore <= $query.creditscore" in cypher
 ```
 
@@ -160,12 +160,12 @@ def test_ecoa_blocks_race_in_gates():
         regime="ECOA",
         blocked_fields=["race", "ethnicity"]
     )
-    
+
     gate_config = {
         "candidateprop": "race",
         "queryparam": "race"
     }
-    
+
     with pytest.raises(ProhibitedFactorError):
         validator.validate_gate(gate_config)
 ```

@@ -25,10 +25,10 @@ from engine.config.units import UnitConverter
 __all__ = [
     "DomainPackLoader",
     "DomainSpec",
-    "OntologySpec",
-    "NodeSpec",
     "EdgeSpec",
     "GateSpec",
+    "NodeSpec",
+    "OntologySpec",
     "ScoringSpec",
     "TraversalSpec",
     "UnitConverter",

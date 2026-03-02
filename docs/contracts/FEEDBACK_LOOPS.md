@@ -75,5 +75,3 @@ When building a service, check this table for:
 1. **Outbound loops**: your service MUST fire these packets on the listed triggers
 2. **Inbound loops**: your service MUST handle these action types from other services
 ```
-
-

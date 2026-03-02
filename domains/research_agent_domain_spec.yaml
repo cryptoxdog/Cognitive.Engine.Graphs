@@ -28,7 +28,7 @@ ontology:
         - {name: mindate, type: date}
         - {name: requirescode, type: bool}
         - {name: requiresdataset, type: bool}
-    
+
     - label: Paper
       managedby: sync
       candidate: true
@@ -42,7 +42,7 @@ ontology:
         - {name: hascode, type: bool}
         - {name: hasdataset, type: bool}
         - {name: reproducibilityscore, type: float}
-    
+
     - label: Dataset
       managedby: sync
       auxiliary: true
@@ -109,4 +109,3 @@ scoring:
       computation: temporalproximity
       weightkey: wrecency
       defaultweight: 0.20
-

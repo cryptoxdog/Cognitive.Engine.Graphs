@@ -28,7 +28,7 @@ ontology:
         - {name: insuranceplan, type: string}
         - {name: primarycondition, type: string}
         - {name: urgency, type: enum, values: [routine, urgent, emergency]}
-    
+
     - label: Provider
       managedby: sync
       candidate: true
@@ -43,13 +43,13 @@ ontology:
         - {name: longitude, type: float}
         - {name: avgwaitdays, type: int}
         - {name: qualityscore, type: float}
-    
+
     - label: Specialty
       managedby: static
       taxonomy: true
       properties:
         - {name: code, type: string}
-    
+
     - label: InsurancePlan
       managedby: static
       taxonomy: true
@@ -137,4 +137,3 @@ compliance:
     enabled: true
     fields: [patientid, name, ssn, dob]
     handling: hash
-

@@ -31,7 +31,7 @@ ontology:
         - {name: hasinsuranceclaim, type: bool}
         - {name: budgetusd, type: float, unit: currency}
         - {name: desiredstartdate, type: date}
-    
+
     - label: Contractor
       managedby: sync
       candidate: true
@@ -46,7 +46,7 @@ ontology:
         - {name: insurancelicensed, type: bool}
         - {name: emergencyavailable, type: bool}
         - {name: nextavailabledate, type: date}
-    
+
     - label: Material
       managedby: sync
       auxiliary: true
@@ -126,4 +126,3 @@ scoring:
       computation: pricealignment
       weightkey: wprice
       defaultweight: 0.25
-

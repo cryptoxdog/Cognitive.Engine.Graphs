@@ -7,11 +7,12 @@ Unit tests for sync query generation.
 Target Coverage: 70%+
 """
 
-import pytest
 from unittest.mock import MagicMock
 
-from engine.sync.generator import SyncGenerator
+import pytest
+
 from engine.config.schema import DomainSpec, SyncEndpointSpec, SyncStrategy
+from engine.sync.generator import SyncGenerator
 
 
 def make_mock_domain_spec() -> MagicMock:

@@ -70,7 +70,7 @@ jobs:
         run: |
           REPO_NAME="${{ github.event.repository.name }}"
           PREFIX="${{ vars.HELM_RELEASE_PREFIX || env.PROJECT }}"
-          
+
           if [ "${{ inputs.environment }}" = "production" ]; then
             echo "namespace=${{ vars.PROD_NAMESPACE || format('{0}-prod', env.PROJECT) }}" >> $GITHUB_OUTPUT
             echo "release=${PREFIX}-prod" >> $GITHUB_OUTPUT
@@ -82,7 +82,7 @@ jobs:
             echo "replicas=${{ vars.STAGING_REPLICAS || '1' }}" >> $GITHUB_OUTPUT
             echo "url=${{ vars.STAGING_URL || format('https://staging.{0}.example.com', env.PROJECT) }}" >> $GITHUB_OUTPUT
           fi
-          
+
           echo "image_tag=sha-${GITHUB_SHA::7}" >> $GITHUB_OUTPUT
 
       - name: Deploy with Helm
@@ -97,7 +97,7 @@ jobs:
           echo "Release:     ${{ steps.config.outputs.release }}"
           echo "Image Tag:   ${{ steps.config.outputs.image_tag }}"
           echo ""
-          
+
           helm upgrade ${{ steps.config.outputs.release }} ${{ env.HELM_CHART }} \
             --install \
             --namespace ${{ steps.config.outputs.namespace }} \
@@ -109,7 +109,7 @@ jobs:
             --set deployment.annotations.timestamp="$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
             --wait \
             --timeout 10m
-          
+
           echo "✅ Helm deployment completed"
 
       - name: Health Check (Polling)
@@ -124,12 +124,12 @@ jobs:
           while [ $ATTEMPT -lt $MAX_ATTEMPTS ]; do
             ATTEMPT=$((ATTEMPT + 1))
             echo "  Health check attempt $ATTEMPT/$MAX_ATTEMPTS"
-            
+
             if kubectl rollout status deployment/${RELEASE} -n ${NS} --timeout=20s 2>/dev/null; then
               echo "✅ Deployment is healthy"
               exit 0
             fi
-            
+
             sleep 10
           done
 
@@ -174,12 +174,12 @@ jobs:
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
           echo ""
           echo "Health or smoke tests failed. Rolling back to previous release..."
-          
+
           helm rollback ${{ steps.config.outputs.release }} \
             --namespace ${{ steps.config.outputs.namespace }} \
             --wait \
             --timeout 5m
-          
+
           echo "✅ Rollback completed successfully"
 
       - name: Notify Slack (Success)

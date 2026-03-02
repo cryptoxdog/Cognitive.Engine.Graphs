@@ -1,5 +1,6 @@
 # tests/test_scoring_extended.py
 """Tests for traversalalias, kge, and candidateproperty C-06 fix."""
+
 from __future__ import annotations
 
 from unittest.mock import MagicMock
@@ -10,8 +11,13 @@ from engine.config.schema import ComputationType
 from engine.scoring.assembler import ScoringAssembler
 
 
-def _dim(*, computation: ComputationType, alias: str | None = None,
-         candidateprop: str | None = None, defaultwhennull: float = 0.0) -> MagicMock:
+def _dim(
+    *,
+    computation: ComputationType,
+    alias: str | None = None,
+    candidateprop: str | None = None,
+    defaultwhennull: float = 0.0,
+) -> MagicMock:
     d = MagicMock()
     d.name = "test"
     d.computation = computation
@@ -43,7 +49,7 @@ def test_traversalalias_default_prop() -> None:
 
 
 def test_traversalalias_no_alias_raises() -> None:
-    with pytest.raises(ValueError, match="requires \'alias\'"):
+    with pytest.raises(ValueError, match="requires 'alias'"):
         _asm()._compile_traversalalias(_dim(computation=ComputationType.TRAVERSALALIAS))
 
 
@@ -58,7 +64,7 @@ def test_kge_candidateprop_only() -> None:
 
 
 def test_kge_no_source_raises() -> None:
-    with pytest.raises(ValueError, match="requires \'alias\' or \'candidateprop\'"):
+    with pytest.raises(ValueError, match="requires 'alias' or 'candidateprop'"):
         _asm()._compile_kge(_dim(computation=ComputationType.KGE))
 
 

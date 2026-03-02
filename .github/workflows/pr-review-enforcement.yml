@@ -43,12 +43,12 @@ jobs:
         id: config
         run: |
           CONFIG=".github/pr_review_config.yaml"
-          
+
           # Set defaults
           WARN=300
           BLOCK=1000
           MAX_FILES=50
-          
+
           # Override from config file if exists
           if [ -f "$CONFIG" ]; then
             if command -v python3 &> /dev/null; then
@@ -57,7 +57,7 @@ jobs:
               MAX_FILES=$(python3 -c "import yaml; c=yaml.safe_load(open('$CONFIG')); print(c.get('size_limits',{}).get('max_files_changed', 50))" 2>/dev/null || echo 50)
             fi
           fi
-          
+
           # Repository variables override everything
           echo "warn=${{ vars.PR_WARN_LINES || '' }}${WARN}" | sed 's/[^0-9].*//' >> $GITHUB_OUTPUT
           echo "block=${{ vars.PR_BLOCK_LINES || '' }}${BLOCK}" | sed 's/[^0-9].*//' >> $GITHUB_OUTPUT
@@ -141,19 +141,19 @@ jobs:
             // Post comment if there are messages
             if (messages.length > 0) {
               const body = messages.join('\n');
-              
+
               // Check if we already commented
               const comments = await github.rest.issues.listComments({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 issue_number: pr.number
               });
-              
-              const botComment = comments.data.find(comment => 
-                comment.user.type === 'Bot' && 
+
+              const botComment = comments.data.find(comment =>
+                comment.user.type === 'Bot' &&
                 comment.body.includes('PR size is')
               );
-              
+
               if (botComment) {
                 // Update existing comment
                 await github.rest.issues.updateComment({
