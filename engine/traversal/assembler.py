@@ -1,4 +1,14 @@
 """
+--- L9_META ---
+l9_schema: 1
+origin: engine-specific
+engine: graph
+layer: [config]
+tags: [traversal, assembler, cypher]
+owner: engine-team
+status: active
+--- /L9_META ---
+
 Traversal assembler: steps → MATCH/OPTIONAL MATCH ordering.
 Compiles declarative traversal steps into Cypher MATCH clauses.
 """

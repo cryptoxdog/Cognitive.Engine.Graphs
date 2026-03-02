@@ -1,4 +1,13 @@
 #!/usr/bin/env python3
+# --- L9_META ---
+# l9_schema: 1
+# origin: domain-specific
+# engine: graph
+# layer: [config]
+# tags: [domains, extractor]
+# owner: domain-team
+# status: active
+# --- /L9_META ---
 """
 domain_extractor.py
 

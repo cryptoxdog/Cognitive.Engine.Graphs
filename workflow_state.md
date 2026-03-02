@@ -4,14 +4,14 @@
 - 6 (Finalize / handoff)
 
 ## Context Summary
-- Added template-tagged audit harness artifacts harvested from planning docs.
-- Introduced repo compliance assets for audit automation and CI visibility.
-- Preserved existing files by creating only missing targets during harvest.
+- GMP-130: L9 Contract Enforcement System implemented (contract_scanner, verify_contracts, pre-commit hooks, contracts.yml, .coderabbit.yaml, CLAUDE.md wiring).
+- Previous: template-tagged audit harness and compliance assets.
 
 ## Active TODO Plan
 1. Wire `make audit` into local/dev workflow.
 2. Decide whether to fail audits on MEDIUM severity.
 3. Decide whether to commit generated `artifacts/` outputs.
+4. Configure branch protection for contract-files, contract-scan, lint, test (optional).
 
 ## Files in Scope
 - `tools/l9_template_manifest.yaml`
@@ -26,6 +26,7 @@
 - YAML parse checks for `tools/l9_template_manifest.yaml`, `tools/audit_rules.yaml`, `.github/workflows/audit.yml` passed.
 
 ## Recent Changes
+- [2026-03-01] [GMP-130] Files: `tools/contract_scanner.py`, `tools/verify_contracts.py`, `.pre-commit-config.yaml`, `.github/workflows/contracts.yml`, `.coderabbit.yaml`, `CLAUDE.md` | Action: L9 Contract Enforcement System — 20 contracts enforced via pre-commit + CI + CodeRabbit | Tests: verify_contracts ✅, contract_scanner ✅, py_compile ✅
 - [2026-03-01] [PHASE 2->6] Files: `tools/l9_template_manifest.yaml`, `tools/audit_rules.yaml`, `tools/audit_engine.py`, `scripts/audit.sh`, `.github/workflows/audit.yml` | Action: Harvested new template-tagged audit harness files via sed-only workflow; no rewrites | Tests: syntax and YAML parse pass
 - [2026-03-01] [PHASE 6] Files: `workflow_state.md` | Action: Initialized workflow state tracking for current run | Tests: not run
 
@@ -43,4 +44,5 @@
 3. Iterate rules for repo-specific false positives.
 
 ## Recent Sessions (7-day window)
+- 2026-03-01: GMP-130 — L9 Contract Enforcement System (contract_scanner, verify_contracts, pre-commit, contracts.yml, .coderabbit.yaml).
 - ✅ 2026-03-01: Harvested template-tagged audit harness files and validated syntax/YAML; initialized workflow state.

@@ -1,4 +1,14 @@
 """
+--- L9_META ---
+l9_schema: 1
+origin: engine-specific
+engine: graph
+layer: [config]
+tags: [utils, safe-eval]
+owner: engine-team
+status: active
+--- /L9_META ---
+
 engine/utils/safe_eval.py
 AST-whitelist expression evaluator. Replaces eval() for derived parameters
 and unit conversion formulas.

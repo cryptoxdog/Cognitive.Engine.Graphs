@@ -1,3 +1,13 @@
+<!-- L9_META
+l9_schema: 1
+origin: domain-specific
+engine: graph
+layer: [test]
+tags: [domains, testing, guide]
+owner: domain-team
+status: active
+/L9_META -->
+
 # domains/TESTING_GUIDE.md
 """
 L9 Domains - Testing Guide

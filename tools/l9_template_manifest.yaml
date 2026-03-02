@@ -1,3 +1,12 @@
+# --- L9_META ---
+# l9_schema: 1
+# origin: l9-template
+# engine: graph
+# layer: [meta]
+# tags: [L9_TEMPLATE, meta, manifest]
+# owner: platform
+# status: active
+# --- /L9_META ---
 l9_template:
   enabled: true
   tag: "L9_TEMPLATE"
@@ -11,12 +20,18 @@ l9_template:
     repo-agnostic guardrails and an automated audit harness.
 
 files:
+  # --- Agent rules ---
   - path: ".cursorrules"
-    required: true
+    required: false
     tags: ["L9_TEMPLATE", "agent-rules", "cursor"]
   - path: "CLAUDE.md"
     required: true
     tags: ["L9_TEMPLATE", "agent-rules", "claude"]
+  - path: ".github/copilot-instructions.md"
+    required: false
+    tags: ["L9_TEMPLATE", "agent-rules", "copilot"]
+
+  # --- Audit / meta tools ---
   - path: "tools/audit_engine.py"
     required: true
     tags: ["L9_TEMPLATE", "audit", "compliance"]
@@ -28,13 +43,174 @@ files:
     tags: ["L9_TEMPLATE", "audit", "spec-coverage"]
   - path: "tools/l9_template_manifest.yaml"
     required: true
-    tags: ["L9_TEMPLATE", "meta"]
+    tags: ["L9_TEMPLATE", "meta", "manifest"]
+  - path: "tools/l9_meta_injector.py"
+    required: false
+    tags: ["L9_TEMPLATE", "meta", "injector"]
+
+  # --- CI/CD workflows ---
   - path: ".github/workflows/audit.yml"
     required: false
-    tags: ["L9_TEMPLATE", "ci"]
+    tags: ["L9_TEMPLATE", "ci", "audit"]
+  - path: ".github/workflows/ci.yml"
+    required: false
+    tags: ["L9_TEMPLATE", "ci", "pipeline"]
+  - path: ".github/workflows/compliance.yml"
+    required: false
+    tags: ["L9_TEMPLATE", "ci", "compliance"]
+  - path: ".github/workflows/docker-build.yml"
+    required: false
+    tags: ["L9_TEMPLATE", "ci", "docker"]
+  - path: ".github/workflows/k8s-deploy.yml"
+    required: false
+    tags: ["L9_TEMPLATE", "ci", "deploy"]
+  - path: ".github/workflows/supply-chain.yml"
+    required: false
+    tags: ["L9_TEMPLATE", "ci", "security"]
+  - path: ".github/workflows/codeql.yml"
+    required: false
+    tags: ["L9_TEMPLATE", "ci", "security"]
+  - path: ".github/workflows/pr-review-enforcement.yml"
+    required: false
+    tags: ["L9_TEMPLATE", "ci", "governance"]
+  - path: ".github/workflows/terminology-guard.yml"
+    required: false
+    tags: ["L9_TEMPLATE", "ci", "terminology"]
+  - path: ".github/workflows/release-drafter.yml"
+    required: false
+    tags: ["L9_TEMPLATE", "ci", "release"]
+  - path: ".github/workflows/docs-code-sync.yml"
+    required: false
+    tags: ["L9_TEMPLATE", "ci", "docs-sync"]
+  - path: ".github/workflows/refactoring-validation.yml"
+    required: false
+    tags: ["L9_TEMPLATE", "ci", "refactoring"]
+  - path: ".github/workflows/dev-layer-gmp.yml"
+    required: false
+    tags: ["L9_TEMPLATE", "ci", "dev-layer"]
+  - path: ".github/workflows/auto-fix-adr.yml"
+    required: false
+    tags: ["L9_TEMPLATE", "ci", "adr"]
+
+  # --- Governance ---
+  - path: ".github/CODEOWNERS"
+    required: false
+    tags: ["L9_TEMPLATE", "governance", "ownership"]
+  - path: ".github/pr_review_config.yaml"
+    required: false
+    tags: ["L9_TEMPLATE", "governance", "pr-review"]
+  - path: ".github/dependabot.yml"
+    required: false
+    tags: ["L9_TEMPLATE", "security", "deps"]
+  - path: ".github/scripts/setup-repo-vars.sh"
+    required: false
+    tags: ["L9_TEMPLATE", "bootstrap", "setup"]
   - path: ".pre-commit-config.yaml"
     required: false
     tags: ["L9_TEMPLATE", "precommit"]
   - path: ".coderabbit.yaml"
     required: false
     tags: ["L9_TEMPLATE", "pr-review"]
+
+  # --- Config / bootstrap ---
+  - path: ".suite6-config.json"
+    required: false
+    tags: ["L9_TEMPLATE", "config", "suite6"]
+  - path: "setup-new-workspace.yaml"
+    required: false
+    tags: ["L9_TEMPLATE", "bootstrap", "workspace"]
+  - path: "UniversalDevelopmentPack.yaml"
+    required: false
+    tags: ["L9_TEMPLATE", "dev-pack", "standards"]
+  - path: ".env.template"
+    required: false
+    tags: ["L9_TEMPLATE", "config", "env"]
+  - path: ".github/env.template"
+    required: false
+    tags: ["L9_TEMPLATE", "config", "env"]
+
+  # --- Docker / build ---
+  - path: "Dockerfile"
+    required: false
+    tags: ["L9_TEMPLATE", "docker", "dev"]
+  - path: "Dockerfile.prod"
+    required: false
+    tags: ["L9_TEMPLATE", "docker", "prod"]
+  - path: "docker-compose.yml"
+    required: false
+    tags: ["L9_TEMPLATE", "docker", "dev"]
+  - path: "docker-compose.prod.yml"
+    required: false
+    tags: ["L9_TEMPLATE", "docker", "prod"]
+  - path: "entrypoint.sh"
+    required: false
+    tags: ["L9_TEMPLATE", "docker", "entrypoint"]
+  - path: "Makefile"
+    required: false
+    tags: ["L9_TEMPLATE", "build", "commands"]
+
+  # --- Telemetry ---
+  - path: "telemetry/dashboards/dashboards-docker-compose.monitoring.yml"
+    required: false
+    tags: ["L9_TEMPLATE", "telemetry", "docker"]
+  - path: "telemetry/dashboards/dashboards-grafana-overview.json"
+    required: false
+    tags: ["L9_TEMPLATE", "telemetry", "grafana"]
+  - path: "telemetry/dashboards/dashboards-grafana-api.json"
+    required: false
+    tags: ["L9_TEMPLATE", "telemetry", "grafana"]
+  - path: "telemetry/dashboards/dashboards-grafana-neo4j.json"
+    required: false
+    tags: ["L9_TEMPLATE", "telemetry", "grafana"]
+  - path: "telemetry/dashboards/dashboards-grafana-provisioning-dashboards.yml"
+    required: false
+    tags: ["L9_TEMPLATE", "telemetry", "grafana"]
+  - path: "telemetry/dashboards/dashboards-grafana-provisioning-datasources.yml"
+    required: false
+    tags: ["L9_TEMPLATE", "telemetry", "grafana"]
+  - path: "telemetry/dashboards/dashboards-prometheus.yml"
+    required: false
+    tags: ["L9_TEMPLATE", "telemetry", "prometheus"]
+
+  # --- Scripts ---
+  - path: "scripts/scripts-build.sh"
+    required: false
+    tags: ["L9_TEMPLATE", "scripts", "build"]
+  - path: "scripts/scripts-deploy.sh"
+    required: false
+    tags: ["L9_TEMPLATE", "scripts", "deploy"]
+  - path: "scripts/scripts-dev.sh"
+    required: false
+    tags: ["L9_TEMPLATE", "scripts", "dev"]
+  - path: "scripts/scripts-health.sh"
+    required: false
+    tags: ["L9_TEMPLATE", "scripts", "health"]
+  - path: "scripts/scripts-migrate.sh"
+    required: false
+    tags: ["L9_TEMPLATE", "scripts", "migration"]
+  - path: "scripts/scripts-seed.sh"
+    required: false
+    tags: ["L9_TEMPLATE", "scripts", "seed"]
+  - path: "scripts/scripts-setup.sh"
+    required: false
+    tags: ["L9_TEMPLATE", "scripts", "setup"]
+  - path: "scripts/scripts-test.sh"
+    required: false
+    tags: ["L9_TEMPLATE", "scripts", "test"]
+  - path: "scripts/scripts-gds-trigger.sh"
+    required: false
+    tags: ["L9_TEMPLATE", "scripts", "gds"]
+  - path: "scripts/entrypoint.sh"
+    required: false
+    tags: ["L9_TEMPLATE", "scripts", "entrypoint"]
+  - path: "scripts/audit.sh"
+    required: false
+    tags: ["L9_TEMPLATE", "scripts", "audit"]
+  - path: "scripts/README.md"
+    required: false
+    tags: ["L9_TEMPLATE", "scripts", "docs"]
+
+  # --- Test harness ---
+  - path: "tests/conftest.py"
+    required: false
+    tags: ["L9_TEMPLATE", "test", "fixtures"]

@@ -1,3 +1,13 @@
+<!-- L9_META
+l9_schema: 1
+origin: l9-template
+engine: graph
+layer: [agent-rules]
+tags: [L9_TEMPLATE, agent-rules, claude]
+owner: platform
+status: active
+/L9_META -->
+
 # CLAUDE.md — L9 Graph Engine Project Context
 
 ## What This Project Is
@@ -118,6 +128,29 @@ from engine.packet.packet_envelope import PacketEnvelope, PacketMetadata
 ## Imports to Reference (Not Duplicate)
 @docs/L9_Platform_Architecture.md — Chassis contract, universal envelope, action handler signature  
 @docs/L9_AI_Constellation_Infrastructure_Reference.md — PacketEnvelope schema, memory substrate, observability
+
+## Contracts
+Read these before writing engine code. Enforced by tools/contract_scanner.py and tools/verify_contracts.py.
+- docs/contracts/FIELD_NAMES.md
+- docs/contracts/METHOD_SIGNATURES.md
+- docs/contracts/CYPHER_SAFETY.md
+- docs/contracts/BANNED_PATTERNS.md
+- docs/contracts/ERROR_HANDLING.md
+- docs/contracts/HANDLER_PAYLOADS.md
+- docs/contracts/PYDANTIC_YAML_MAPPING.md
+- docs/contracts/DEPENDENCY_INJECTION.md
+- docs/contracts/TEST_PATTERNS.md
+- docs/contracts/RETURN_VALUES.md
+- docs/contracts/PACKET_ENVELOPE_FIELDS.md
+- docs/contracts/DELEGATION_PROTOCOL.md
+- docs/contracts/PACKET_TYPE_REGISTRY.md
+- docs/contracts/DOMAIN_SPEC_VERSIONING.md
+- docs/contracts/FEEDBACK_LOOPS.md
+- docs/contracts/NODE_REGISTRATION.md
+- docs/contracts/ENV_VARS.md
+- docs/contracts/OBSERVABILITY.md
+- docs/contracts/MEMORY_SUBSTRATE_ACCESS.md
+- docs/contracts/SHARED_MODELS.md
 
 ## Testing Patterns
 - **Unit tests**: Pure functions (gate compilation, scoring math, parameter resolution). No Neo4j.

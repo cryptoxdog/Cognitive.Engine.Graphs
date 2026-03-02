@@ -1,4 +1,13 @@
 #!/bin/sh
+# --- L9_META ---
+# l9_schema: 1
+# origin: l9-template
+# engine: graph
+# layer: [scripts]
+# tags: [L9_TEMPLATE, scripts, entrypoint]
+# owner: platform
+# status: active
+# --- /L9_META ---
 # ─────────────────────────────────────────────────────────────
 # L9 Graph Cognitive Engine — Container Entrypoint
 # ─────────────────────────────────────────────────────────────

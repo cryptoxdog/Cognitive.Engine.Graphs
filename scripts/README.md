@@ -1,3 +1,13 @@
+<!-- L9_META
+l9_schema: 1
+origin: l9-template
+engine: graph
+layer: [scripts]
+tags: [L9_TEMPLATE, scripts, docs]
+owner: platform
+status: active
+/L9_META -->
+
 # L9 Scripts & Dashboards
 
 ## Scripts

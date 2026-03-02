@@ -1,4 +1,14 @@
 """
+--- L9_META ---
+l9_schema: 1
+origin: engine-specific
+engine: graph
+layer: [config]
+tags: [chassis, actions]
+owner: engine-team
+status: active
+--- /L9_META ---
+
 chassis/actions.py
 Chassis integration: inflate requests, call engine handlers, deflate responses.
 """

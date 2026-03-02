@@ -1,3 +1,13 @@
+<!-- L9_META
+l9_schema: 1
+origin: domain-specific
+engine: graph
+layer: [config]
+tags: [domains, docs]
+owner: domain-team
+status: active
+/L9_META -->
+
 # domains/README.md
 """
 L9 Graph Cognitive Engine - Domain Pack Repository

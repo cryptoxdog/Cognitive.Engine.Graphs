@@ -1,4 +1,14 @@
 """
+--- L9_META ---
+l9_schema: 1
+origin: engine-specific
+engine: graph
+layer: [config]
+tags: [gds, scheduler, louvain]
+owner: engine-team
+status: active
+--- /L9_META ---
+
 engine/gds/scheduler.py
 APScheduler-based background job execution for graph algorithms.
 Manages Louvain community detection, co-occurrence, reinforcement

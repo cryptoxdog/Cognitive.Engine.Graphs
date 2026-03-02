@@ -1,4 +1,19 @@
 {
+  "_l9_meta": {
+    "l9_schema": 1,
+    "origin": "l9-template",
+    "engine": "graph",
+    "layer": [
+      "telemetry"
+    ],
+    "tags": [
+      "L9_TEMPLATE",
+      "telemetry",
+      "grafana"
+    ],
+    "owner": "platform",
+    "status": "active"
+  },
   "dashboard": {
     "id": null,
     "uid": "l9-api",

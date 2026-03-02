@@ -1,3 +1,12 @@
+# --- L9_META ---
+# l9_schema: 1
+# origin: l9-template
+# engine: graph
+# layer: [docker]
+# tags: [L9_TEMPLATE, docker, dev]
+# owner: platform
+# status: active
+# --- /L9_META ---
 # ─────────────────────────────────────────────────────────────
 # L9 Graph Cognitive Engine — Multi-stage Dockerfile
 # Stage 1: deps    — install Python packages

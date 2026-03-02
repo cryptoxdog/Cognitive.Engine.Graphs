@@ -1,3 +1,12 @@
+# --- L9_META ---
+# l9_schema: 1
+# origin: engine-specific
+# engine: graph
+# layer: [config]
+# tags: [engine-core]
+# owner: engine-team
+# status: active
+# --- /L9_META ---
 # engine/__init__.py
 """
 L9 Graph Cognitive Matching Engine

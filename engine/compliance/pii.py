@@ -1,4 +1,14 @@
 """
+--- L9_META ---
+l9_schema: 1
+origin: engine-specific
+engine: graph
+layer: [config]
+tags: [compliance, pii]
+owner: engine-team
+status: active
+--- /L9_META ---
+
 engine/compliance/pii.py
 PII detection, masking, and GDPR data subject operations.
 Integrates with PacketEnvelope.security.pii_fields.

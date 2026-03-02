@@ -1,4 +1,14 @@
 """
+--- L9_META ---
+l9_schema: 1
+origin: engine-specific
+engine: graph
+layer: [config]
+tags: [compliance, audit]
+owner: engine-team
+status: active
+--- /L9_META ---
+
 engine/compliance/audit.py
 Structured audit logging for compliance (SOC2, HIPAA, GDPR).
 Integrates with PacketEnvelope governance fields and external SIEM.

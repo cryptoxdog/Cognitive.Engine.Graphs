@@ -1,3 +1,12 @@
+# --- L9_META ---
+# l9_schema: 1
+# origin: engine-specific
+# engine: graph
+# layer: [config]
+# tags: [config, pydantic, domain-spec]
+# owner: engine-team
+# status: active
+# --- /L9_META ---
 # engine/config/schema.py
 """
 Pydantic schema models for domain pack validation.

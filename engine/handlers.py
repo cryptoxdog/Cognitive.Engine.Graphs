@@ -1,4 +1,14 @@
 """
+--- L9_META ---
+l9_schema: 1
+origin: engine-specific
+engine: graph
+layer: [config]
+tags: [chassis-bridge, handlers]
+owner: engine-team
+status: active
+--- /L9_META ---
+
 engine/handlers.py
 Action handlers for L9 chassis integration.
 

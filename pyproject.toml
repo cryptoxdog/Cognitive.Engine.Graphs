@@ -79,3 +79,12 @@ python_version = "3.11"
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = true
+
+[tool.l9_meta]
+l9_schema = 1
+origin = "engine-specific"
+engine = "graph"
+layer = ["build", "config"]
+tags = ["build", "dependencies", "poetry"]
+owner = "engine-team"
+status = "active"

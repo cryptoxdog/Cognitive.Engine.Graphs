@@ -1,4 +1,14 @@
 """
+--- L9_META ---
+l9_schema: 1
+origin: engine-specific
+engine: graph
+layer: [config]
+tags: [gates, compiler, cypher]
+owner: engine-team
+status: active
+--- /L9_META ---
+
 engine/gates/compiler.py
 Compile gate definitions from domain spec YAML into executable Cypher WHERE clauses.
 Handles all 10 gate types, null semantics, role exemptions, and direction filtering.

@@ -1,4 +1,14 @@
 """
+--- L9_META ---
+l9_schema: 1
+origin: l9-template
+engine: graph
+layer: [test]
+tags: [L9_TEMPLATE, test, fixtures]
+owner: platform
+status: active
+--- /L9_META ---
+
 tests/conftest.py — Shared fixtures for the L9 Graph Cognitive Engine test suite.
 Provides Neo4j testcontainer, async driver, domain spec loading, tenant injection,
 seeded graph data, and cleanup orchestration.

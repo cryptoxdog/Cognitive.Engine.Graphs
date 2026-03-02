@@ -1,3 +1,12 @@
+# --- L9_META ---
+# l9_schema: 1
+# origin: l9-template
+# engine: graph
+# layer: [governance]
+# tags: [L9_TEMPLATE, precommit]
+# owner: platform
+# status: active
+# --- /L9_META ---
 # Pre-commit hooks — mechanical enforcement before commit
 # Install: pre-commit install
 # Run manually: pre-commit run --all-files
@@ -36,6 +45,22 @@ repos:
         entry: bash -c 'files=$(git diff --cached --name-only | grep "\.py$"); [ -z "$files" ] && exit 0; if command -v rg >/dev/null 2>&1; then echo "$files" | xargs rg -P "f\".*MATCH.*\(.*:\{(?!sanitize_label)" 2>/dev/null | grep -v "test" | grep -q . && { echo "ERROR: Cypher label interpolation without sanitize_label()"; exit 1; }; elif grep -P --version >/dev/null 2>&1; then echo "$files" | xargs grep -P "f\".*MATCH.*\(.*:\{(?!sanitize_label)" 2>/dev/null | grep -v "test" | grep -q . && { echo "ERROR: Cypher label interpolation without sanitize_label()"; exit 1; }; fi'
         language: system
         pass_filenames: false
+
+  # L9 contract enforcement (20 contracts)
+  - repo: local
+    hooks:
+      - id: l9-contract-scan
+        name: L9 Contract Violation Scanner
+        entry: python tools/contract_scanner.py
+        language: python
+        types: [python]
+        pass_filenames: true
+      - id: l9-contract-files-exist
+        name: L9 Contract Files Existence Check
+        entry: python tools/verify_contracts.py
+        language: python
+        pass_filenames: false
+        always_run: true
   
   # YAML validation
   - repo: https://github.com/pre-commit/pre-commit-hooks

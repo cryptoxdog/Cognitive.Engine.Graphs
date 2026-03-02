@@ -1,3 +1,12 @@
+# --- L9_META ---
+# l9_schema: 1
+# origin: l9-template
+# engine: graph
+# layer: [bootstrap]
+# tags: [L9_TEMPLATE, dev-pack, standards]
+# owner: platform
+# status: active
+# --- /L9_META ---
 ---
 title: "Universal Development Pack"
 purpose: "Universal loader pack extracted from UNIFIED_PROMPT_TOOLKIT golden morsels"

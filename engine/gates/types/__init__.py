@@ -1,3 +1,12 @@
+# --- L9_META ---
+# l9_schema: 1
+# origin: engine-specific
+# engine: graph
+# layer: [config]
+# tags: [gates, types]
+# owner: engine-team
+# status: active
+# --- /L9_META ---
 # engine/gates/types/__init__.py
 """Gate type implementations."""
 
