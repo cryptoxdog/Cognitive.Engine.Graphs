@@ -1,6 +1,5 @@
-#
-!/bin/sh
---- L9_META ---
+#!/bin/sh
+# --- L9_META ---
 l9_schema: 1
 origin: l9-template
 engine: graph
@@ -26,7 +25,7 @@ for i in $(seq 1 30); do
 from neo4j import GraphDatabase
 import os
 uri = os.getenv('NEO4J_URI', 'bolt://neo4j:7687')
-user = os.getenv('NEO4J_USER', 'neo4j')
+user = os.getenv('NEO4J_USERNAME', 'neo4j')
 pw = os.getenv('NEO4J_PASSWORD', 'password')
 d = GraphDatabase.driver(uri, auth=(user, pw))
 d.verify_connectivity()

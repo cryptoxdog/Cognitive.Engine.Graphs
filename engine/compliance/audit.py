@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import threading
 import uuid
 from collections.abc import Sequence
 from datetime import UTC, datetime
@@ -133,6 +134,7 @@ class AuditLogger:
         self._buffer: list[AuditEntry] = []
         self._buffer_size = buffer_size
         self._buffer_lock = asyncio.Lock()
+        self._sync_lock = threading.Lock()
         self._log = logging.getLogger("l9.audit")
 
     # ── Public Logging Methods ─────────────────────────────
@@ -377,10 +379,12 @@ class AuditLogger:
             "audit_event",
             extra={"audit": log_data},
         )
-        # Use synchronous buffer append with try/finally for safety
-        # Note: For high-concurrency scenarios, use emit_async() instead
-        self._buffer.append(entry)
-        if len(self._buffer) >= self._buffer_size:
+        # Use synchronous lock for thread safety in non-async contexts
+        # For async contexts, use emit_async() instead
+        with self._sync_lock:
+            self._buffer.append(entry)
+            buffer_full = len(self._buffer) >= self._buffer_size
+        if buffer_full:
             logger.debug(f"Audit buffer full ({self._buffer_size}), ready for flush")
         return entry
 

@@ -149,5 +149,6 @@ def create_app() -> FastAPI:
     return application
 
 
-# Module-level app instance for uvicorn
-app = create_app()
+# NOTE: No module-level app instance. Use --factory flag with uvicorn:
+#   uvicorn engine.api.app:create_app --factory
+# This ensures lifespan context manager runs exactly once at startup.

@@ -29,16 +29,13 @@ class ComplianceEngine:
         self._prohibited = ProhibitedFactorValidator(domain_spec)
         self._pii = PIIHandler()  # Uses default PII field hints
         self._audit = AuditLogger()  # Uses default retention policies
-        self._enabled = bool(
-            domain_spec.compliance
-            and any(
-                [
-                    domain_spec.compliance.prohibitedfactors and domain_spec.compliance.prohibitedfactors.enabled,
-                    domain_spec.compliance.pii and domain_spec.compliance.pii.enabled,
-                    domain_spec.compliance.audit and domain_spec.compliance.audit.enabled,
-                ]
-            )
-        )
+
+        # Default to enabled for SOC2/HIPAA compliance.
+        # Only disable if domain_spec.compliance.enabled is explicitly False.
+        self._enabled = True
+        if domain_spec.compliance and hasattr(domain_spec.compliance, "enabled"):
+            if domain_spec.compliance.enabled is False:
+                self._enabled = False
 
     @property
     def enabled(self) -> bool:
