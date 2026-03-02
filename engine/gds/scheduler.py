@@ -51,6 +51,20 @@ class GDSScheduler:
         self.scheduler = AsyncIOScheduler()
         self._job_history: list[dict] = []
 
+    @staticmethod
+    def _get_job_parameter(job_spec: GDSJobSpec, param_name: str, default: float) -> float:
+        """Extract a numeric parameter from job_spec.writeproperties."""
+        if not job_spec.writeproperties:
+            return default
+        for prop in job_spec.writeproperties:
+            if param_name in prop:
+                try:
+                    return float(prop[param_name])
+                except (ValueError, TypeError):
+                    logger.warning(f"Invalid {param_name} in job {job_spec.name}, using default")
+                    return default
+        return default
+
     def register_jobs(self) -> None:
         """Register all GDS jobs from domain spec."""
         for job_spec in self.domain_spec.gdsjobs:
@@ -328,8 +342,10 @@ class GDSScheduler:
     async def _run_geoproximity(self, job_spec: GDSJobSpec) -> dict:
         """Build COLOCATED_WITH edges based on haversine distance."""
         db = self.domain_spec.domain.id
-        max_km = 500
-        decay_km = 200
+
+        # Get configurable parameters from job_spec.writeproperties
+        max_km = self._get_job_parameter(job_spec, "max_km", 500.0)
+        decay_km = self._get_job_parameter(job_spec, "decay_km", 200.0)
 
         # Use directional MERGE to avoid duplicate edges
         cypher = f"""

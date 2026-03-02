@@ -15,7 +15,7 @@ from engine.compliance.pii import PIIHandler
 from engine.compliance.prohibited_factors import ProhibitedFactorValidator
 
 if TYPE_CHECKING:
-    from engine.config.schema import DomainSpec, GateSpec
+    from engine.config.schema import DomainSpec, GateSpec, SyncEndpointSpec
 
 logger = logging.getLogger(__name__)
 
@@ -23,8 +23,9 @@ logger = logging.getLogger(__name__)
 class ComplianceEngine:
     """Orchestrates all compliance checks for a domain."""
 
-    def __init__(self, domain_spec: DomainSpec) -> None:
+    def __init__(self, domain_spec: DomainSpec, db_pool: Any | None = None) -> None:
         self._spec = domain_spec
+        self._db_pool = db_pool
         self._prohibited = ProhibitedFactorValidator(domain_spec)
         self._pii = PIIHandler()  # Uses default PII field hints
         self._audit = AuditLogger()  # Uses default retention policies
@@ -43,6 +44,17 @@ class ComplianceEngine:
     def enabled(self) -> bool:
         return self._enabled
 
+    async def flush_audit(self) -> int:
+        """Flush audit buffer to persistent storage.
+
+        Returns:
+            Number of entries persisted.
+        """
+        if self._db_pool is None:
+            logger.warning("No db_pool configured, cannot flush audit entries")
+            return 0
+        return await self._audit.flush_to_store(self._db_pool)
+
     def validate_gates(self, gates: list[GateSpec]) -> None:
         """Validate all gates against prohibited factors at compile time.
 
@@ -51,6 +63,33 @@ class ComplianceEngine:
         """
         for gate in gates:
             self._prohibited.validate_gate(gate)
+
+    def validate_sync_fields(self, endpoint_spec: SyncEndpointSpec) -> None:
+        """Validate sync endpoint field mappings against prohibited factors.
+
+        Raises:
+            ValueError: If endpoint maps to a prohibited field.
+        """
+        if not self._prohibited.blocked_fields:
+            return
+
+        # Check fieldsupdated list (PATCH operations)
+        if endpoint_spec.fieldsupdated:
+            for field in endpoint_spec.fieldsupdated:
+                if field in self._prohibited.blocked_fields:
+                    msg = (
+                        f"Sync endpoint '{endpoint_spec.path}' updates prohibited "
+                        f"field '{field}'. Blocked fields: {self._prohibited.blocked_fields}"
+                    )
+                    raise ValueError(msg)
+
+        # Check idproperty
+        if endpoint_spec.idproperty and endpoint_spec.idproperty in self._prohibited.blocked_fields:
+            msg = (
+                f"Sync endpoint '{endpoint_spec.path}' uses prohibited "
+                f"idproperty '{endpoint_spec.idproperty}'. Blocked fields: {self._prohibited.blocked_fields}"
+            )
+            raise ValueError(msg)
 
     def check_match_request(
         self,
@@ -78,15 +117,43 @@ class ComplianceEngine:
         *,
         tenant: str,
         entity_type: str,
-        batch_size: int,
+        batch: list[dict[str, Any]],
         trace_id: str | None = None,
+        endpoint_spec: SyncEndpointSpec | None = None,
     ) -> None:
-        """Audit sync operations."""
+        """Audit sync operations and validate against prohibited factors."""
+        # Validate endpoint spec if provided
+        if endpoint_spec:
+            self.validate_sync_fields(endpoint_spec)
+
+        # Check batch data for prohibited fields
+        for item in batch:
+            if self._prohibited.blocked_fields:
+                for field_name in item:
+                    if field_name in self._prohibited.blocked_fields:
+                        msg = (
+                            f"Sync batch contains prohibited field '{field_name}'. "
+                            f"Blocked fields: {self._prohibited.blocked_fields}"
+                        )
+                        raise ValueError(msg)
+
+            # Detect and log PII access
+            pii_fields = self._pii.get_pii_field_paths(item)
+            if pii_fields:
+                self._audit.log_access(
+                    actor=tenant,
+                    tenant=tenant,
+                    resource=f"{entity_type}:{item.get('entity_id', 'unknown')}",
+                    resource_type=entity_type,
+                    trace_id=trace_id,
+                )
+
+        # Log the sync operation
         self._audit.log_mutation(
             actor=tenant,
             tenant=tenant,
             resource=entity_type,
-            detail=f"Sync {entity_type} batch_size={batch_size}",
+            detail=f"Sync {entity_type} batch_size={len(batch)}",
             trace_id=trace_id,
         )
 

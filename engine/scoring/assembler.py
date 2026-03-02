@@ -9,6 +9,7 @@ from __future__ import annotations
 import logging
 
 from engine.config.schema import ComputationType, DomainSpec, ScoringDimensionSpec
+from engine.utils.security import sanitize_label
 
 logger = logging.getLogger(__name__)
 
@@ -73,7 +74,7 @@ class ScoringAssembler:
 
     def _compile_geodecay(self, dim: ScoringDimensionSpec) -> str:
         k = dim.decayconstant or 50000.0
-        lat_prop = dim.candidateprop or "lat"
+        lat_prop = sanitize_label(dim.candidateprop or "lat")
         return (
             f"1.0 / (1.0 + point.distance("
             f"point({{latitude: candidate.{lat_prop}, longitude: candidate.lon}}),"
@@ -83,31 +84,36 @@ class ScoringAssembler:
 
     def _compile_lognormalized(self, dim: ScoringDimensionSpec) -> str:
         max_val = dim.maxvalue or 1000.0
-        return f"log(1 + coalesce(candidate.{dim.candidateprop}, 0)) / log(1 + {max_val})"
+        prop = sanitize_label(dim.candidateprop or "value")
+        return f"log(1 + coalesce(candidate.{prop}, 0)) / log(1 + {max_val})"
 
     def _compile_communitymatch(self, dim: ScoringDimensionSpec) -> str:
         bias = dim.bias or 1.5
-        return f"CASE WHEN candidate.{dim.candidateprop} = $query.{dim.queryprop} THEN {bias} ELSE 1.0 END"
+        cand_prop = sanitize_label(dim.candidateprop or "community")
+        query_prop = sanitize_label(dim.queryprop or "community")
+        return f"CASE WHEN candidate.{cand_prop} = $query.{query_prop} THEN {bias} ELSE 1.0 END"
 
     def _compile_inverselinear(self, dim: ScoringDimensionSpec) -> str:
         min_val = dim.minvalue or 0.0
         max_val = dim.maxvalue or 100.0
-        return f"1.0 - (coalesce(candidate.{dim.candidateprop}, {max_val}) - {min_val}) / ({max_val} - {min_val})"
+        prop = sanitize_label(dim.candidateprop or "value")
+        return f"1.0 - (coalesce(candidate.{prop}, {max_val}) - {min_val}) / ({max_val} - {min_val})"
 
     def _compile_candidateproperty(self, dim: ScoringDimensionSpec) -> str:
         """C-06 FIX: defaultwhennull emitted as validated numeric literal."""
         default = float(dim.defaultwhennull)
-        return f"coalesce(candidate.{dim.candidateprop}, {default})"
+        prop = sanitize_label(dim.candidateprop or "value")
+        return f"coalesce(candidate.{prop}, {default})"
 
     def _compile_weightedrate(self, dim: ScoringDimensionSpec) -> str:
-        rate_prop = dim.candidateprop or "rate"
-        confidence_prop = dim.queryprop or "confidence"
+        rate_prop = sanitize_label(dim.candidateprop or "rate")
+        confidence_prop = sanitize_label(dim.queryprop or "confidence")
         default = float(dim.defaultwhennull)
         return f"coalesce(candidate.{rate_prop}, {default}) * coalesce(candidate.{confidence_prop}, 1.0)"
 
     def _compile_pricealignment(self, dim: ScoringDimensionSpec) -> str:
-        cand_prop = dim.candidateprop or "price_per_unit"
-        query_prop = dim.queryprop or "target_price"
+        cand_prop = sanitize_label(dim.candidateprop or "price_per_unit")
+        query_prop = sanitize_label(dim.queryprop or "target_price")
         max_spread = dim.maxvalue or 1.0
         default = float(dim.defaultwhennull)
         return (
@@ -116,7 +122,7 @@ class ScoringAssembler:
         )
 
     def _compile_temporalproximity(self, dim: ScoringDimensionSpec) -> str:
-        date_prop = dim.candidateprop or "last_transaction_date"
+        date_prop = sanitize_label(dim.candidateprop or "last_transaction_date")
         decay_constant = dim.maxvalue or 90.0
         default = float(dim.defaultwhennull)
         return (
@@ -129,18 +135,21 @@ class ScoringAssembler:
         """Read a property from a traversal step alias."""
         if not dim.alias:
             raise ValueError(f"Dimension '{dim.name}': traversalalias requires 'alias' field")
-        prop = dim.candidateprop or "score"
+        alias = sanitize_label(dim.alias)
+        prop = sanitize_label(dim.candidateprop or "score")
         default = float(dim.defaultwhennull)
-        return f"coalesce({dim.alias}.{prop}, {default})"
+        return f"coalesce({alias}.{prop}, {default})"
 
     def _compile_kge(self, dim: ScoringDimensionSpec) -> str:
         """KGE embedding similarity score (CompoundE3D)."""
         default = float(dim.defaultwhennull)
         if dim.alias:
-            prop = dim.candidateprop or "kge_score"
-            return f"coalesce({dim.alias}.{prop}, {default})"
+            alias = sanitize_label(dim.alias)
+            prop = sanitize_label(dim.candidateprop or "kge_score")
+            return f"coalesce({alias}.{prop}, {default})"
         if dim.candidateprop:
-            return f"coalesce(candidate.{dim.candidateprop}, {default})"
+            prop = sanitize_label(dim.candidateprop)
+            return f"coalesce(candidate.{prop}, {default})"
         raise ValueError(f"Dimension '{dim.name}': kge requires 'alias' or 'candidateprop'")
 
     def _build_score_expression(self, weight_exprs: list[str]) -> str:

@@ -18,6 +18,7 @@ Exports: AuditLogger
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import uuid
 from collections.abc import Sequence
@@ -131,6 +132,7 @@ class AuditLogger:
         self._siem_endpoint = siem_endpoint
         self._buffer: list[AuditEntry] = []
         self._buffer_size = buffer_size
+        self._buffer_lock = asyncio.Lock()
         self._log = logging.getLogger("l9.audit")
 
     # ── Public Logging Methods ─────────────────────────────
@@ -290,6 +292,70 @@ class AuditLogger:
         entries = list(self._buffer)
         self._buffer.clear()
         return entries
+
+    async def flush_to_store(self, db_pool: Any) -> int:
+        """
+        Flush buffered entries to PostgreSQL packet_audit_log.
+
+        Uses batch insert with executemany for O(1) round trips.
+        Thread-safe via asyncio.Lock.
+
+        Args:
+            db_pool: asyncpg connection pool
+
+        Returns:
+            Number of entries persisted
+        """
+        async with self._buffer_lock:
+            entries = list(self._buffer)
+            self._buffer.clear()
+
+        if not entries:
+            return 0
+
+        insert_sql = """
+            INSERT INTO packet_audit_log (
+                audit_id, timestamp, action, severity, actor, tenant,
+                trace_id, resource, resource_type, detail, payload_hash,
+                compliance_tags, pii_fields_accessed, data_subject_id,
+                outcome, metadata
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+        """
+
+        batch_data = [
+            (
+                e.audit_id,
+                e.timestamp,
+                e.action.value,
+                e.severity.value,
+                e.actor,
+                e.tenant,
+                e.trace_id,
+                e.resource,
+                e.resource_type,
+                e.detail,
+                e.payload_hash,
+                e.compliance_tags,
+                e.pii_fields_accessed,
+                e.data_subject_id,
+                e.outcome,
+                e.metadata,
+            )
+            for e in entries
+        ]
+
+        try:
+            async with db_pool.acquire() as conn:
+                await conn.executemany(insert_sql, batch_data)
+        except Exception as e:
+            logger.error(f"Failed to persist audit entries: {e}")
+            async with self._buffer_lock:
+                self._buffer = entries + self._buffer
+            raise
+        else:
+            persisted = len(entries)
+            logger.info(f"Persisted {persisted} audit entries to packet_audit_log")
+            return persisted
 
     @property
     def buffer_count(self) -> int:

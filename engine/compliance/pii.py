@@ -223,43 +223,62 @@ class PIIHandler:
         """
         result = dict(payload)  # shallow copy
 
+        # Always detect PII to get category information
+        detections = self.detect_pii(payload)
+        category_map: dict[str, PIICategory] = {d.field_path: d.category for d in detections}
+
         if fields is None and mask_all_detected:
-            detections = self.detect_pii(payload)
             fields = [d.field_path for d in detections]
 
         if not fields:
             return result
 
         for field_path in fields:
-            self._mask_field_at_path(result, field_path.split("."))
+            category = category_map.get(field_path)
+            self._mask_field_at_path(result, field_path.split("."), category=category)
 
         return result
 
-    def _mask_field_at_path(self, data: dict[str, Any], path_parts: list[str]) -> None:
+    def _mask_field_at_path(
+        self,
+        data: dict[str, Any],
+        path_parts: list[str],
+        category: PIICategory | None = None,
+    ) -> None:
         """Mask a field at a nested path in-place."""
         if len(path_parts) == 1:
             key = path_parts[0]
             if key in data:
-                data[key] = self._mask_value(data[key])
+                data[key] = self._mask_value(data[key], category=category)
             return
 
         key = path_parts[0]
         if key in data and isinstance(data[key], dict):
-            self._mask_field_at_path(data[key], path_parts[1:])
+            self._mask_field_at_path(data[key], path_parts[1:], category=category)
 
-    def _mask_value(self, value: Any) -> str:
-        """Mask a single value."""
+    def _mask_value(self, value: Any, category: PIICategory | None = None) -> str:
+        """Mask a single value based on its PII category."""
         s = str(value)
-        if "@" in s:
-            # Email: show domain hint
-            parts = s.split("@")
-            return (
-                f"{self._mask_char * 3}@{self._mask_char * 3}.{parts[-1].split('.')[-1] if '.' in parts[-1] else 'com'}"
-            )
-        if len(s) >= 9 and s.replace("-", "").replace(" ", "").isdigit():
-            # SSN / account number: mask all but last 4
+
+        # Email: show domain hint
+        if "@" in s or category == PIICategory.EMAIL:
+            if "@" in s:
+                parts = s.split("@")
+                domain_hint = parts[-1].split(".")[-1] if "." in parts[-1] else "com"
+                return f"{self._mask_char * 3}@{self._mask_char * 3}.{domain_hint}"
+
+        # SSN: mask all but last 4 (only when explicitly detected as SSN)
+        if category == PIICategory.SSN:
             clean = s.replace("-", "").replace(" ", "")
-            return f"{self._mask_char * (len(clean) - 4)}{clean[-4:]}"
+            if len(clean) >= 4:
+                return f"{self._mask_char * (len(clean) - 4)}{clean[-4:]}"
+
+        # Financial account: mask all but last 4 (only when explicitly detected)
+        if category == PIICategory.FINANCIAL:
+            clean = s.replace("-", "").replace(" ", "")
+            if clean.isdigit() and len(clean) >= 4:
+                return f"{self._mask_char * (len(clean) - 4)}{clean[-4:]}"
+
         # Generic mask
         if len(s) <= 3:
             return self._mask_char * len(s)

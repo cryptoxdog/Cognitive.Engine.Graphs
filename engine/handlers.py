@@ -393,14 +393,14 @@ async def handle_health(tenant: str, payload: dict[str, Any]) -> dict[str, Any]:
     try:
         await graph_driver.execute_query("RETURN 1 AS ping", database="system")
         checks["neo4j"] = "ok"
-    except Exception as e:
-        checks["neo4j"] = f"error: {type(e).__name__}"
+    except Exception:
+        checks["neo4j"] = "error: connection_failed"
 
     try:
         domain_loader.load_domain(tenant)
         checks["domain_spec"] = "ok"
-    except Exception as e:
-        checks["domain_spec"] = f"error: {type(e).__name__}"
+    except Exception:
+        checks["domain_spec"] = "error: config_invalid"
 
     overall = "healthy" if all(v == "ok" for v in checks.values()) else "degraded"
     return {"status": overall, "checks": checks}

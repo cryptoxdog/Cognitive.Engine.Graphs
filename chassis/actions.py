@@ -20,10 +20,47 @@ import time
 from datetime import UTC, datetime
 from typing import Any
 
-from engine.handlers import handle_admin, handle_match, handle_sync
-from engine.packet.chassis_contract import deflate_egress, inflate_ingress
-
 logger = logging.getLogger(__name__)
+
+# Lazy-loaded engine components (initialized on first use)
+_engine_handlers: dict[str, Any] | None = None
+_inflate_ingress: Any = None
+_deflate_egress: Any = None
+
+
+def _init_engine() -> None:
+    """Lazy-initialize engine handlers and packet functions."""
+    global _engine_handlers, _inflate_ingress, _deflate_egress
+
+    if _engine_handlers is not None:
+        return
+
+    try:
+        from engine.handlers import handle_admin, handle_match, handle_sync
+        from engine.packet.chassis_contract import deflate_egress, inflate_ingress
+
+        _engine_handlers = {
+            "match": handle_match,
+            "sync": handle_sync,
+            "admin": handle_admin,
+        }
+        _inflate_ingress = inflate_ingress
+        _deflate_egress = deflate_egress
+        logger.info("Engine handlers initialized successfully")
+    except ImportError as e:
+        logger.error(f"Failed to import engine handlers: {e}")
+        _engine_handlers = {}
+        raise RuntimeError("Engine initialization failed") from e
+
+
+def _get_engine_error_class() -> type | None:
+    """Get EngineError class if available (for error type checking)."""
+    try:
+        from engine.handlers import EngineError
+    except ImportError:
+        return None
+    else:
+        return EngineError
 
 
 async def execute_action(
@@ -41,10 +78,13 @@ async def execute_action(
     4. Deflate engine response → PacketEnvelope (response)
     5. Return outbound envelope as JSON
     """
+    # Lazy-initialize engine on first call
+    _init_engine()
+
     start_time = time.time()
 
     # Inflate request into PacketEnvelope
-    request_packet = inflate_ingress(
+    request_packet = _inflate_ingress(
         action=action,
         payload=payload,
         tenant=tenant,
@@ -53,27 +93,26 @@ async def execute_action(
     )
 
     # Route to engine handler
-    handler_map = {
-        "match": handle_match,
-        "sync": handle_sync,
-        "admin": handle_admin,
-    }
-    handler = handler_map.get(action)
+    handler = _engine_handlers.get(action) if _engine_handlers else None
     if not handler:
         raise ValueError(f"Unknown action: {action!r}")
 
     # Execute engine logic
+    engine_error_cls = _get_engine_error_class()
     try:
         engine_data = await handler(tenant, payload)
         status = "success"
     except Exception as e:
-        logger.exception(f"Handler {action} failed for tenant={tenant}")
+        if engine_error_cls is not None and isinstance(e, engine_error_cls):
+            logger.warning(f"Engine error in {action}: {e}")
+        else:
+            logger.exception(f"Handler {action} failed for tenant={tenant}")
         engine_data = {"error": str(e)}
         status = "failed"
 
     # Deflate response into PacketEnvelope
     processing_ms = (time.time() - start_time) * 1000
-    _response_packet = deflate_egress(
+    _response_packet = _deflate_egress(
         request=request_packet,
         engine_data=engine_data,
         status=status,
