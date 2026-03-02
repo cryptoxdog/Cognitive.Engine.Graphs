@@ -32,6 +32,7 @@ COPY --from=deps /install /usr/local
 Copy application code
 COPY engine/ /app/engine/
 COPY domains/ /app/domains/
+COPY chassis/ /app/chassis/
 
 Copy entrypoint
 COPY scripts/entrypoint.sh /app/entrypoint.sh

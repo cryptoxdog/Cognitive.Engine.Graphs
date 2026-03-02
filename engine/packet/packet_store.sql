@@ -123,15 +123,25 @@ CREATE TABLE delegation_chain (
 --  AUDIT LOG (append-only, immutable)
 -- ════════════════════════════════════════════════════════════════
 CREATE TABLE packet_audit_log (
-    audit_id    UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    packet_id   UUID NOT NULL,                 -- no FK: survives packet deletion
-    actor_tenant TEXT NOT NULL,
-    action      TEXT NOT NULL,                 -- 'INSERT' | 'READ' | 'DELETE' | 'REDACT'
-    performed_by TEXT NOT NULL,                -- node or user that did it
-    performed_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    detail      JSONB,
-    ip_address  INET,
-    request_trace_id TEXT
+    audit_id            UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    packet_id           UUID,                          -- no FK: survives packet deletion
+    timestamp           TIMESTAMPTZ NOT NULL DEFAULT now(),
+    action              TEXT NOT NULL,                 -- AuditAction enum value
+    severity            TEXT NOT NULL DEFAULT 'info', -- info | warning | critical
+    actor               TEXT NOT NULL,                 -- who performed the action
+    tenant              TEXT NOT NULL,                 -- org isolation key (actor_tenant)
+    trace_id            TEXT,                          -- W3C trace context
+    resource            TEXT,                          -- e.g., "Facility:42"
+    resource_type       TEXT,                          -- e.g., "Facility"
+    detail              TEXT,                          -- human-readable description
+    payload_hash        TEXT,                          -- SHA-256 of related payload
+    compliance_tags     TEXT[] DEFAULT '{}',           -- GDPR, SOC2, ECOA
+    pii_fields_accessed TEXT[] DEFAULT '{}',
+    data_subject_id     TEXT,                          -- GDPR right-to-delete tracking
+    outcome             TEXT NOT NULL DEFAULT 'success', -- success | failure | denied
+    metadata            JSONB DEFAULT '{}',
+    ip_address          INET,
+    performed_by        TEXT                           -- legacy: node or user that did it
 );
 
 -- ════════════════════════════════════════════════════════════════

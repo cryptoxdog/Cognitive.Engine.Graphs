@@ -19,6 +19,7 @@ apscheduler = "^3.10.0"
 httpx = "^0.28.0"
 structlog = "^25.5.0"
 prometheus-client = "^0.24.1"
+numpy = "^1.26.0"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.3.0"

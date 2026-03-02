@@ -27,27 +27,27 @@ services:
     ports:
       - "8000:8000"
     environment:
-Neo4j — uses Docker service name, not localhost
-      PLASTICOS_NEO4J_URI: bolt://neo4j:7687
-      PLASTICOS_NEO4J_USER: neo4j
-      PLASTICOS_NEO4J_PASSWORD: l9-dev-password
-      PLASTICOS_NEO4J_POOL_SIZE: 20
-Redis
-      PLASTICOS_REDIS_URL: redis://redis:6379/0
-API
-      PLASTICOS_API_KEY: dev-key-sha256-not-for-production
-      PLASTICOS_LOG_LEVEL: debug
-      PLASTICOS_CORS_ORIGINS: '["http://localhost:3000","http://localhost:8000"]'
-Scoring defaults
-      PLASTICOS_W_STRUCTURAL: "0.30"
-      PLASTICOS_W_GEO: "0.25"
-      PLASTICOS_W_REINFORCEMENT: "0.20"
-      PLASTICOS_W_FRESHNESS: "0.10"
-      PLASTICOS_GEO_DECAY_KM: "800.0"
-      PLASTICOS_COMMUNITY_CROSS_BIAS: "0.92"
-      PLASTICOS_MAX_RESULTS: "25"
-Domain
-      PLASTICOS_DOMAIN_SPEC: domains/plasticos_spec.yaml
+      # Neo4j — uses Docker service name, not localhost
+      NEO4J_URI: bolt://neo4j:7687
+      NEO4J_USERNAME: neo4j
+      NEO4J_PASSWORD: l9-dev-password
+      NEO4J_POOL_SIZE: "20"
+      # Redis
+      REDIS_URL: redis://redis:6379/0
+      # API
+      API_KEY: dev-key-sha256-not-for-production
+      LOG_LEVEL: debug
+      CORS_ORIGINS: '["http://localhost:3000","http://localhost:8000"]'
+      # Scoring defaults
+      W_STRUCTURAL: "0.30"
+      W_GEO: "0.25"
+      W_REINFORCEMENT: "0.20"
+      W_FRESHNESS: "0.10"
+      GEO_DECAY_KM: "800.0"
+      COMMUNITY_CROSS_BIAS: "0.92"
+      MAX_RESULTS: "25"
+      # Domain
+      DOMAINS_ROOT: domains
     volumes:
 Hot-reload: mount source code so changes reflect without rebuild
       - ./engine:/app/engine:ro

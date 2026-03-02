@@ -27,6 +27,7 @@ from engine.config.schema import (
     NullBehavior,
 )
 from engine.gates.null_semantics import NullHandler
+from engine.utils.security import sanitize_label
 
 logger = logging.getLogger(__name__)
 
@@ -159,25 +160,28 @@ class GateCompiler:
 
     def _compile_boolean(self, gate: GateSpec) -> str:
         """Boolean gate: candidate.prop = $param OR candidate.prop = true."""
+        prop = sanitize_label(gate.candidateprop) if gate.candidateprop else "prop"
         if gate.queryparam:
-            return f"candidate.{gate.candidateprop} = ${gate.queryparam}"
-        return f"candidate.{gate.candidateprop} = true"
+            return f"candidate.{prop} = ${gate.queryparam}"
+        return f"candidate.{prop} = true"
 
     def _compile_threshold(self, gate: GateSpec) -> str:
         """
         Threshold gate: candidate.prop >= $param (default).
         Supports operator override via gate.operator: >=, <=, >, <, =
         """
+        prop = sanitize_label(gate.candidateprop) if gate.candidateprop else "prop"
         op = gate.operator or ">="
-        return f"candidate.{gate.candidateprop} {op} ${gate.queryparam}"
+        return f"candidate.{prop} {op} ${gate.queryparam}"
 
     def _compile_range(self, gate: GateSpec) -> str:
         """
         Range gate: query value falls within candidate's min/max range.
         Pattern: candidate.min_prop <= $param AND $param <= candidate.max_prop
         """
-        min_prop = gate.candidateprop_min or f"min_{gate.candidateprop}"
-        max_prop = gate.candidateprop_max or f"max_{gate.candidateprop}"
+        base_prop = sanitize_label(gate.candidateprop) if gate.candidateprop else "prop"
+        min_prop = sanitize_label(gate.candidateprop_min) if gate.candidateprop_min else f"min_{base_prop}"
+        max_prop = sanitize_label(gate.candidateprop_max) if gate.candidateprop_max else f"max_{base_prop}"
         param = gate.queryparam
 
         parts = []
@@ -190,18 +194,21 @@ class GateCompiler:
         Enum gate: candidate.prop IN $param_list
         Or inverse: $param IN candidate.prop_list
         """
+        prop = sanitize_label(gate.candidateprop) if gate.candidateprop else "prop"
         if gate.invertible:
-            return f"${gate.queryparam} IN candidate.{gate.candidateprop}"
-        return f"candidate.{gate.candidateprop} IN ${gate.queryparam}"
+            return f"${gate.queryparam} IN candidate.{prop}"
+        return f"candidate.{prop} IN ${gate.queryparam}"
 
     def _compile_exclusion(self, gate: GateSpec) -> str:
         """
         Exclusion gate: NOT exists((candidate)-[:EXCLUDED_FROM]->(query_entity))
         Uses the EXCLUDED_FROM edge type from the graph schema.
         """
-        edge_type = gate.edgetype or "EXCLUDED_FROM"
-        if gate.fromnode:
-            return f"NOT exists(({gate.fromnode})-[:{edge_type}]->({gate.tonode or 'candidate'}))"
+        edge_type = sanitize_label(gate.edgetype) if gate.edgetype else "EXCLUDED_FROM"
+        from_node = sanitize_label(gate.fromnode) if gate.fromnode else None
+        to_node = sanitize_label(gate.tonode) if gate.tonode else "candidate"
+        if from_node:
+            return f"NOT exists(({from_node})-[:{edge_type}]->({to_node}))"
         return f"NOT exists((candidate)-[:{edge_type}]->(query))"
 
     def _compile_composite(self, gate: GateSpec) -> str:
@@ -234,8 +241,9 @@ class GateCompiler:
         Pattern: candidate.min_prop <= $param AND $param <= candidate.max_prop
         Differs from range in that both bounds come from the candidate.
         """
-        min_prop = gate.candidateprop_min or f"min_{gate.candidateprop}"
-        max_prop = gate.candidateprop_max or f"max_{gate.candidateprop}"
+        base_prop = sanitize_label(gate.candidateprop) if gate.candidateprop else "prop"
+        min_prop = sanitize_label(gate.candidateprop_min) if gate.candidateprop_min else f"min_{base_prop}"
+        max_prop = sanitize_label(gate.candidateprop_max) if gate.candidateprop_max else f"max_{base_prop}"
         param = gate.queryparam
 
         return (
@@ -248,29 +256,32 @@ class GateCompiler:
         Freshness gate: candidate.prop >= datetime() - duration({days: N})
         Ensures data recency (e.g., rate sheets updated within 24h).
         """
+        prop = sanitize_label(gate.candidateprop) if gate.candidateprop else "updated_at"
         duration_field = "days"
         duration_value = gate.maxagedays or 1
-        return f"candidate.{gate.candidateprop} >= datetime() - duration({{{duration_field}: {duration_value}}})"
+        return f"candidate.{prop} >= datetime() - duration({{{duration_field}: {duration_value}}})"
 
     def _compile_temporal_range(self, gate: GateSpec) -> str:
         """
         Temporal range gate: candidate.prop between two datetime parameters.
         """
+        prop = sanitize_label(gate.candidateprop) if gate.candidateprop else "timestamp"
         start_param = gate.queryparam_start or f"{gate.queryparam}_start"
         end_param = gate.queryparam_end or f"{gate.queryparam}_end"
-        return f"candidate.{gate.candidateprop} >= ${start_param} AND candidate.{gate.candidateprop} <= ${end_param}"
+        return f"candidate.{prop} >= ${start_param} AND candidate.{prop} <= ${end_param}"
 
     def _compile_traversal(self, gate: GateSpec) -> str:
         """
         Traversal gate: requires an edge path to exist.
         Pattern: exists((candidate)-[:EDGE_TYPE]->(target {prop: $param}))
         """
-        edge_type = gate.edgetype or "RELATES_TO"
-        target_label = gate.tonode or ""
+        edge_type = sanitize_label(gate.edgetype) if gate.edgetype else "RELATES_TO"
+        target_label = sanitize_label(gate.tonode) if gate.tonode else ""
         target_filter = ""
 
         if gate.candidateprop and gate.queryparam:
-            target_filter = f" {{{gate.candidateprop}: ${gate.queryparam}}}"
+            prop = sanitize_label(gate.candidateprop)
+            target_filter = f" {{{prop}: ${gate.queryparam}}}"
 
         label_clause = f":{target_label}" if target_label else ""
         return f"exists((candidate)-[:{edge_type}]->(t{label_clause}{target_filter}))"

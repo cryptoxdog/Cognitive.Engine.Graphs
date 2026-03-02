@@ -12,7 +12,7 @@ status: active
 L9 Engine — Multi-stage Production Dockerfile
 ============================================================================
 
-FROM python:3.11-slim AS builder
+FROM python:3.12-slim AS builder
 
 WORKDIR /build
 
@@ -25,7 +25,7 @@ RUN poetry install --no-dev --no-interaction --no-ansi 2>/dev/null ||     pip in
 COPY . .
 
 --- Production ---
-FROM python:3.11-slim
+FROM python:3.12-slim
 
 ARG L9_PROJECT=l9-engine
 ARG L9_ENV=prod
@@ -33,10 +33,11 @@ ARG L9_ENV=prod
 WORKDIR /app
 
 Copy installed packages + app code
-COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
+COPY --from=builder /usr/local/lib/python3.12/site-packages /usr/local/lib/python3.12/site-packages
 COPY --from=builder /usr/local/bin /usr/local/bin
 COPY --from=builder /build/engine ./engine
 COPY --from=builder /build/domains ./domains
+COPY --from=builder /build/chassis ./chassis
 
 ENV L9_PROJECT=$L9_PROJECT     L9_ENV=$L9_ENV     API_PORT=8000     API_WORKERS=4     LOG_LEVEL=INFO     PYTHONUNBUFFERED=1
 

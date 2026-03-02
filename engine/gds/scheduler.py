@@ -28,6 +28,7 @@ from apscheduler.triggers.cron import CronTrigger
 
 from engine.config.schema import DomainSpec, GDSJobSpec
 from engine.graph.driver import GraphDriver
+from engine.utils.security import sanitize_label
 
 logger = logging.getLogger(__name__)
 
@@ -64,6 +65,29 @@ class GDSScheduler:
                     logger.warning(f"Invalid {param_name} in job {job_spec.name}, using default")
                     return default
         return default
+
+    def _get_candidate_label(self, job_spec: GDSJobSpec) -> str:
+        """
+        Get candidate node label from job spec or domain ontology.
+        Falls back to first candidate node in match_entities.
+        """
+        # Check if job spec has explicit node labels in projection
+        if job_spec.projection and job_spec.projection.nodelabels:
+            label = job_spec.projection.nodelabels[0]
+            return sanitize_label(label)
+
+        # Fall back to first candidate from match_entities
+        if self.domain_spec.matchentities and self.domain_spec.matchentities.candidate:
+            label = self.domain_spec.matchentities.candidate[0].label
+            return sanitize_label(label)
+
+        # Last resort: check ontology nodes marked as candidate
+        for node in self.domain_spec.ontology.nodes:
+            if getattr(node, "candidate", False):
+                return sanitize_label(node.label)
+
+        # Default fallback
+        return "Facility"
 
     def register_jobs(self) -> None:
         """Register all GDS jobs from domain spec."""
@@ -347,25 +371,32 @@ class GDSScheduler:
         max_km = self._get_job_parameter(job_spec, "max_km", 500.0)
         decay_km = self._get_job_parameter(job_spec, "decay_km", 200.0)
 
+        # Get node label from ontology (first candidate node) or job spec
+        node_label = self._get_candidate_label(job_spec)
+
         # Use directional MERGE to avoid duplicate edges
         cypher = f"""
-        MATCH (a:Facility), (b:Facility)
-        WHERE a.facility_id < b.facility_id
+        MATCH (a:{node_label}), (b:{node_label})
+        WHERE a.entity_id < b.entity_id
           AND a.lat IS NOT NULL AND b.lat IS NOT NULL
         WITH a, b,
              point.distance(
                  point({{latitude: a.lat, longitude: a.lon}}),
                  point({{latitude: b.lat, longitude: b.lon}})
              ) / 1000.0 AS dist_km
-        WHERE dist_km <= {max_km}
+        WHERE dist_km <= $max_km
         MERGE (a)-[r:COLOCATED_WITH]->(b)
         SET r.distance_km = dist_km,
-            r.proximity_score = 1.0 / (1.0 + dist_km / {decay_km})
+            r.proximity_score = 1.0 / (1.0 + dist_km / $decay_km)
         RETURN count(r) AS edges_created
         """
-        result = await self.graph_driver.execute_query(cypher, database=db)
+        result = await self.graph_driver.execute_query(
+            cypher,
+            parameters={"max_km": max_km, "decay_km": decay_km},
+            database=db,
+        )
         edges = result[0]["edges_created"] if result else 0
-        logger.info(f"Geo-proximity: {edges} COLOCATED_WITH edges")
+        logger.info(f"Geo-proximity: {edges} COLOCATED_WITH edges for {node_label}")
         return {"edges_created": edges}
 
     async def _run_equipment_sync(self, job_spec: GDSJobSpec) -> dict:

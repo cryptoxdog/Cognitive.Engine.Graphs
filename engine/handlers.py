@@ -72,6 +72,75 @@ def _require_key(payload: dict[str, Any], key: str, action: str, tenant: str) ->
     return payload[key]
 
 
+# Allowed Cypher expression patterns for enrich action (whitelist approach)
+_SAFE_EXPR_PATTERNS = frozenset([
+    "n.",  # Property access
+    "coalesce(",
+    "toInteger(",
+    "toFloat(",
+    "toString(",
+    "size(",
+    "length(",
+    "trim(",
+    "toLower(",
+    "toUpper(",
+    "abs(",
+    "round(",
+    "ceil(",
+    "floor(",
+    "sqrt(",
+    "log(",
+    "exp(",
+    "datetime(",
+    "date(",
+    "time(",
+    "duration(",
+    "point(",
+    "distance(",
+])
+
+
+def _sanitize_expression(expr: str) -> str:
+    """
+    Sanitize Cypher expression for enrich action.
+    Uses whitelist approach: only allow known-safe patterns.
+    Raises ValidationError if expression contains potentially dangerous patterns.
+    """
+    expr_lower = expr.lower().strip()
+
+    # Block dangerous patterns
+    dangerous = ["call ", "create ", "merge ", "delete ", "remove ", "set ", "match ", "return ", "//", "/*"]
+    for pattern in dangerous:
+        if pattern in expr_lower:
+            msg = f"Forbidden pattern '{pattern.strip()}' in expression"
+            raise ValidationError(msg, action="enrich", tenant="unknown")
+
+    # Check if expression uses only safe patterns
+    # Allow literals (numbers, strings, booleans)
+    if expr_lower in ("true", "false", "null"):
+        return expr
+
+    # Allow numeric literals
+    try:
+        float(expr)
+        return expr
+    except ValueError:
+        pass
+
+    # Allow string literals
+    if (expr.startswith("'") and expr.endswith("'")) or (expr.startswith('"') and expr.endswith('"')):
+        return expr
+
+    # Check for safe function/property patterns
+    has_safe_pattern = any(expr_lower.startswith(p) or f" {p}" in expr_lower or f"({p}" in expr_lower for p in _SAFE_EXPR_PATTERNS)
+    if not has_safe_pattern:
+        # Allow simple arithmetic on properties: n.prop + 1, n.prop * 2, etc.
+        if "n." in expr_lower:
+            return expr
+        msg = f"Expression '{expr}' does not match allowed patterns"
+        raise ValidationError(msg, action="enrich", tenant="unknown")
+
+
 async def handle_match(tenant: str, payload: dict[str, Any]) -> dict[str, Any]:
     """Gate-then-score graph traversal."""
     graph_driver, domain_loader = _require_deps()
@@ -186,6 +255,16 @@ async def handle_sync(tenant: str, payload: dict[str, Any]) -> dict[str, Any]:
             f"No sync endpoint for entity type {entity_type!r}",
             action="sync",
             tenant=tenant,
+        )
+
+    # Run compliance checks on sync request
+    compliance = ComplianceEngine(domain_spec)
+    if compliance.enabled:
+        compliance.check_sync_request(
+            tenant=tenant,
+            entity_type=entity_type,
+            batch=batch,
+            endpoint_spec=endpoint_spec,
         )
 
     generator = SyncGenerator(domain_spec)
@@ -445,7 +524,9 @@ async def handle_enrich(tenant: str, payload: dict[str, Any]) -> dict[str, Any]:
         prop = enrich.get("property", "")
         expr = enrich.get("expression", "")
         if prop and expr:
-            set_clauses.append(f"n.{sanitize_label(prop)} = {expr}")
+            safe_prop = sanitize_label(prop)
+            safe_expr = _sanitize_expression(expr)
+            set_clauses.append(f"n.{safe_prop} = {safe_expr}")
 
     if not set_clauses:
         return {"enriched_count": 0, "entity_type": entity_type, "tenant": tenant}
