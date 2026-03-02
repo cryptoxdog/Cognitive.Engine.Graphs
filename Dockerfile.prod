@@ -10,7 +10,7 @@
 #
 # L9 Engine — Multi-stage Production Dockerfile
 
-FROM python:3.12-slim AS builder
+FROM python:3.14-slim AS builder
 
 WORKDIR /build
 
@@ -25,7 +25,7 @@ RUN poetry install --no-dev --no-interaction --no-ansi 2>/dev/null || \
 COPY . .
 
 # --- Production ---
-FROM python:3.12-slim
+FROM python:3.14-slim
 
 ARG L9_PROJECT=l9-engine
 ARG L9_ENV=prod
