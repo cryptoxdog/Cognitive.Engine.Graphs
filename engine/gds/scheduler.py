@@ -121,6 +121,19 @@ class GDSScheduler:
         """Run Louvain community detection via GDS."""
         db = self.domain_spec.domain.id
         graph_name = f"{job_spec.name}_graph"
+
+        # Pre-cleanup: drop stale projection if it exists (fixes crash on re-run)
+        pre_drop = f"""
+        CALL gds.graph.exists('{graph_name}') YIELD exists
+        WITH exists WHERE exists
+        CALL gds.graph.drop('{graph_name}') YIELD graphName
+        RETURN graphName
+        """
+        try:
+            await self.graph_driver.execute_query(pre_drop, database=db)
+        except Exception:
+            pass  # Graph didn't exist; expected on first run
+
         # Use json.dumps for proper Cypher array syntax
         node_labels = json.dumps(job_spec.projection.nodelabels)
         edge_types = json.dumps(job_spec.projection.edgetypes)

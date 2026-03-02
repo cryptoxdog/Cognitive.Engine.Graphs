@@ -1,156 +1,91 @@
-# --- L9_META ---
-# l9_schema: 1
-# origin: engine-specific
-# engine: graph
-# layer: [config]
-# tags: [config, domain-loader]
-# owner: engine-team
-# status: active
-# --- /L9_META ---
 # engine/config/loader.py
 """
 Domain pack loader.
-Loads spec.yaml from filesystem, validates against schema, returns DomainSpec.
+Discovers, validates, caches, and hot-reloads domain spec YAML files.
 """
+from __future__ import annotations
 
 import logging
+import os
 from pathlib import Path
 
 import yaml
-from pydantic import ValidationError
+from pydantic import ValidationError as PydanticValidationError
 
 from engine.config.schema import DomainSpec
 
 logger = logging.getLogger(__name__)
 
 
+class DomainNotFoundError(Exception):
+    """Raised when a requested domain spec does not exist."""
+
+
+class DomainSpecError(Exception):
+    """Raised when a domain spec fails validation."""
+
+
 class DomainPackLoader:
-    """Load and validate domain pack YAML specifications."""
+    """Loads and caches domain spec YAML files with hot-reload support."""
 
-    def __init__(self, domains_root: Path = Path("domains")):
-        """
-        Initialize loader.
+    def __init__(self, config_path: str | None = None) -> None:
+        raw = config_path or os.getenv("DOMAIN_SPECS_PATH", "domains")
+        self._base_path = Path(raw).resolve()
+        self._cache: dict[str, tuple[DomainSpec, float]] = {}
 
-        Args:
-            domains_root: Root directory containing domain pack subdirectories
-        """
-        self.domains_root = domains_root
-        self._cache: dict[str, DomainSpec] = {}
+    def load_domain(self, domain_id: str) -> DomainSpec:
+        """Load and validate a domain spec with mtime-based cache invalidation."""
+        spec_path = self._resolve_spec_path(domain_id)
+        current_mtime = spec_path.stat().st_mtime
 
-    def load_domain(self, domain_id: str, use_cache: bool = True) -> DomainSpec:
-        """
-        Load domain specification by ID.
+        if domain_id in self._cache:
+            cached_spec, cached_mtime = self._cache[domain_id]
+            if cached_mtime >= current_mtime:
+                return cached_spec
+            logger.info("Domain spec changed on disk, reloading: %s", domain_id)
 
-        Args:
-            domain_id: Domain identifier (subdirectory name)
-            use_cache: Use cached spec if available
-
-        Returns:
-            Validated DomainSpec
-
-        Raises:
-            FileNotFoundError: If spec.yaml not found
-            ValidationError: If spec violates schema
-            yaml.YAMLError: If YAML syntax invalid
-        """
-        if use_cache and domain_id in self._cache:
-            logger.debug(f"Using cached spec for domain '{domain_id}'")
-            return self._cache[domain_id]
-
-        spec_path = self.domains_root / domain_id / "spec.yaml"
-
-        if not spec_path.exists():
-            raise FileNotFoundError(
-                f"Domain spec not found: {spec_path}\nExpected structure: {self.domains_root}/{domain_id}/spec.yaml"
-            )
-
-        logger.info(f"Loading domain pack from {spec_path}")
-
-        try:
-            with open(spec_path, encoding="utf-8") as f:
-                raw_spec = yaml.safe_load(f)
-        except yaml.YAMLError as e:
-            logger.error(f"YAML syntax error in {spec_path}: {e}")
-            raise
-
-        try:
-            spec = DomainSpec.model_validate(raw_spec)
-        except ValidationError as e:
-            logger.error(f"Validation error in {spec_path}:")
-            logger.error(str(e))
-            raise
-
-        # Verify domain.id matches directory name
-        if spec.domain.id != domain_id:
-            logger.warning(
-                f"Domain ID mismatch: directory='{domain_id}', spec.domain.id='{spec.domain.id}'. Using directory name."
-            )
-
-        self._cache[domain_id] = spec
-        logger.info(f"Successfully loaded domain '{spec.domain.name}' v{spec.domain.version}")
-
+        spec = self._load_and_validate(spec_path, domain_id)
+        self._cache[domain_id] = (spec, current_mtime)
         return spec
 
+    def invalidate(self, domain_id: str | None = None) -> None:
+        """Force cache invalidation."""
+        if domain_id:
+            self._cache.pop(domain_id, None)
+        else:
+            self._cache.clear()
+
     def list_domains(self) -> list[str]:
-        """
-        List all available domain IDs.
-
-        Returns:
-            List of domain directory names containing spec.yaml
-        """
-        if not self.domains_root.exists():
+        """Discover all domain directories containing spec.yaml."""
+        if not self._base_path.is_dir():
             return []
+        return [
+            d.name for d in sorted(self._base_path.iterdir())
+            if d.is_dir() and (d / "spec.yaml").exists()
+        ]
 
-        domains = []
-        for path in self.domains_root.iterdir():
-            if path.is_dir() and (path / "spec.yaml").exists():
-                domains.append(path.name)
+    def _resolve_spec_path(self, domain_id: str) -> Path:
+        """Resolve and validate spec file path — prevents path traversal."""
+        candidate = (self._base_path / domain_id / "spec.yaml").resolve()
+        if not str(candidate).startswith(str(self._base_path)):
+            raise DomainNotFoundError(
+                f"Invalid domain path: {domain_id!r} resolves outside base directory"
+            )
+        if not candidate.exists():
+            raise DomainNotFoundError(f"Domain spec not found: {candidate}")
+        return candidate
 
-        return sorted(domains)
+    def _load_and_validate(self, path: Path, domain_id: str) -> DomainSpec:
+        """Load YAML and validate against DomainSpec schema."""
+        try:
+            raw = yaml.safe_load(path.read_text(encoding="utf-8"))
+        except yaml.YAMLError as exc:
+            raise DomainSpecError(f"Invalid YAML in {path}: {exc}") from exc
 
-    def reload_domain(self, domain_id: str) -> DomainSpec:
-        """
-        Force reload domain from disk (bypass cache).
+        if not isinstance(raw, dict):
+            raise DomainSpecError(f"Domain spec must be a YAML mapping, got {type(raw).__name__}")
 
-        Args:
-            domain_id: Domain identifier
-
-        Returns:
-            Freshly loaded DomainSpec
-        """
-        if domain_id in self._cache:
-            del self._cache[domain_id]
-
-        return self.load_domain(domain_id, use_cache=False)
-
-    def get_custom_query_path(self, domain_id: str, query_name: str) -> Path | None:
-        """
-        Get path to custom Cypher query file.
-
-        Args:
-            domain_id: Domain identifier
-            query_name: Query file name (without .cypher extension)
-
-        Returns:
-            Path to .cypher file if exists, else None
-        """
-        query_path = self.domains_root / domain_id / "queries" / f"{query_name}.cypher"
-        return query_path if query_path.exists() else None
-
-    def load_custom_query(self, domain_id: str, query_name: str) -> str | None:
-        """
-        Load custom Cypher query content.
-
-        Args:
-            domain_id: Domain identifier
-            query_name: Query file name (without .cypher extension)
-
-        Returns:
-            Cypher query string if file exists, else None
-        """
-        query_path = self.get_custom_query_path(domain_id, query_name)
-        if not query_path:
-            return None
-
-        with open(query_path, encoding="utf-8") as f:
-            return f.read()
+        try:
+            return DomainSpec.model_validate(raw)
+        except PydanticValidationError as exc:
+            raise DomainSpecError(f"Domain \'{domain_id}\' validation failed:\n{exc}") from exc

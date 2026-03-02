@@ -100,6 +100,8 @@ class ComputationType(str, Enum):
     PRICEALIGNMENT = "pricealignment"
     TEMPORALPROXIMITY = "temporalproximity"
     CUSTOMCYPHER = "customcypher"
+    TRAVERSALALIAS = "traversalalias"
+    KGE = "kge"
 
 
 class ScoringSource(str, Enum):
