@@ -35,11 +35,11 @@ def mock_domain_loader():
 def test_client(mock_graph_driver, mock_domain_loader):
     """Create test client with mocked dependencies."""
     with (
-        patch("engine.api.app.GraphDriver", return_value=mock_graph_driver),
-        patch("engine.api.app.DomainPackLoader", return_value=mock_domain_loader),
-        patch("engine.api.app.init_dependencies"),
+        patch("chassis.app.GraphDriver", return_value=mock_graph_driver),
+        patch("chassis.app.DomainPackLoader", return_value=mock_domain_loader),
+        patch("chassis.app.init_dependencies"),
     ):
-        from engine.api.app import create_app
+        from chassis.app import create_app
 
         app = create_app()
         yield TestClient(app)
