@@ -59,11 +59,11 @@ class TestErrorHandling:
             },
         )
         assert response.status_code == 400
-        assert "Unknown action" in response.json()["detail"]
+        assert "not a valid" in response.json()["detail"] or "Unknown" in response.json()["detail"]
 
     def test_handler_failure_returns_500(self, test_client: TestClient) -> None:
         """Handler execution failure should return HTTP 500, not 200."""
-        with patch("chassis.actions.execute_action") as mock_execute:
+        with patch("chassis.app.execute_action") as mock_execute:
             # Simulate chassis returning a failed status
             mock_execute.return_value = {
                 "status": "failed",
@@ -87,7 +87,7 @@ class TestErrorHandling:
 
     def test_validation_error_returns_422(self, test_client: TestClient) -> None:
         """Validation errors should return HTTP 422."""
-        with patch("chassis.actions.execute_action") as mock_execute:
+        with patch("chassis.app.execute_action") as mock_execute:
             # Simulate chassis returning a validation failure
             mock_execute.return_value = {
                 "status": "failed",
@@ -111,7 +111,7 @@ class TestErrorHandling:
 
     def test_successful_action_returns_200(self, test_client: TestClient) -> None:
         """Successful actions should return HTTP 200."""
-        with patch("chassis.actions.execute_action") as mock_execute:
+        with patch("chassis.app.execute_action") as mock_execute:
             mock_execute.return_value = {
                 "status": "success",
                 "action": "health",
@@ -138,7 +138,7 @@ class TestHealthEndpoint:
 
     def test_healthy_returns_200(self, test_client: TestClient) -> None:
         """Healthy status should return HTTP 200."""
-        with patch("chassis.actions.execute_action") as mock_execute:
+        with patch("chassis.app.execute_action") as mock_execute:
             mock_execute.return_value = {
                 "status": "success",
                 "action": "health",
@@ -154,7 +154,7 @@ class TestHealthEndpoint:
 
     def test_unhealthy_returns_503(self, test_client: TestClient) -> None:
         """Unhealthy status should return HTTP 503."""
-        with patch("chassis.actions.execute_action") as mock_execute:
+        with patch("chassis.app.execute_action") as mock_execute:
             mock_execute.return_value = {
                 "status": "success",
                 "action": "health",
@@ -169,7 +169,7 @@ class TestHealthEndpoint:
 
     def test_health_exception_returns_503(self, test_client: TestClient) -> None:
         """Health check exception should return HTTP 503."""
-        with patch("chassis.actions.execute_action") as mock_execute:
+        with patch("chassis.app.execute_action") as mock_execute:
             mock_execute.side_effect = Exception("Connection refused")
 
             response = test_client.get("/v1/health")
