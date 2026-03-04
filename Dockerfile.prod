@@ -41,6 +41,7 @@ COPY --from=builder /build/chassis ./chassis
 
 ENV L9_PROJECT=$L9_PROJECT \
     L9_ENV=$L9_ENV \
+    L9_LIFECYCLE_HOOK=engine.boot:GraphLifecycle \
     API_PORT=8000 \
     API_WORKERS=4 \
     LOG_LEVEL=INFO \
