@@ -35,7 +35,7 @@ from __future__ import annotations
 import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from enum import Enum
+from enum import StrEnum
 
 import numpy as np
 
@@ -45,7 +45,7 @@ from engine.config.settings import settings
 logger = logging.getLogger(__name__)
 
 
-class FusionStrategy(str, Enum):
+class FusionStrategy(StrEnum):
     """Ensemble fusion strategies.
 
     Maps to KGEEnsembleSpec.strategy values in domain packs.
@@ -58,7 +58,7 @@ class FusionStrategy(str, Enum):
     MIXTURE_EXPERTS = "mixtureofexperts"
 
 
-class RankAggregationMethod(str, Enum):
+class RankAggregationMethod(StrEnum):
     """Rank aggregation methods."""
 
     BORDA = "borda"

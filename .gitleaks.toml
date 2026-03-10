@@ -1,0 +1,127 @@
+# Gitleaks Configuration — L9 Graph Cognitive Engine
+# Harvested concept: secrets scanning pre-commit (from L9 Kernel)
+# Implementation: 100% fresh for Graph Engine context
+#
+# Detect leaked credentials before they hit the remote.
+# Runs as a pre-commit hook: gitleaks protect --staged --config=.gitleaks.toml
+
+title = "Graph Cognitive Engine — Gitleaks Config"
+
+# =============================================================================
+# SECRET DETECTION RULES
+# =============================================================================
+
+# --- API Keys & Tokens ---
+
+[[rules]]
+id = "openai-api-key"
+description = "OpenAI API Key"
+regex = "sk-[a-zA-Z0-9]{20}T3BlbkFJ[a-zA-Z0-9]{20}"
+keywords = ["openai", "sk-"]
+
+[[rules]]
+id = "openai-project-key"
+description = "OpenAI Project API Key"
+regex = "sk-proj-[a-zA-Z0-9_-]{80,}"
+keywords = ["sk-proj"]
+
+[[rules]]
+id = "generic-api-key"
+description = "Generic API Key (key= or api_key= with long value)"
+regex = """(?i)(?:api[_-]?key|apikey|secret[_-]?key)\\s*[=:]\\s*['"]?[a-zA-Z0-9_\\-]{20,}['"]?"""
+keywords = ["api_key", "apikey", "secret_key"]
+
+[[rules]]
+id = "aws-api-key"
+description = "AWS Access Key"
+regex = "AKIA[0-9A-Z]{16}"
+keywords = ["aws", "akia"]
+
+[[rules]]
+id = "slack-bot-token"
+description = "Slack Bot Token"
+regex = "xoxb-[0-9]{10,13}-[0-9]{10,13}-[a-zA-Z0-9_-]{24,34}"
+keywords = ["slack", "xoxb"]
+
+[[rules]]
+id = "sendgrid-api-key"
+description = "SendGrid API Key"
+regex = "SG\\.[a-zA-Z0-9_-]{22}\\.[a-zA-Z0-9_-]{43}"
+keywords = ["sendgrid", "sg_"]
+
+# --- Database Connection Strings ---
+
+[[rules]]
+id = "neo4j-connection"
+description = "Neo4j Connection String with credentials"
+regex = "(?:neo4j|bolt)(?:\\+s(?:sc)?)?://[a-zA-Z0-9]+:[^@\\s]+@[a-zA-Z0-9._-]+"
+keywords = ["neo4j", "bolt"]
+
+[[rules]]
+id = "neo4j-password-assignment"
+description = "Neo4j Password Assignment"
+regex = """(?i)neo4j[_-]?password\\s*[=:]\\s*['"]?[a-zA-Z0-9!@#$%^&*()_+=-]{8,}['"]?"""
+keywords = ["neo4j_password", "neo4j-password", "NEO4J_PASSWORD"]
+
+[[rules]]
+id = "redis-connection"
+description = "Redis Connection String with credentials"
+regex = "redis://:[^@\\s]+@[a-zA-Z0-9._-]+"
+keywords = ["redis"]
+
+[[rules]]
+id = "postgres-connection"
+description = "PostgreSQL Connection String"
+regex = "postgres(?:ql)?://[a-zA-Z0-9]+:[^@\\s]+@[a-zA-Z0-9._-]+"
+keywords = ["postgres", "postgresql"]
+
+# --- Private Keys ---
+
+[[rules]]
+id = "private-key"
+description = "Private Key Header"
+regex = "-----BEGIN (?:RSA |EC |DSA |OPENSSH )?PRIVATE KEY-----"
+keywords = ["private key", "BEGIN"]
+
+# --- High Entropy ---
+
+[[rules]]
+id = "jwt-token"
+description = "JSON Web Token"
+regex = "eyJ[a-zA-Z0-9_-]{10,}\\.[a-zA-Z0-9_-]{10,}\\.[a-zA-Z0-9_-]{10,}"
+keywords = ["eyJ"]
+
+# =============================================================================
+# ALLOWLIST (False Positive Prevention)
+# =============================================================================
+
+[allowlist]
+description = "Paths and patterns excluded from scanning"
+
+paths = [
+    # Test fixtures use fake credentials by design
+    "tests/",
+    # Documentation contains example connection strings
+    "docs/",
+    # Domain specs contain placeholder values
+    "domains/",
+    # Docker Compose uses ${VAR} env substitution, not real secrets
+    "docker-compose\\.yml",
+    "docker-compose\\.prod\\.yml",
+    # Template files contain placeholders
+    ".env.template",
+    ".github/env.template",
+    # Reports and artifacts
+    "reports/",
+    "artifacts/",
+    # Harvest staging (temporary integration work)
+    "harvest_staging/",
+]
+
+regexTarget = "match"
+regexes = [
+    "\\.example$",
+    "\\.template$",
+    "\\.sample$",
+    "_example\\.",
+]

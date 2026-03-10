@@ -36,7 +36,7 @@ from __future__ import annotations
 import logging
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from enum import Enum
+from enum import StrEnum
 
 import numpy as np
 
@@ -80,7 +80,7 @@ class CascadeVariant:
             raise ValueError(msg)
 
 
-class PruneStrategy(str, Enum):
+class PruneStrategy(StrEnum):
     """Pruning strategies for beam search."""
 
     SCORE_THRESHOLD = "score_threshold"

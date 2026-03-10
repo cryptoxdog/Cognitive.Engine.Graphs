@@ -106,7 +106,9 @@ repos:
             docs/PlasticOS.*\.yaml|
             UniversalDevelopmentPack\.yaml|
             domains/MASTER-SPEC.*\.yaml|
-            setup-new-workspace\.yaml
+            setup-new-workspace\.yaml|
+            \.github/workflows/ci\.yml|
+            \.github/workflows/supply-chain\.yml
           )$
       - id: end-of-file-fixer
       - id: trailing-whitespace

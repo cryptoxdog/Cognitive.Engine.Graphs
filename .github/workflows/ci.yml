@@ -1,13 +1,12 @@
-#
---- L9_META ---
-l9_schema: 1
-origin: l9-template
-engine: graph
-layer: [ci]
-tags: [L9_TEMPLATE, ci, pipeline]
-owner: platform
-status: active
---- /L9_META ---
+# --- L9_META ---
+# l9_schema: 1
+# origin: l9-template
+# engine: graph
+# layer: [ci]
+# tags: [L9_TEMPLATE, ci, pipeline]
+# owner: platform
+# status: active
+# --- /L9_META ---
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 Universal CI/CD Pack — Main CI Pipeline
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -248,6 +247,8 @@ PHASE 4: SECURITY SCANNING
     steps:
       - name: Checkout Repository
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11v4.1.1
+        with:
+          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2bv5.3.0
@@ -259,6 +260,12 @@ PHASE 4: SECURITY SCANNING
         run: |
           python -m pip install --upgrade pip
           pip install pip-audit safety bandit
+
+      - name: Run Gitleaks (Secret Detection)
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_CONFIG: .gitleaks.toml
 
       - name: Run pip-audit (Dependency Vulnerabilities)
         run: |
