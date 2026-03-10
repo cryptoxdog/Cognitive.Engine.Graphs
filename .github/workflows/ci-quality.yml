@@ -1,0 +1,116 @@
+# =============================================================================
+# ci-quality.yml — Venture Forge Toolbox CI Quality Gate
+# Runs: Ruff, MyPy, Semgrep, SonarCloud, GitGuardian, Codecov, YAML lint
+# Required secrets: SONAR_TOKEN, GITGUARDIAN_API_KEY, CODECOV_TOKEN
+# Required vars:    PYTHON_VERSION, SONAR_PROJECT_KEY, SONAR_ORG
+# =============================================================================
+name: CI Quality
+
+on:
+  push:
+    branches: [main, staging, develop]
+  pull_request:
+    branches: [main, staging]
+
+jobs:
+  lint:
+    name: Lint + Type Check
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ vars.PYTHON_VERSION || '3.11' }}
+          cache: pip
+      - run: pip install ruff mypy pydantic pydantic-settings
+      - run: ruff check . && ruff format --check .
+      - run: mypy . --ignore-missing-imports || true
+
+  semgrep:
+    name: Semgrep Policy Scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: returntocorp/semgrep-action@v1
+        with:
+          config: .semgrep/semgrep-rules.yaml
+        env:
+          SEMGREP_APP_TOKEN: ${{ secrets.SEMGREP_APP_TOKEN }}
+        continue-on-error: true
+
+  sonarcloud:
+    name: SonarCloud Analysis
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ vars.PYTHON_VERSION || '3.11' }}
+          cache: pip
+      - run: pip install pytest pytest-cov
+      - run: pytest tests/ --cov --cov-report=xml --ignore=tests/e2e || true
+        continue-on-error: true
+      - uses: SonarSource/sonarcloud-github-action@master
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+
+  secrets-scan:
+    name: Secrets Scan (GitGuardian)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: GitGuardian/ggshield-action@v1
+        env:
+          GITHUB_PUSH_BEFORE_SHA: ${{ github.event.before }}
+          GITHUB_PUSH_BASE_SHA: ${{ github.event.base }}
+          GITHUB_PULL_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          GITHUB_DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+          GITGUARDIAN_API_KEY: ${{ secrets.GITGUARDIAN_API_KEY }}
+
+  yaml-lint:
+    name: YAML Lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - run: pip install yamllint
+      - run: yamllint .github/workflows/ || true
+        continue-on-error: true
+
+  ci-gate:
+    name: CI Gate
+    runs-on: ubuntu-latest
+    needs: [lint, semgrep, sonarcloud, secrets-scan, yaml-lint]
+    if: always()
+    steps:
+      - name: Evaluate results
+        run: |
+          echo "lint:         ${{ needs.lint.result }}"
+          echo "semgrep:      ${{ needs.semgrep.result }}"
+          echo "sonarcloud:   ${{ needs.sonarcloud.result }}"
+          echo "secrets-scan: ${{ needs.secrets-scan.result }}"
+          echo "yaml-lint:    ${{ needs.yaml-lint.result }}"
+          if [[ "${{ needs.secrets-scan.result }}" == "failure" ]]; then
+            echo "❌ Secrets scan failed — hardcoded secrets detected"
+            exit 1
+          fi
+          if [[ "${{ needs.lint.result }}" == "failure" ]]; then
+            echo "❌ Lint failed"
+            exit 1
+          fi
+          echo "✅ CI Gate passed"

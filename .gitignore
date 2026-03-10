@@ -56,3 +56,6 @@ credentials.json
 secrets.json
 *.pem
 *.key
+.env.local
+.env.vps
+*.bak.*
