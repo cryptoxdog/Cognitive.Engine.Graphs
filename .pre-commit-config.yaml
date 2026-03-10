@@ -15,11 +15,18 @@
 repos:
   # Code formatting
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.8.0
+    rev: v0.15.4
     hooks:
       - id: ruff
         args: [--fix]
       - id: ruff-format
+
+  # Secrets scanning (harvested concept from L9 Kernel — fresh config)
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.21.2
+    hooks:
+      - id: gitleaks
+        args: ["protect", "--staged", "--config=.gitleaks.toml"]
 
   # Type checking
   - repo: https://github.com/pre-commit/mirrors-mypy

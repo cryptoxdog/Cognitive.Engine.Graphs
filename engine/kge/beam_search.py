@@ -55,6 +55,31 @@ from engine.kge.transformations import (
 logger = logging.getLogger(__name__)
 
 
+@dataclass
+class CascadeVariant:
+    """Represents a discovered CompoundE3D operator cascade.
+
+    Stores the ordered list of transformation class names for
+    head and tail operators, plus validation MRR achieved.
+
+    Ge et al. (2023) Algorithm 1: each variant is a candidate
+    in the beam search over the design space.
+    """
+
+    head_ops: list[str]  # e.g. ["Scaling", "Translation"]
+    tail_ops: list[str]  # e.g. ["Translation", "Rotation", "Scaling"]
+    val_mrr: float = 0.0  # Mean Reciprocal Rank on validation set
+    param_count: int = 0  # Number of learnable parameters in cascade
+
+    def __post_init__(self) -> None:
+        if not (0.0 <= self.val_mrr <= 1.0):
+            msg = f"CascadeVariant.val_mrr must be in [0, 1], got {self.val_mrr}"
+            raise ValueError(msg)
+        if self.param_count < 0:
+            msg = f"CascadeVariant.param_count must be >= 0, got {self.param_count}"
+            raise ValueError(msg)
+
+
 class PruneStrategy(str, Enum):
     """Pruning strategies for beam search."""
 
@@ -158,18 +183,52 @@ class BeamSearchEngine:
     def _score_candidate(
         self,
         transformation: Transformation3D,
-        entity_ids: list[int] | None = None,
+        entity_ids: list[str] | None = None,
     ) -> float:
         """Score a candidate transformation.
 
-        Returns composite score [0, 1]:
-        - Embedding quality (reconstruction loss)
-        - Geometric consistency (constraint satisfaction)
-        - Novelty (distance from base transformations)
-        """
-        quality_score = np.random.uniform(0.4, 1.0)
-        constraint_score = 1.0
+        Score by:
+        1. Applying the transformation to sample entity embeddings.
+        2. Evaluating constraint satisfaction.
 
+        Falls back to random scoring ONLY if no model embeddings are
+        available (bootstrap phase), with a clear warning.
+
+        This replaces the previous random.uniform() stub which produced
+        non-deterministic, meaningless beam search results.
+        """
+        import warnings
+
+        # Check if model has trained embeddings
+        if not self.model._entity_embeddings:
+            warnings.warn(
+                "_score_candidate: no model embeddings available. "
+                "Returning random score (bootstrap only — not for production).",
+                RuntimeWarning,
+                stacklevel=2,
+            )
+            return float(np.random.uniform(0.0, 0.3))
+
+        # Sample entities for evaluation
+        sample_ids = entity_ids or list(self.model._entity_embeddings.keys())[:100]
+        if not sample_ids:
+            return float(np.random.uniform(0.0, 0.3))
+
+        # Compute quality score based on transformation consistency
+        quality_scores = []
+        for eid in sample_ids:
+            emb = self.model._entity_embeddings.get(eid)
+            if emb is None:
+                continue
+            transformed = transformation.apply(emb)
+            # Quality: inverse of transformation magnitude (prefer small changes)
+            diff = np.linalg.norm(transformed - emb)
+            quality_scores.append(1.0 / (1.0 + diff))
+
+        quality_score = float(np.mean(quality_scores)) if quality_scores else 0.5
+
+        # Constraint satisfaction
+        constraint_score = 1.0
         for validator in self.config.constraint_validators:
             try:
                 if not validator(transformation):
@@ -178,6 +237,38 @@ class BeamSearchEngine:
                 constraint_score *= 0.7
 
         return float(quality_score * constraint_score)
+
+    def _stopping_criterion(
+        self,
+        beam: list[CascadeVariant],
+        gamma: float = 0.005,
+        max_params: int | None = None,
+    ) -> bool:
+        """Adaptive stopping for beam search (Algorithm 1, Ge et al. 2023).
+
+        Terminates when marginal MRR gain per added parameter falls below
+        gamma, OR when max_params is exceeded.
+
+        Args:
+            beam:       Current top-k CascadeVariants sorted by val_mrr desc.
+            gamma:      Minimum MRR/param improvement threshold (default 0.005).
+            max_params: Hard cap on parameter count (None = no cap).
+
+        Returns:
+            True if search should stop, False to continue.
+        """
+        if len(beam) < 2:
+            return False
+        best = beam[0]
+        second = beam[1]
+        if best.param_count <= second.param_count:
+            return False
+        delta_mrr = best.val_mrr - second.val_mrr
+        delta_params = best.param_count - second.param_count
+        efficiency = delta_mrr / max(delta_params, 1)
+        if max_params is not None and best.param_count >= max_params:
+            return True
+        return efficiency < gamma
 
     # ------------------------------------------------------------------
     # Successor Generation
@@ -304,11 +395,10 @@ class BeamSearchEngine:
             return self._prune_by_diversity(candidates)
         if self.config.prune_strategy == PruneStrategy.CONSTRAINT:
             return self._prune_by_constraint(candidates)
-        if self.config.prune_strategy == PruneStrategy.COMBINED:
-            candidates = self._prune_by_threshold(candidates)
-            candidates = self._prune_by_diversity(candidates)
-            candidates = self._prune_by_constraint(candidates)
-            return candidates
+        # PruneStrategy.COMBINED
+        candidates = self._prune_by_threshold(candidates)
+        candidates = self._prune_by_diversity(candidates)
+        candidates = self._prune_by_constraint(candidates)
         return candidates
 
     def _prune_by_threshold(self, candidates: list[BeamCandidate]) -> list[BeamCandidate]:
@@ -383,6 +473,14 @@ class BeamSearchEngine:
         if not settings.kge_enabled:
             logger.warning("BeamSearchEngine.search skipped — kge_enabled=False")
             return {"variants": [], "status": "skipped", "reason": "kge_enabled=False"}
+
+        # E-02 Guard: ensure model is set before running search
+        if self.model is None:
+            msg = (
+                "BeamSearch: config.model must be set before running search. "
+                "Assign a trained CompoundE3D instance to config.model."
+            )
+            raise ValueError(msg)
 
         initial = BeamCandidate(
             transformation_id=self._gen_id(),

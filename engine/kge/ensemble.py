@@ -215,7 +215,8 @@ class RankAggregationEnsemble(VariantEnsemble):
         else:
             _final, explanation = self._borda_count(ranked)
 
-        norm_score = 1.0 - (0) / len(ranked) if ranked else 0.5
+        n = len(ranked)
+        norm_score = (n - 0) / n if n > 0 else 0.5  # Top rank gets full score
         weights = {s.variant_id: 1.0 / len(scores) for s in scores}
 
         return EnsembleResult(
@@ -233,6 +234,34 @@ class RankAggregationEnsemble(VariantEnsemble):
         top_pts = n
         top_score = top_pts / total_pts if total_pts > 0 else 0.5
         return top_score, (f"Borda Count: top_variant={ranked[0].variant_id}, points={top_pts}/{total_pts}")
+
+    def _rrf_score(
+        self,
+        ranked_lists: list[list[str]],
+        k: int = 60,
+    ) -> dict[str, float]:
+        """Reciprocal Rank Fusion (Cormack et al., 2009).
+
+        Aggregates multiple ranked candidate lists into a single score.
+        Superior to Borda on DB100K/YAGO3-10 per CompoundE3D paper §4.3.
+
+        Args:
+            ranked_lists: Each inner list is a ranking of entity IDs, best first.
+            k: RRF constant (default 60, standard in IR).
+
+        Returns:
+            Dict mapping entity_id → RRF score (higher = better).
+        """
+        scores: dict[str, float] = {}
+        for ranked in ranked_lists:
+            for rank_position, entity_id in enumerate(ranked):
+                scores[entity_id] = scores.get(entity_id, 0.0) + 1.0 / (k + rank_position + 1)
+        # Normalize to [0, 1]
+        if scores:
+            max_s = max(scores.values())
+            if max_s > 0:
+                scores = {e: v / max_s for e, v in scores.items()}
+        return scores
 
     def _plurality(self, ranked: list[VariantScore]) -> tuple[float, str]:
         winner = ranked[0]
@@ -261,6 +290,32 @@ class MixtureOfExpertsEnsemble(VariantEnsemble):
     ) -> None:
         self.num_experts = num_experts
         self.learnable_gates = learnable_gates
+
+    def compute_entropy_confidence(self, gate_weights: np.ndarray) -> float:
+        """Ensemble confidence from gating entropy (Eq. 21 in KGE briefing).
+
+        confidence = 1 - H(g(x)) / log(k)
+        When one expert dominates → confidence → 1.0
+        When uniform (maximum uncertainty) → confidence → 0.0
+
+        Args:
+            gate_weights: Softmax-normalized gating distribution, shape (k,).
+
+        Returns:
+            Scalar confidence in [0, 1].
+        """
+        import math
+
+        k = len(gate_weights)
+        if k <= 1:
+            return 1.0
+        # Clip for numerical stability
+        p = np.clip(gate_weights, 1e-9, 1.0)
+        p = p / p.sum()
+        entropy = -np.sum(p * np.log(p))
+        max_entropy = math.log(k)
+        confidence = 1.0 - (entropy / max_entropy)
+        return float(max(0.0, min(1.0, confidence)))
 
     def fuse(self, scores: list[VariantScore]) -> EnsembleResult:
         if not scores:

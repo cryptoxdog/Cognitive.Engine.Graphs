@@ -123,7 +123,8 @@ class Translation(Transformation3D):
 
     def apply(self, embedding: np.ndarray) -> np.ndarray:
         shift = np.tile(np.array(self.offset, dtype=np.float64), int(np.ceil(len(embedding) / 3)))[: len(embedding)]
-        return embedding + shift
+        result: np.ndarray = embedding + shift
+        return result
 
     def inverse(self) -> Translation:
         neg = tuple(-x for x in self.offset)
@@ -185,3 +186,62 @@ class Hyperplane(Transformation3D):
 
     def to_dict(self) -> dict[str, Any]:
         return {"type": "hyperplane", "normal": list(self.normal), "d": self.d}
+
+
+@dataclass(frozen=True)
+class Shear(Transformation3D):
+    """Shear transformation in 3D embedding space.
+
+    Shear matrix: [[1, shxy, shxz], [shyx, 1, shyz], [shzx, shzy, 1]]
+    Applied per 3-element block of the embedding vector.
+
+    Shear is the 5th CompoundE3D primitive (H) and captures
+    asymmetric relational patterns (e.g., hypernymy, causality).
+    """
+
+    shxy: float = 0.0
+    shxz: float = 0.0
+    shyx: float = 0.0
+    shyz: float = 0.0
+    shzx: float = 0.0
+    shzy: float = 0.0
+
+    def _matrix(self) -> np.ndarray:
+        return np.array(
+            [
+                [1.0, self.shxy, self.shxz],
+                [self.shyx, 1.0, self.shyz],
+                [self.shzx, self.shzy, 1.0],
+            ],
+            dtype=np.float64,
+        )
+
+    def apply(self, embedding: np.ndarray) -> np.ndarray:
+        mat = self._matrix()
+        out = np.copy(embedding)
+        for i in range(0, len(embedding) - 2, 3):
+            out[i : i + 3] = mat @ embedding[i : i + 3]
+        return out
+
+    def inverse(self) -> Shear:
+        """Inverse shear via matrix inverse (exists if det != 0)."""
+        mat_inv = np.linalg.inv(self._matrix())
+        return Shear(
+            shxy=-mat_inv[0, 1],
+            shxz=-mat_inv[0, 2],
+            shyx=-mat_inv[1, 0],
+            shyz=-mat_inv[1, 2],
+            shzx=-mat_inv[2, 0],
+            shzy=-mat_inv[2, 1],
+        )
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "type": "shear",
+            "shxy": self.shxy,
+            "shxz": self.shxz,
+            "shyx": self.shyx,
+            "shyz": self.shyz,
+            "shzx": self.shzx,
+            "shzy": self.shzy,
+        }

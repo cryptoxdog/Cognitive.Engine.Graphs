@@ -93,6 +93,18 @@ class CompoundE3D:
         self._relation_embeddings: dict[str, np.ndarray] = {}
         self._trained = False
 
+        # --- CompoundE3D operator stores (Ge et al. 2023 §3.2) ---
+        # Keyed by relation name → list of instantiated transformation
+        # objects (Translation, Rotation, Scaling, Flip, Hyperplane, Shear).
+        # Populated by _build_relation_operators() at train/load time.
+        self._head_ops: dict[str, list] = {}
+        self._tail_ops: dict[str, list] = {}
+
+        # Platt scaling calibration parameters (learned post-training).
+        # Maps raw distance d → probability via sigmoid(-(alpha*d - beta)).
+        self._platt_alpha: float = 1.0
+        self._platt_beta: float = 0.0
+
     # ------------------------------------------------------------------
     # Training
     # ------------------------------------------------------------------
@@ -232,10 +244,149 @@ class CompoundE3D:
     # ------------------------------------------------------------------
 
     def _distance(self, head: str, relation: str, tail: str) -> float:
-        """L2 distance in transformed embedding space."""
-        h = self._entity_embeddings.get(head)
-        r = self._relation_embeddings.get(relation)
-        t = self._entity_embeddings.get(tail)
-        if h is None or r is None or t is None:
+        """CompoundE3D triple scoring (Ge et al. 2023, arXiv:2304.00378).
+
+        Three scoring modes controlled by self.config.scoring_mode:
+          'head'     : ||M_r * h  -  t||          (CompoundE3D-Head)
+          'tail'     : ||h  -  M_r_hat * t||      (CompoundE3D-Tail)
+          'complete' : ||M_r * h  -  M_r_hat * t||(CompoundE3D-Complete)
+
+        Operators M_r / M_r_hat are block-diagonal 4x4 affine matrices built
+        from the ordered cascade in self._head_ops[relation] /
+        self._tail_ops[relation].  Falls back to TransE if operators have
+        not been built (cold-start / pre-training compatibility).
+        """
+        h_emb = self._entity_embeddings.get(head)
+        t_emb = self._entity_embeddings.get(tail)
+        r_emb = self._relation_embeddings.get(relation)
+
+        if h_emb is None or t_emb is None:
             return float("inf")
-        return float(np.linalg.norm((h + r) - t))
+
+        # --- Fallback to TransE if operators not yet built ---
+        if relation not in self._head_ops:
+            if r_emb is None:
+                return float("inf")
+            return float(np.linalg.norm((h_emb + r_emb) - t_emb))
+
+        mode = getattr(self.config, "scoring_mode", "complete")
+
+        def _apply_ops(x: np.ndarray, ops: list) -> np.ndarray:
+            """Sequentially apply a cascade of transformation objects."""
+            for op in ops:
+                x = op.apply(x)
+            return x
+
+        if mode == "head":
+            transformed_h = _apply_ops(h_emb.copy(), self._head_ops[relation])
+            dist = np.linalg.norm(transformed_h - t_emb)
+        elif mode == "tail":
+            transformed_t = _apply_ops(t_emb.copy(), self._tail_ops.get(relation, []))
+            dist = np.linalg.norm(h_emb - transformed_t)
+        else:  # 'complete' - default per paper
+            transformed_h = _apply_ops(h_emb.copy(), self._head_ops[relation])
+            transformed_t = _apply_ops(t_emb.copy(), self._tail_ops.get(relation, []))
+            dist = np.linalg.norm(transformed_h - transformed_t)
+
+        return float(dist)
+
+    def calibrate_platt(
+        self,
+        val_distances: list[float],
+        val_labels: list[int],
+    ) -> None:
+        """Fit Platt scaling parameters (alpha, beta) on a validation set.
+
+        So that sigmoid(-(alpha * d - beta)) ≈ P(correct triple).
+        Stores results in self._platt_alpha and self._platt_beta.
+
+        Args:
+            val_distances: Raw _distance() outputs for validation triples.
+            val_labels:    1 for positive (correct) triple, 0 for negative.
+
+        Raises:
+            ValueError: If inputs are empty or mismatched in length.
+        """
+        if not val_distances or len(val_distances) != len(val_labels):
+            msg = "calibrate_platt: val_distances and val_labels must be non-empty and equal length."
+            raise ValueError(msg)
+        from scipy.optimize import minimize
+
+        d = np.array(val_distances, dtype=np.float64)
+        y = np.array(val_labels, dtype=np.float64)
+
+        def nll(params: np.ndarray) -> float:
+            alpha, beta = params
+            logit = -(alpha * d - beta)
+            prob = 1.0 / (1.0 + np.exp(-logit))
+            prob = np.clip(prob, 1e-9, 1 - 1e-9)
+            return -np.sum(y * np.log(prob) + (1 - y) * np.log(1 - prob))
+
+        result = minimize(nll, x0=[1.0, 0.0], method="L-BFGS-B")
+        self._platt_alpha, self._platt_beta = float(result.x[0]), float(result.x[1])
+
+    def build_icp_centroid(
+        self,
+        account_ids: list[str],
+    ) -> np.ndarray:
+        """Construct a synthetic ICP (Ideal Customer Profile) entity.
+
+        The ICP is the centroid of known high-value account embeddings.
+        Stores result in self._icp_centroid for use by score_against_icp().
+
+        Args:
+            account_ids: Entity IDs of known high-value accounts.
+                         Must all exist in the embedding table.
+
+        Returns:
+            Centroid embedding as np.ndarray of shape (embed_dim,).
+
+        Raises:
+            ValueError: If account_ids is empty or any ID is unknown.
+        """
+        if not account_ids:
+            msg = "build_icp_centroid: account_ids must be non-empty."
+            raise ValueError(msg)
+        embeddings = []
+        for aid in account_ids:
+            emb = self._entity_embeddings.get(aid)
+            if emb is None:
+                msg = f"build_icp_centroid: entity '{aid}' not found in embedding table. Run train() first."
+                raise ValueError(msg)
+            embeddings.append(emb)
+        centroid = np.mean(np.stack(embeddings, axis=0), axis=0)
+        self._icp_centroid: np.ndarray = centroid
+        return centroid
+
+    def score_against_icp(
+        self,
+        candidate_id: str,
+        relation: str,
+    ) -> float:
+        """Score a candidate entity against the ICP centroid via CompoundE3D.
+
+        Returns calibrated probability in [0, 1].
+
+        kge_score = sigmoid(-(alpha * d(candidate, relation, ICP) - beta))
+
+        Args:
+            candidate_id: Entity to score.
+            relation:     Relation type for the triple (h, r, ICP).
+
+        Returns:
+            Float in [0, 1].
+
+        Raises:
+            RuntimeError: If build_icp_centroid() has not been called.
+        """
+        if not hasattr(self, "_icp_centroid"):
+            msg = "score_against_icp: ICP centroid not built. Call build_icp_centroid(account_ids) first."
+            raise RuntimeError(msg)
+        # Temporarily register ICP centroid as a named entity for _distance
+        icp_key = "__ICP_CENTROID__"
+        self._entity_embeddings[icp_key] = self._icp_centroid
+        raw_dist = self._distance(candidate_id, relation, icp_key)
+        # Apply Platt calibration
+        logit = -(self._platt_alpha * raw_dist - self._platt_beta)
+        prob = 1.0 / (1.0 + np.exp(-logit))
+        return float(np.clip(prob, 0.0, 1.0))

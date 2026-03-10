@@ -139,10 +139,23 @@ class ScoringAssembler:
         return f"log(1 + coalesce(candidate.{prop}, 0)) / log(1 + {max_val})"
 
     def _compile_communitymatch(self, dim: ScoringDimensionSpec) -> str:
+        """Soft community match using lift-weighted Jaccard similarity.
+
+        Replaces binary CASE WHEN with continuous overlap score.
+        Requires candidate nodes to carry community_ids (list) and lift property.
+        """
         bias = dim.bias or 1.5
-        cand_prop = sanitize_label(dim.candidateprop or "community")
-        query_prop = sanitize_label(dim.queryprop or "community")
-        return f"CASE WHEN candidate.{cand_prop} = $query.{query_prop} THEN {bias} ELSE 1.0 END"
+        cand_prop = sanitize_label(dim.candidateprop or "community_ids")
+        query_prop = sanitize_label(dim.queryprop or "community_ids")
+        return (
+            f"CASE "
+            f"  WHEN candidate.{cand_prop} IS NULL OR $query.{query_prop} IS NULL THEN 0.5 "
+            f"  WHEN apoc.coll.intersection(candidate.{cand_prop}, $query.{query_prop}) = [] THEN 0.0 "
+            f"  ELSE toFloat(size(apoc.coll.intersection(candidate.{cand_prop}, $query.{query_prop}))) "
+            f"       / toFloat(size(apoc.coll.union(candidate.{cand_prop}, $query.{query_prop}))) "
+            f"       * coalesce(candidate.community_lift, {bias}) "
+            f"END"
+        )
 
     def _compile_inverselinear(self, dim: ScoringDimensionSpec) -> str:
         min_val = dim.minvalue or 0.0
@@ -163,23 +176,42 @@ class ScoringAssembler:
         return f"coalesce(candidate.{rate_prop}, {default}) * coalesce(candidate.{confidence_prop}, 1.0)"
 
     def _compile_pricealignment(self, dim: ScoringDimensionSpec) -> str:
+        """Log-ratio distance preferred over linear for multi-order-of-magnitude pricing.
+
+        Formula: 1 - |log(candidate_p / target_p)| / tau
+        Handles SaaS $10/mo to $10k/mo ranges appropriately.
+        """
         cand_prop = sanitize_label(dim.candidateprop or "price_per_unit")
         query_prop = sanitize_label(dim.queryprop or "target_price")
-        max_spread = dim.maxvalue or 1.0
+        tau = dim.maxvalue or 2.0  # tolerance: 2.0 = ~7.4x ratio scores 0
         default = float(dim.defaultwhennull)
         return (
-            f"CASE WHEN $query.{query_prop} IS NULL THEN {default} "
-            f"ELSE 1.0 - (abs(candidate.{cand_prop} - $query.{query_prop}) / {max_spread}) END"
+            f"CASE "
+            f"  WHEN $query.{query_prop} IS NULL OR $query.{query_prop} <= 0 THEN {default} "
+            f"  WHEN candidate.{cand_prop} IS NULL OR candidate.{cand_prop} <= 0 THEN {default} "
+            f"  ELSE toFloat(1.0 - abs(log(candidate.{cand_prop} / $query.{query_prop})) / {tau}) "
+            f"END"
         )
 
     def _compile_temporalproximity(self, dim: ScoringDimensionSpec) -> str:
-        date_prop = sanitize_label(dim.candidateprop or "last_transaction_date")
-        decay_constant = dim.maxvalue or 90.0
+        """Multi-signal temporal scoring.
+
+        score = w1 * recency_decay + w2 * touch_frequency + w3 * acceleration_flag
+
+        Reads last_activity_date, touch_count_30d, and is_accelerating from node.
+        """
+        date_prop = sanitize_label(dim.candidateprop or "last_activity_date")
+        decay_days = dim.maxvalue or 90.0
         default = float(dim.defaultwhennull)
+        # Weights for 3 signals
+        w1, w2, w3 = 0.6, 0.25, 0.15
         return (
             f"CASE WHEN candidate.{date_prop} IS NULL THEN {default} "
-            f"ELSE exp(-1.0 * duration.inDays(candidate.{date_prop}, datetime()).days "
-            f"/ {decay_constant}) END"
+            f"ELSE ("
+            f"  {w1} * exp(-1.0 * duration.inDays(candidate.{date_prop}, datetime()).days / {decay_days})"
+            f"  + {w2} * toFloat(coalesce(candidate.touch_count_30d, 0)) / 30.0"
+            f"  + {w3} * toFloat(coalesce(candidate.is_accelerating, 0))"
+            f") END"
         )
 
     def _compile_traversalalias(self, dim: ScoringDimensionSpec) -> str:

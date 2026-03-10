@@ -17,7 +17,7 @@ and ensemble fusion for the GRAPH Cognitive Engine.
 All imports gated behind settings.kge_enabled.
 """
 
-from engine.kge.beam_search import BeamSearchConfig, BeamSearchEngine
+from engine.kge.beam_search import BeamSearchConfig, BeamSearchEngine, CascadeVariant
 from engine.kge.compound_e3d import CompoundE3D, CompoundE3DConfig
 from engine.kge.ensemble import EnsembleController, VariantScore
 from engine.kge.transformations import (
@@ -25,6 +25,7 @@ from engine.kge.transformations import (
     Hyperplane,
     Rotation,
     Scale,
+    Shear,
     Transformation3D,
     Translation,
 )
@@ -32,6 +33,7 @@ from engine.kge.transformations import (
 __all__ = [
     "BeamSearchConfig",
     "BeamSearchEngine",
+    "CascadeVariant",
     "CompoundE3D",
     "CompoundE3DConfig",
     "EnsembleController",
@@ -39,6 +41,7 @@ __all__ = [
     "Hyperplane",
     "Rotation",
     "Scale",
+    "Shear",
     "Transformation3D",
     "Translation",
     "VariantScore",
