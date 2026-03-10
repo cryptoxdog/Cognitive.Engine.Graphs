@@ -1,5 +1,5 @@
 #
---- L9_META ---
+# --- L9_META ---
 l9_schema: 1
 origin: l9-template
 engine: graph
@@ -7,14 +7,14 @@ layer: [ci]
 tags: [L9_TEMPLATE, ci, docker]
 owner: platform
 status: active
---- /L9_META ---
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Universal CI/CD Pack — Docker Build with Supply Chain Security
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-VERSION: 1.0.0
-PURPOSE: Multi-platform container build with signing, SBOM, and attestation
-FEATURES: Cosign signing, Syft SBOM, Trivy scanning, provenance attestation
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# --- /L9_META ---
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# Universal CI/CD Pack — Docker Build with Supply Chain Security
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# VERSION: 1.0.0
+# PURPOSE: Multi-platform container build with signing, SBOM, and attestation
+# FEATURES: Cosign signing, Syft SBOM, Trivy scanning, provenance attestation
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 name: Docker Build & Push
 
@@ -130,7 +130,7 @@ jobs:
           format: sarif
           output: trivy-results.sarif
           severity: CRITICAL,HIGH
-          exit-code: 0Non-blocking for first run
+          exit-code: 0 # Non-blocking for first run
 
       - name: Upload Trivy Results to Security Tab
         if: always() && github.event_name != 'pull_request'
@@ -163,6 +163,6 @@ jobs:
           echo "✅ Provenance attested"
           echo ""
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-END OF DOCKER BUILD
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# END OF DOCKER BUILD
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

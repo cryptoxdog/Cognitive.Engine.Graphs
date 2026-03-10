@@ -1,5 +1,5 @@
 #
---- L9_META ---
+# --- L9_META ---
 l9_schema: 1
 origin: l9-template
 engine: graph
@@ -7,17 +7,17 @@ layer: [ci]
 tags: [L9_TEMPLATE, ci, adr]
 owner: platform
 status: active
---- /L9_META ---
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-DORA META: ADR Auto-Fixer with PR Creation
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-CREATED: 2026-02-15T21:34:00-04:00
-AUTHOR: L9 Engineering (cryptoxdog)
-PURPOSE: Automated ADR violation fixes via PR (never direct push to main)
-DEPENDENCIES: ci/auto_fix_adr.py, peter-evans/create-pull-request
-DEPLOYMENT: Runs on push to develop only
-DORA METRICS: Automated fix rate >70% | Manual review <30min
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# --- /L9_META ---
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# DORA META: ADR Auto-Fixer with PR Creation
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# CREATED: 2026-02-15T21:34:00-04:00
+# AUTHOR: L9 Engineering (cryptoxdog)
+# PURPOSE: Automated ADR violation fixes via PR (never direct push to main)
+# DEPENDENCIES: ci/auto_fix_adr.py, peter-evans/create-pull-request
+# DEPLOYMENT: Runs on push to develop only
+# DORA METRICS: Automated fix rate >70% | Manual review <30min
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 name: ADR Auto-Fixer
 
@@ -82,11 +82,11 @@ jobs:
           commit-message: "fix(adr): automated ADR violation fixes"
           title: "🤖 ADR Auto-Fix: Automated Compliance Corrections"
           body: |
-Automated ADR Fixes
+            Automated ADR Fixes
 
             This PR contains automated fixes for ADR violations detected in `develop`.
 
-Changes Applied:
+            Changes Applied:
             - ✅ Sorted `__all__` exports (ADR-0001)
             - ✅ Converted `Optional[T]` → `T | None` (ADR-0002)
             - ✅ Replaced `datetime.now()` → `datetime.now(tz=timezone.utc)` (ADR-0003)
@@ -115,8 +115,8 @@ Changes Applied:
           echo "❌ ADR auto-fix failed. Manual intervention required."
           echo "Check logs at: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-DORA META END
-LAST_MODIFIED: 2026-02-15T21:34:00-04:00
-CHANGE_SUMMARY: Never pushes to main; creates PR with validation gates
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# DORA META END
+# LAST_MODIFIED: 2026-02-15T21:34:00-04:00
+# CHANGE_SUMMARY: Never pushes to main; creates PR with validation gates
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

@@ -1,5 +1,5 @@
 #
---- L9_META ---
+# --- L9_META ---
 l9_schema: 1
 origin: l9-template
 engine: graph
@@ -7,17 +7,17 @@ layer: [ci]
 tags: [L9_TEMPLATE, ci, dev-layer]
 owner: platform
 status: active
---- /L9_META ---
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-DORA META: Dev Layer GMP (Gate-Measure-Prove) Validation
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-CREATED: 2026-02-15T21:34:00-04:00
-AUTHOR: L9 Engineering (cryptoxdog)
-PURPOSE: Validate dev layer isolation and packet flow invariants
-DEPENDENCIES: pytest, dev_layer tests
-DEPLOYMENT: Runs on all PRs touching dev_layer/
-DORA METRICS: Gate pass rate >95% | Test coverage >80%
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# --- /L9_META ---
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# DORA META: Dev Layer GMP (Gate-Measure-Prove) Validation
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# CREATED: 2026-02-15T21:34:00-04:00
+# AUTHOR: L9 Engineering (cryptoxdog)
+# PURPOSE: Validate dev layer isolation and packet flow invariants
+# DEPENDENCIES: pytest, dev_layer tests
+# DEPLOYMENT: Runs on all PRs touching dev_layer/
+# DORA METRICS: Gate pass rate >95% | Test coverage >80%
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 name: Dev Layer GMP Validation
 
@@ -73,8 +73,8 @@ jobs:
           flags: dev-layer
           fail_ci_if_error: false
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-DORA META END
-LAST_MODIFIED: 2026-02-15T21:34:00-04:00
-CHANGE_SUMMARY: Action version fixes, added concurrency control
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# DORA META END
+# LAST_MODIFIED: 2026-02-15T21:34:00-04:00
+# CHANGE_SUMMARY: Action version fixes, added concurrency control
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
