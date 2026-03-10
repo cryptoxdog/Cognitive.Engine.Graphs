@@ -61,7 +61,7 @@ class TestValidateCustomExpression:
     def test_blocks_call_keyword(self) -> None:
         """CALL keyword should be blocked."""
         with pytest.raises(ValueError, match="forbidden keyword 'call'"):
-            _validate_custom_expression("CALL apoc.do.when(true, 'evil')", "test_dim")
+            _validate_custom_expression("candidate.x CALL something", "test_dim")
 
     def test_blocks_call_lowercase(self) -> None:
         """call keyword (lowercase) should be blocked."""
@@ -111,7 +111,7 @@ class TestValidateCustomExpression:
     def test_blocks_foreach_keyword(self) -> None:
         """FOREACH keyword should be blocked."""
         with pytest.raises(ValueError, match="forbidden keyword 'foreach'"):
-            _validate_custom_expression("candidate.x} FOREACH (x IN [1] | SET n.p = x) //", "test_dim")
+            _validate_custom_expression("candidate.x FOREACH something", "test_dim")
 
     def test_blocks_load_keyword(self) -> None:
         """LOAD keyword should be blocked."""
@@ -121,7 +121,7 @@ class TestValidateCustomExpression:
     def test_blocks_union_keyword(self) -> None:
         """UNION keyword should be blocked."""
         with pytest.raises(ValueError, match="forbidden keyword 'union'"):
-            _validate_custom_expression("candidate.x UNION MATCH (a) RETURN a //", "test_dim")
+            _validate_custom_expression("candidate.x UNION candidate.y", "test_dim")
 
     def test_blocks_apoc_procedures(self) -> None:
         """APOC procedures should be blocked."""

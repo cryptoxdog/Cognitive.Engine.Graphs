@@ -57,52 +57,52 @@ class TestSanitizeExpression:
     def test_blocks_call_keyword(self) -> None:
         """CALL keyword should be blocked."""
         with pytest.raises(ValidationError, match="Forbidden keyword 'call'"):
-            _sanitize_expression("CALL db.labels()")
+            _sanitize_expression("n.x CALL something")
 
     def test_blocks_create_keyword(self) -> None:
         """CREATE keyword should be blocked."""
         with pytest.raises(ValidationError, match="Forbidden keyword 'create'"):
-            _sanitize_expression("n.x} CREATE (evil:Node) //")
+            _sanitize_expression("n.x} CREATE (evil:Node)")
 
     def test_blocks_delete_keyword(self) -> None:
         """DELETE keyword should be blocked."""
         with pytest.raises(ValidationError, match="Forbidden keyword 'delete'"):
-            _sanitize_expression("n.x} DELETE n //")
+            _sanitize_expression("n.x} DELETE n")
 
     def test_blocks_detach_delete(self) -> None:
         """DETACH DELETE should be blocked."""
         with pytest.raises(ValidationError, match="Forbidden keyword 'detach'"):
-            _sanitize_expression("n.x} DETACH DELETE n //")
+            _sanitize_expression("n.x} DETACH DELETE n")
 
     def test_blocks_merge_keyword(self) -> None:
         """MERGE keyword should be blocked."""
         with pytest.raises(ValidationError, match="Forbidden keyword 'merge'"):
-            _sanitize_expression("n.x} MERGE (evil:Node) //")
+            _sanitize_expression("n.x} MERGE (evil:Node)")
 
     def test_blocks_match_keyword(self) -> None:
         """MATCH keyword should be blocked."""
         with pytest.raises(ValidationError, match="Forbidden keyword 'match'"):
-            _sanitize_expression("n.x} MATCH (a)-[r]->(b) //")
+            _sanitize_expression("n.x} MATCH (a)")
 
     def test_blocks_union_keyword(self) -> None:
         """UNION keyword should be blocked."""
         with pytest.raises(ValidationError, match="Forbidden keyword 'union'"):
-            _sanitize_expression("n.x UNION MATCH (a) RETURN a //")
+            _sanitize_expression("n.x UNION n.y")
 
     def test_blocks_with_keyword(self) -> None:
         """WITH keyword should be blocked."""
         with pytest.raises(ValidationError, match="Forbidden keyword 'with'"):
-            _sanitize_expression("n.x} WITH 1 AS x RETURN x //")
+            _sanitize_expression("n.x WITH 1 AS x")
 
     def test_blocks_unwind_keyword(self) -> None:
         """UNWIND keyword should be blocked."""
         with pytest.raises(ValidationError, match="Forbidden keyword 'unwind'"):
-            _sanitize_expression("n.x} UNWIND [1,2,3] AS x //")
+            _sanitize_expression("n.x UNWIND n.y")
 
     def test_blocks_load_csv(self) -> None:
         """LOAD CSV should be blocked."""
         with pytest.raises(ValidationError, match="Forbidden keyword 'load'"):
-            _sanitize_expression("n.x} LOAD CSV FROM 'http://evil.com' //")
+            _sanitize_expression("n.x LOAD n.y")
 
     def test_blocks_apoc_procedures(self) -> None:
         """APOC procedures should be blocked."""
@@ -121,7 +121,7 @@ class TestSanitizeExpression:
 
     def test_blocks_db_dot_prefix(self) -> None:
         """db. prefix should be blocked."""
-        with pytest.raises(ValidationError, match="Forbidden pattern 'db.'"):
+        with pytest.raises(ValidationError, match=r"Forbidden pattern 'db\.'"):
             _sanitize_expression("db.labels()")
 
     def test_blocks_line_comments(self) -> None:
@@ -145,8 +145,9 @@ class TestSanitizeExpression:
             _sanitize_expression("${evil}")
 
     def test_blocks_string_with_embedded_quotes(self) -> None:
-        """String literals with embedded quotes should be blocked."""
-        with pytest.raises(ValidationError, match="String literals cannot contain quotes"):
+        """String literals with embedded quotes/escapes should be blocked."""
+        # String with escape character - blocked at pattern validation stage
+        with pytest.raises(ValidationError, match="does not match allowed patterns"):
             _sanitize_expression("'it\\'s evil'")
 
     def test_blocks_disallowed_characters(self) -> None:
@@ -169,16 +170,20 @@ class TestHandleHealthcheck:
         from unittest.mock import AsyncMock, MagicMock, patch
 
         mock_driver = MagicMock()
-        mock_driver.get_driver.return_value = MagicMock()
+        mock_driver.execute_query = AsyncMock(return_value=[{"ping": 1}])
 
-        with patch("engine.handlers._graph_driver", mock_driver), \
-             patch("engine.handlers._domain_loader", MagicMock()):
+        mock_loader = MagicMock()
+        mock_loader.load_domain.return_value = MagicMock()
+
+        with patch("engine.handlers._graph_driver", mock_driver), patch("engine.handlers._domain_loader", mock_loader):
             from engine.handlers import handle_healthcheck
+
             result = await handle_healthcheck("test_tenant", {})
 
             assert "status" in result
             assert result["status"] == "healthy"
-            assert "neo4j" in result
+            assert "checks" in result
+            assert "neo4j" in result["checks"]
 
 
 class TestHandleEnrich:
@@ -193,8 +198,7 @@ class TestHandleEnrich:
         mock_loader = MagicMock()
         mock_loader.load_domain.return_value = MagicMock()
 
-        with patch("engine.handlers._graph_driver", mock_driver), \
-             patch("engine.handlers._domain_loader", mock_loader):
+        with patch("engine.handlers._graph_driver", mock_driver), patch("engine.handlers._domain_loader", mock_loader):
             from engine.handlers import handle_enrich
 
             with pytest.raises(ValidationError, match="entity_type required"):
@@ -209,14 +213,16 @@ class TestHandleEnrich:
         mock_loader = MagicMock()
         mock_loader.load_domain.return_value = MagicMock()
 
-        with patch("engine.handlers._graph_driver", mock_driver), \
-             patch("engine.handlers._domain_loader", mock_loader):
+        with patch("engine.handlers._graph_driver", mock_driver), patch("engine.handlers._domain_loader", mock_loader):
             from engine.handlers import handle_enrich
 
-            result = await handle_enrich("test_tenant", {
-                "entity_type": "Facility",
-                "enrichments": [],
-            })
+            result = await handle_enrich(
+                "test_tenant",
+                {
+                    "entity_type": "Facility",
+                    "enrichments": [],
+                },
+            )
 
             assert result["enriched_count"] == 0
             assert result["entity_type"] == "Facility"
@@ -230,17 +236,19 @@ class TestHandleEnrich:
         mock_loader = MagicMock()
         mock_loader.load_domain.return_value = MagicMock()
 
-        with patch("engine.handlers._graph_driver", mock_driver), \
-             patch("engine.handlers._domain_loader", mock_loader):
+        with patch("engine.handlers._graph_driver", mock_driver), patch("engine.handlers._domain_loader", mock_loader):
             from engine.handlers import handle_enrich
 
-            with pytest.raises(ValidationError, match="Forbidden keyword"):
-                await handle_enrich("test_tenant", {
-                    "entity_type": "Facility",
-                    "enrichments": [
-                        {"property": "evil", "expression": "CALL db.labels()"},
-                    ],
-                })
+            with pytest.raises(ValidationError, match="Forbidden keyword 'call'"):
+                await handle_enrich(
+                    "test_tenant",
+                    {
+                        "entity_type": "Facility",
+                        "enrichments": [
+                            {"property": "evil", "expression": "n.x CALL something"},
+                        ],
+                    },
+                )
 
     @pytest.mark.asyncio
     async def test_enrich_executes_valid_enrichment(self) -> None:
@@ -256,16 +264,18 @@ class TestHandleEnrich:
         mock_loader = MagicMock()
         mock_loader.load_domain.return_value = mock_spec
 
-        with patch("engine.handlers._graph_driver", mock_driver), \
-             patch("engine.handlers._domain_loader", mock_loader):
+        with patch("engine.handlers._graph_driver", mock_driver), patch("engine.handlers._domain_loader", mock_loader):
             from engine.handlers import handle_enrich
 
-            result = await handle_enrich("test_tenant", {
-                "entity_type": "Facility",
-                "enrichments": [
-                    {"property": "computed_value", "expression": "n.price * n.quantity"},
-                ],
-            })
+            result = await handle_enrich(
+                "test_tenant",
+                {
+                    "entity_type": "Facility",
+                    "enrichments": [
+                        {"property": "computed_value", "expression": "n.price * n.quantity"},
+                    ],
+                },
+            )
 
             assert result["enriched_count"] == 5
             assert result["entity_type"] == "Facility"
