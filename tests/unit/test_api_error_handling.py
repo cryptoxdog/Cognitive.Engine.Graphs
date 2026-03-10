@@ -8,12 +8,12 @@ instead of always returning 200 (AUD9-2-HIGH-1, AUD9-7-MED-1).
 
 from __future__ import annotations
 
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock
 
 import pytest
 from fastapi.testclient import TestClient
 
-from chassis.app import LifecycleHook, ChassisSettings, create_app
+from chassis.app import ChassisSettings, LifecycleHook, create_app
 
 
 class MockLifecycleHook(LifecycleHook):
@@ -49,7 +49,7 @@ def test_client(mock_hook):
     """Create test client with mock lifecycle hook."""
     settings = ChassisSettings(cors_origins=[])
     app = create_app(lifecycle_hook=mock_hook, settings=settings)
-    yield TestClient(app)
+    return TestClient(app)
 
 
 class TestErrorHandling:

@@ -16,6 +16,7 @@ Manages connection pooling and multi-database routing.
 import asyncio
 import logging
 import os
+from typing import Any
 
 from neo4j import AsyncDriver, AsyncGraphDatabase
 
@@ -101,5 +102,5 @@ class GraphDriver:
 
         async with driver.session(database=database) as session:
             result = await session.run(cypher, parameters or {})
-            records = await result.data()
+            records: list[Any] = await result.data()
             return records

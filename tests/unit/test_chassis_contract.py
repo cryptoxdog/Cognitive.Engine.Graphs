@@ -9,7 +9,6 @@ Target Coverage: 85%+
 from __future__ import annotations
 
 import pytest
-from unittest.mock import MagicMock, patch
 
 from engine.packet.chassis_contract import (
     deflate_egress,
@@ -21,7 +20,6 @@ from engine.packet.packet_envelope import (
     PacketEnvelope,
     PacketType,
 )
-
 
 # ============================================================================
 # TEST CLASSES
@@ -66,14 +64,20 @@ class TestInflateIngress:
     def test_default_source_node_is_chassis(self) -> None:
         """inflate_ingress defaults source_node to 'chassis'."""
         packet = inflate_ingress(
-            action="health", payload={}, tenant="t1", trace_id="tr_1",
+            action="health",
+            payload={},
+            tenant="t1",
+            trace_id="tr_1",
         )
         assert packet.address.source_node == "chassis"
 
     def test_trace_id_preserved(self) -> None:
         """inflate_ingress sets trace_id in observability."""
         packet = inflate_ingress(
-            action="match", payload={}, tenant="t1", trace_id="my_trace",
+            action="match",
+            payload={},
+            tenant="t1",
+            trace_id="my_trace",
         )
         assert packet.observability.trace_id == "my_trace"
 
@@ -85,7 +89,10 @@ class TestDeflateEgress:
     def test_creates_response_from_request(self) -> None:
         """deflate_egress creates a RESPONSE derived from request."""
         request = inflate_ingress(
-            action="match", payload={"q": "v"}, tenant="t1", trace_id="tr_1",
+            action="match",
+            payload={"q": "v"},
+            tenant="t1",
+            trace_id="tr_1",
         )
         response = deflate_egress(
             request=request,
@@ -102,10 +109,15 @@ class TestDeflateEgress:
     def test_preserves_trace_id(self) -> None:
         """deflate_egress preserves trace_id from request."""
         request = inflate_ingress(
-            action="sync", payload={}, tenant="t1", trace_id="tr_preserve",
+            action="sync",
+            payload={},
+            tenant="t1",
+            trace_id="tr_preserve",
         )
         response = deflate_egress(
-            request=request, engine_data={}, processing_ms=1.0,
+            request=request,
+            engine_data={},
+            processing_ms=1.0,
             responding_node="node1",
         )
         assert response.payload["meta"]["trace_id"] == "tr_preserve"
@@ -113,10 +125,15 @@ class TestDeflateEgress:
     def test_includes_processing_ms(self) -> None:
         """deflate_egress includes processing_ms in meta."""
         request = inflate_ingress(
-            action="admin", payload={}, tenant="t1", trace_id="tr_1",
+            action="admin",
+            payload={},
+            tenant="t1",
+            trace_id="tr_1",
         )
         response = deflate_egress(
-            request=request, engine_data={}, processing_ms=123.456,
+            request=request,
+            engine_data={},
+            processing_ms=123.456,
             responding_node="node1",
         )
         assert response.payload["meta"]["execution_ms"] == 123.456
@@ -129,7 +146,10 @@ class TestDelegateToNode:
     def test_creates_delegation_packet(self) -> None:
         """delegate_to_node creates a DELEGATION packet."""
         source = inflate_ingress(
-            action="match", payload={"key": "val"}, tenant="t1", trace_id="tr_1",
+            action="match",
+            payload={"key": "val"},
+            tenant="t1",
+            trace_id="tr_1",
         )
         delegation = delegate_to_node(
             source_packet=source,
@@ -146,11 +166,15 @@ class TestDelegateToNode:
     def test_copies_tenant_context(self) -> None:
         """delegate_to_node preserves tenant from source packet."""
         source = inflate_ingress(
-            action="match", payload={}, tenant="original_tenant", trace_id="tr_1",
+            action="match",
+            payload={},
+            tenant="original_tenant",
+            trace_id="tr_1",
         )
         delegation = delegate_to_node(
             source_packet=source,
-            from_node="a", to_node="b",
+            from_node="a",
+            to_node="b",
             delegated_action=Action("sync"),
             scope=("data_sync",),
         )
@@ -159,11 +183,15 @@ class TestDelegateToNode:
     def test_sets_audit_required(self) -> None:
         """delegate_to_node sets audit_required=True in governance."""
         source = inflate_ingress(
-            action="match", payload={}, tenant="t1", trace_id="tr_1",
+            action="match",
+            payload={},
+            tenant="t1",
+            trace_id="tr_1",
         )
         delegation = delegate_to_node(
             source_packet=source,
-            from_node="a", to_node="b",
+            from_node="a",
+            to_node="b",
             delegated_action=Action("admin"),
             scope=("admin_ops",),
         )
@@ -172,11 +200,15 @@ class TestDelegateToNode:
     def test_payload_override(self) -> None:
         """delegate_to_node uses payload_override when provided."""
         source = inflate_ingress(
-            action="match", payload={"original": True}, tenant="t1", trace_id="tr_1",
+            action="match",
+            payload={"original": True},
+            tenant="t1",
+            trace_id="tr_1",
         )
         delegation = delegate_to_node(
             source_packet=source,
-            from_node="a", to_node="b",
+            from_node="a",
+            to_node="b",
             delegated_action=Action("enrich"),
             scope=("enrich",),
             payload_override={"overridden": True},

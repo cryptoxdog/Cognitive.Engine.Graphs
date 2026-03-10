@@ -74,7 +74,7 @@ def snippet_with_lines(text: str, line_no: int, context: int = 3) -> tuple[int, 
     block = []
     for i in range(start, end + 1):
         prefix = ">>" if i == line_no else "  "
-        block.append(f"{prefix} {i:4d}: {lines[i-1]}")
+        block.append(f"{prefix} {i:4d}: {lines[i - 1]}")
     return start, end, "\n".join(block)
 
 

@@ -8,10 +8,9 @@ Target Coverage: 85%+
 
 from __future__ import annotations
 
-import pytest
 from unittest.mock import MagicMock, patch
 
-import numpy as np
+import pytest
 
 from engine.kge.beam_search import (
     BeamCandidate,
@@ -20,8 +19,7 @@ from engine.kge.beam_search import (
     PruneStrategy,
 )
 from engine.kge.compound_e3d import CompoundE3D, CompoundE3DConfig
-from engine.kge.transformations import Rotation, Scale
-
+from engine.kge.transformations import Scale
 
 # ============================================================================
 # FIXTURES
@@ -63,8 +61,12 @@ class TestBeamCandidate:
     def test_to_dict_serialization(self) -> None:
         """to_dict returns all fields."""
         c = BeamCandidate(
-            transformation_id="var_0001", transformation_type="rotation",
-            params={"angle": 45.0}, score=0.85, depth=1, parent_id="var_0000",
+            transformation_id="var_0001",
+            transformation_type="rotation",
+            params={"angle": 45.0},
+            score=0.85,
+            depth=1,
+            parent_id="var_0000",
         )
         d = c.to_dict()
         assert d["id"] == "var_0001"
@@ -129,7 +131,8 @@ class TestBeamSearchEngine:
     def test_search_returns_variants(self, model: CompoundE3D) -> None:
         """search() returns variant dicts when kge_enabled=True."""
         config = BeamSearchConfig(
-            beam_width=3, max_depth=1,
+            beam_width=3,
+            max_depth=1,
             prune_strategy=PruneStrategy.SCORE_THRESHOLD,
             score_threshold=0.0,
         )
@@ -166,9 +169,11 @@ class TestBeamSearchEngine:
     def test_pruned_candidates_logged(self, model: CompoundE3D) -> None:
         """Pruned candidates are logged when log_pruned=True."""
         config = BeamSearchConfig(
-            beam_width=2, max_depth=1,
+            beam_width=2,
+            max_depth=1,
             prune_strategy=PruneStrategy.SCORE_THRESHOLD,
-            score_threshold=0.5, log_pruned=True,
+            score_threshold=0.5,
+            log_pruned=True,
         )
         engine = BeamSearchEngine(model, config)
         with patch("engine.kge.beam_search.settings") as mock_settings:
@@ -210,7 +215,9 @@ class TestPruneStrategies:
         """_prune_by_constraint filters invalid transformations."""
         engine.config.constraint_validators = [lambda tx: isinstance(tx, Scale)]
         candidates = [
-            BeamCandidate("a", "rotation", {"angle": 45.0, "axis_x": 1.0, "axis_y": 0.0, "axis_z": 0.0}, score=0.9, depth=1),
+            BeamCandidate(
+                "a", "rotation", {"angle": 45.0, "axis_x": 1.0, "axis_y": 0.0, "axis_z": 0.0}, score=0.9, depth=1
+            ),
             BeamCandidate("b", "scale", {"factor": 1.5}, score=0.8, depth=1),
         ]
         kept = engine._prune_by_constraint(candidates)

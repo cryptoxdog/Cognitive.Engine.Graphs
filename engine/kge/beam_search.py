@@ -476,7 +476,7 @@ class BeamSearchEngine:
 
         # E-02 Guard: ensure model is set before running search
         if self.model is None:
-            msg = (
+            msg = (  # type: ignore[unreachable]  # kge_enabled is runtime-configurable
                 "BeamSearch: config.model must be set before running search. "
                 "Assign a trained CompoundE3D instance to config.model."
             )

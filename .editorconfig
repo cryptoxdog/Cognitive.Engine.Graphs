@@ -1,0 +1,40 @@
+# EditorConfig — L9 Graph Cognitive Engine
+# https://editorconfig.org
+# Harvested concept: universal editor consistency (from L9 Kernel)
+# Implementation: 100% fresh — line-length=120, py311, Graph structure
+
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+indent_size = 4
+
+[*.py]
+max_line_length = 120
+
+[*.{yml,yaml,toml,json}]
+indent_size = 2
+
+[*.md]
+# Markdown uses trailing double-space for <br> line breaks
+trim_trailing_whitespace = false
+
+[*.sh]
+indent_style = space
+indent_size = 2
+
+[Makefile]
+# GNU Make requires literal tab characters for recipe lines
+indent_style = tab
+
+[Dockerfile*]
+indent_style = space
+indent_size = 4
+
+[*.cypher]
+indent_style = space
+indent_size = 2

@@ -113,7 +113,8 @@ class TestAuditLogging:
         # No tags = default 365
         assert logger.get_retention_days([]) == 365
 
-    def test_buffer_and_flush(self) -> None:
+    @pytest.mark.asyncio
+    async def test_buffer_and_flush(self) -> None:
         """Audit entries buffer and flush correctly."""
         logger = AuditLogger(buffer_size=3)
 
@@ -122,6 +123,6 @@ class TestAuditLogging:
 
         assert logger.buffer_count == 2
 
-        entries = logger.flush()
+        entries = await logger.flush()
         assert len(entries) == 2
         assert logger.buffer_count == 0

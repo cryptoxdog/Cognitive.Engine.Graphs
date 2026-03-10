@@ -36,8 +36,9 @@ import logging
 import os
 import uuid
 from abc import ABC, abstractmethod
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from typing import Any, AsyncIterator, Callable, Awaitable
+from typing import Any
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -51,6 +52,7 @@ logger = logging.getLogger(__name__)
 # ═══════════════════════════════════════════════════════════════════════════
 #  CHASSIS-OWNED CONFIGURATION  (engine never touches this)
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class ChassisSettings(BaseSettings):
     """
@@ -84,6 +86,7 @@ _chassis_settings = ChassisSettings()
 #  CHASSIS-OWNED ENVELOPE MODELS
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class ExecuteRequest(BaseModel):
     """Universal execute request envelope — chassis contract."""
 
@@ -106,6 +109,7 @@ class ExecuteResponse(BaseModel):
 # ═══════════════════════════════════════════════════════════════════════════
 #  LIFECYCLE HOOK — the engine's ONLY coupling surface to the chassis
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class LifecycleHook(ABC):
     """
@@ -183,6 +187,7 @@ class _NoOpLifecycle(LifecycleHook):
 #  HOOK RESOLUTION  (env var → importlib → instance)
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 def _resolve_hook(hook: LifecycleHook | None) -> LifecycleHook:
     """
     Priority:
@@ -199,7 +204,7 @@ def _resolve_hook(hook: LifecycleHook | None) -> LifecycleHook:
             module_path, class_name = dotted.rsplit(":", 1)
             module = importlib.import_module(module_path)
             cls = getattr(module, class_name)
-            instance = cls()
+            instance: LifecycleHook = cls()
             logger.info("Resolved LifecycleHook from %s → %s", dotted, type(instance).__name__)
             return instance
         except Exception:
@@ -212,6 +217,7 @@ def _resolve_hook(hook: LifecycleHook | None) -> LifecycleHook:
 # ═══════════════════════════════════════════════════════════════════════════
 #  APPLICATION FACTORY
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 def create_app(
     *,
@@ -317,11 +323,7 @@ def create_app(
         try:
             result = await hook.health(tenant=tenant, trace_id=trace_id)
 
-            status_code = (
-                200
-                if result.get("data", {}).get("status") == "healthy"
-                else 503
-            )
+            status_code = 200 if result.get("data", {}).get("status") == "healthy" else 503
             return JSONResponse(content=result, status_code=status_code)
 
         except Exception as exc:

@@ -421,10 +421,7 @@ class GDSScheduler:
         equipment_props = self._get_equipment_properties(job_spec)
 
         # Build dynamic CASE statements for equipment detection
-        case_statements = [
-            f"CASE WHEN f.{prop} = true THEN '{name}' END"
-            for prop, name in equipment_props
-        ]
+        case_statements = [f"CASE WHEN f.{prop} = true THEN '{name}' END" for prop, name in equipment_props]
         case_list = ",\n            ".join(case_statements)
 
         cypher = f"""

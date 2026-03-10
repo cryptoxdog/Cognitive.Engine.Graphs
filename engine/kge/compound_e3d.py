@@ -320,7 +320,8 @@ class CompoundE3D:
             logit = -(alpha * d - beta)
             prob = 1.0 / (1.0 + np.exp(-logit))
             prob = np.clip(prob, 1e-9, 1 - 1e-9)
-            return -np.sum(y * np.log(prob) + (1 - y) * np.log(1 - prob))
+            nll_value: float = -np.sum(y * np.log(prob) + (1 - y) * np.log(1 - prob))
+            return nll_value
 
         result = minimize(nll, x0=[1.0, 0.0], method="L-BFGS-B")
         self._platt_alpha, self._platt_beta = float(result.x[0]), float(result.x[1])
@@ -354,8 +355,8 @@ class CompoundE3D:
                 msg = f"build_icp_centroid: entity '{aid}' not found in embedding table. Run train() first."
                 raise ValueError(msg)
             embeddings.append(emb)
-        centroid = np.mean(np.stack(embeddings, axis=0), axis=0)
-        self._icp_centroid: np.ndarray = centroid
+        centroid: np.ndarray = np.mean(np.stack(embeddings, axis=0), axis=0)
+        self._icp_centroid = centroid
         return centroid
 
     def score_against_icp(

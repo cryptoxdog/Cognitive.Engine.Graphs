@@ -7,6 +7,7 @@ Handlers receive (tenant: str, payload: dict) and return dict.
 from __future__ import annotations
 
 import logging
+import re
 import time
 import uuid
 from typing import Any
@@ -73,61 +74,64 @@ def _require_key(payload: dict[str, Any], key: str, action: str, tenant: str) ->
 
 
 # Allowed Cypher function patterns for enrich action (whitelist approach)
-_SAFE_CYPHER_FUNCTIONS = frozenset([
-    "coalesce(",
-    "toInteger(",
-    "toFloat(",
-    "toString(",
-    "size(",
-    "length(",
-    "trim(",
-    "toLower(",
-    "toUpper(",
-    "abs(",
-    "round(",
-    "ceil(",
-    "floor(",
-    "sqrt(",
-    "log(",
-    "exp(",
-    "datetime(",
-    "date(",
-    "time(",
-    "duration(",
-    "point(",
-    "distance(",
-])
+_SAFE_CYPHER_FUNCTIONS = frozenset(
+    [
+        "coalesce(",
+        "toInteger(",
+        "toFloat(",
+        "toString(",
+        "size(",
+        "length(",
+        "trim(",
+        "toLower(",
+        "toUpper(",
+        "abs(",
+        "round(",
+        "ceil(",
+        "floor(",
+        "sqrt(",
+        "log(",
+        "exp(",
+        "datetime(",
+        "date(",
+        "time(",
+        "duration(",
+        "point(",
+        "distance(",
+    ]
+)
 
 # Dangerous Cypher keywords that must be blocked
-_DANGEROUS_PATTERNS = frozenset([
-    "call",
-    "create",
-    "merge",
-    "delete",
-    "remove",
-    "set",
-    "match",
-    "return",
-    "with",
-    "unwind",
-    "foreach",
-    "load",
-    "using",
-    "detach",
-    "optional",
-    "union",
-    "apoc",
-    "gds",
-    "dbms",
-    "db.",
-    "//",
-    "/*",
-    "$$",
-    "${",
-])
+_DANGEROUS_PATTERNS = frozenset(
+    [
+        "call",
+        "create",
+        "merge",
+        "delete",
+        "remove",
+        "set",
+        "match",
+        "return",
+        "with",
+        "unwind",
+        "foreach",
+        "load",
+        "using",
+        "detach",
+        "optional",
+        "union",
+        "apoc",
+        "gds",
+        "dbms",
+        "db.",
+        "//",
+        "/*",
+        "$$",
+        "${",
+    ]
+)
 
 # Valid property name pattern (alphanumeric + underscore, must start with letter/underscore)
-import re
 _PROPERTY_NAME_RE = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_]*$")
 
 
@@ -161,13 +165,15 @@ def _sanitize_expression(expr: str) -> str:
     # Allow numeric literals
     try:
         float(expr_stripped)
-        return expr_stripped
     except ValueError:
         pass
+    else:
+        return expr_stripped
 
     # Allow string literals (single or double quoted)
-    if (expr_stripped.startswith("'") and expr_stripped.endswith("'") and expr_stripped.count("'") == 2) or \
-       (expr_stripped.startswith('"') and expr_stripped.endswith('"') and expr_stripped.count('"') == 2):
+    if (expr_stripped.startswith("'") and expr_stripped.endswith("'") and expr_stripped.count("'") == 2) or (
+        expr_stripped.startswith('"') and expr_stripped.endswith('"') and expr_stripped.count('"') == 2
+    ):
         # Check for injection attempts within string
         inner = expr_stripped[1:-1]
         if "'" in inner or '"' in inner or "\\" in inner:
@@ -176,7 +182,9 @@ def _sanitize_expression(expr: str) -> str:
         return expr_stripped
 
     # Check for safe function calls
-    has_safe_function = any(expr_lower.startswith(f) or f" {f}" in expr_lower or f"({f}" in expr_lower for f in _SAFE_CYPHER_FUNCTIONS)
+    has_safe_function = any(
+        expr_lower.startswith(f) or f" {f}" in expr_lower or f"({f}" in expr_lower for f in _SAFE_CYPHER_FUNCTIONS
+    )
 
     # Check for property access pattern: n.property_name
     has_property_access = "n." in expr_lower
@@ -390,8 +398,7 @@ async def _init_schema(driver: GraphDriver, spec: DomainSpec) -> int:
         for prop in node.properties:
             if prop.required:
                 cypher = (
-                    f"CREATE CONSTRAINT IF NOT EXISTS "
-                    f"FOR (n:{label}) REQUIRE n.{sanitize_label(prop.name)} IS NOT NULL"
+                    f"CREATE CONSTRAINT IF NOT EXISTS FOR (n:{label}) REQUIRE n.{sanitize_label(prop.name)} IS NOT NULL"
                 )
                 try:
                     await driver.execute_query(cypher, database=db)
@@ -599,14 +606,14 @@ async def handle_enrich(tenant: str, payload: dict[str, Any]) -> dict[str, Any]:
         cypher = f"""
         MATCH (n:{label})
         WHERE n.entity_id IN $entity_ids
-        SET {', '.join(set_clauses)}
+        SET {", ".join(set_clauses)}
         RETURN count(n) AS enriched_count
         """
         params = {"entity_ids": entity_ids}
     else:
         cypher = f"""
         MATCH (n:{label})
-        SET {', '.join(set_clauses)}
+        SET {", ".join(set_clauses)}
         RETURN count(n) AS enriched_count
         """
         params = {}

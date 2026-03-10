@@ -8,12 +8,9 @@ Target Coverage: 85%+
 
 from __future__ import annotations
 
-import math
-
 import pytest
 
 from engine.config.units import UnitConverter, UnitDefinition
-
 
 # ============================================================================
 # TEST CLASSES
@@ -128,18 +125,29 @@ class TestCustomUnits:
 
     def test_custom_unit_overrides_default(self) -> None:
         """Custom unit definitions override defaults."""
-        custom = {"currency": UnitDefinition(
-            display="EUR", storage="USD", to_storage=1.1, from_storage=0.909,
-        )}
+        custom = {
+            "currency": UnitDefinition(
+                display="EUR",
+                storage="USD",
+                to_storage=1.1,
+                from_storage=0.909,
+            )
+        }
         uc = UnitConverter(unit_definitions=custom)
         assert uc.convert_to_storage(100.0, "currency") == pytest.approx(110.0)
 
     def test_register_new_unit(self) -> None:
         """register_unit adds a new unit at runtime."""
         uc = UnitConverter()
-        uc.register_unit("pressure", UnitDefinition(
-            display="psi", storage="pascal", to_storage=6894.76, from_storage=0.000145038,
-        ))
+        uc.register_unit(
+            "pressure",
+            UnitDefinition(
+                display="psi",
+                storage="pascal",
+                to_storage=6894.76,
+                from_storage=0.000145038,
+            ),
+        )
         result = uc.convert_to_storage(1.0, "pressure")
         assert result == pytest.approx(6894.76, rel=1e-3)
 

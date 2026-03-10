@@ -56,6 +56,12 @@ class Settings(BaseSettings):
     api_secret_key: str = "change-me-in-production"
     cors_origins: list[str] = []  # Default deny-all; set via CORS_ORIGINS env var
 
+    # --- API Authentication ---
+    # L9_API_KEY env var. Required in production. Used by BearerAuthMiddleware.
+    # Generated via: python -c "import secrets; print(secrets.token_urlsafe(48))"
+    # Stored in AWS Secrets Manager: clawdbot/l9-api → {"L9_API_KEY": "<value>"}
+    l9_api_key: str = ""
+
     # --- Domain Packs ---
     domains_root: Path = Path("./domains")
 
@@ -101,6 +107,9 @@ class Settings(BaseSettings):
                 raise ValueError(msg)
             if self.api_secret_key in _DEFAULT_SECRETS:
                 msg = "api_secret_key must be changed from default in production"
+                raise ValueError(msg)
+            if not self.l9_api_key:
+                msg = "L9_API_KEY must be set in production"
                 raise ValueError(msg)
         return self
 

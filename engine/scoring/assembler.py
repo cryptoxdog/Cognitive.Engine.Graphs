@@ -15,27 +15,29 @@ from engine.utils.security import sanitize_label
 logger = logging.getLogger(__name__)
 
 # Dangerous Cypher keywords that must be blocked in CUSTOMCYPHER expressions
-_DANGEROUS_CYPHER_KEYWORDS = frozenset([
-    "call",
-    "create",
-    "merge",
-    "delete",
-    "remove",
-    "set",
-    "match",
-    "return",
-    "with",
-    "unwind",
-    "foreach",
-    "load",
-    "using",
-    "detach",
-    "optional",
-    "union",
-    "apoc",
-    "gds",
-    "dbms",
-])
+_DANGEROUS_CYPHER_KEYWORDS = frozenset(
+    [
+        "call",
+        "create",
+        "merge",
+        "delete",
+        "remove",
+        "set",
+        "match",
+        "return",
+        "with",
+        "unwind",
+        "foreach",
+        "load",
+        "using",
+        "detach",
+        "optional",
+        "union",
+        "apoc",
+        "gds",
+        "dbms",
+    ]
+)
 
 
 def _validate_custom_expression(expression: str, dim_name: str) -> str:
@@ -43,8 +45,6 @@ def _validate_custom_expression(expression: str, dim_name: str) -> str:
     Validate CUSTOMCYPHER expression for dangerous patterns.
     Raises ValueError if expression contains potentially dangerous Cypher keywords.
     """
-    expr_lower = expression.lower()
-
     # Check for dangerous keywords as word boundaries
     for keyword in _DANGEROUS_CYPHER_KEYWORDS:
         keyword_re = re.compile(rf"\b{re.escape(keyword)}\b", re.IGNORECASE)

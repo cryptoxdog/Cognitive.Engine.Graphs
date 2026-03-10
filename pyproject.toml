@@ -68,6 +68,8 @@ line-length = 120
 select = [
     "E", "W", "F", "I", "N", "UP", "B", "SIM",
     "A", "C4", "DTZ", "T10", "EM", "ISC", "ICN", "PIE", "PT", "RET", "TCH", "ARG", "PTH", "PL", "TRY", "RUF",
+    "S",        # flake8-bandit: security checks (harvested from L9 Kernel)
+    "ASYNC",    # flake8-async: async antipattern detection (harvested from L9 Kernel)
 ]
 ignore = [
     "E501",     # line too long (handled by formatter)
@@ -98,28 +100,44 @@ ignore = [
     "B007",     # unused loop control variable (acceptable)
     "E741",     # ambiguous variable name (acceptable in tools)
     "PLC0206",  # dict index missing items (acceptable)
-    "UP038",    # isinstance tuple vs union (tuple is clearer for runtime checks)
+    "S104",     # bind 0.0.0.0 — containerized services
+    "S110",     # try-except-pass — optional feature degradation
+    "S112",     # try-except-continue — resilient batch operations
+    "S311",     # non-crypto random — scoring jitter, test data
+    "S108",     # hardcoded tmp — containerized, ephemeral
 ]
 
 [tool.ruff.lint.per-file-ignores]
 "__init__.py" = ["F401"]
-"tests/**" = ["S101", "ARG001", "ARG002", "PLR2004", "PT011", "B017", "F841"]
+"tests/**" = ["S101", "S105", "S106", "S108", "ARG001", "ARG002", "PLR2004", "PT011", "B017", "F841", "SIM117"]
 "domains/**" = ["PTH123"]
-"engine/packet/test_*.py" = ["B017"]  # test files in engine/packet
+"engine/packet/test_*.py" = ["B017"]
+"scripts/**" = ["S603", "S607"]
+"tools/**" = ["S603", "S607"]
+"auth/**" = ["S101", "S105", "S106", "TC002", "TRY301", "TRY401"]
+"chassis/**" = ["TRY300", "TRY301", "TRY401"]
+"engine/config/**" = ["S105"]
 
 [tool.mypy]
 python_version = "3.11"
-warn_return_any = false
+warn_return_any = true              # catch untyped returns (harvested from L9 Kernel)
 warn_unused_configs = true
+warn_unreachable = true             # catch dead code paths (harvested from L9 Kernel)
 disallow_untyped_defs = false
 check_untyped_defs = true
 ignore_missing_imports = true
+plugins = ["pydantic.mypy"]         # Pydantic model type awareness (harvested from L9 Kernel)
 exclude = [
     "^current work/",
     "^harvest_staging/",
     "^docs/",
     "^domains/",
 ]
+
+[tool.pydantic-mypy]
+init_forbid_extra = true            # Flag extra fields in model __init__
+init_typed = true                   # Enforce typed __init__ params
+warn_required_dynamic_aliases = true # Catch alias misuse
 
 [[tool.mypy.overrides]]
 module = "tests.*"

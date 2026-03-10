@@ -10,17 +10,16 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-
-import pytest
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 from engine.config.loader import (
+    MAX_SPEC_BYTES,
     DomainNotFoundError,
     DomainPackLoader,
     DomainSpecError,
-    MAX_SPEC_BYTES,
 )
-
 
 # ============================================================================
 # TEST CLASSES
@@ -151,8 +150,10 @@ class TestLoadDomain:
         """load_domain caches spec on first load."""
         loader = DomainPackLoader(config_path=str(tmp_path))
         mock_spec = MagicMock()
-        with patch.object(loader, "_resolve_spec_path") as mock_resolve, \
-             patch.object(loader, "_load_and_validate", return_value=mock_spec):
+        with (
+            patch.object(loader, "_resolve_spec_path") as mock_resolve,
+            patch.object(loader, "_load_and_validate", return_value=mock_spec),
+        ):
             mock_path = MagicMock()
             mock_path.stat.return_value.st_mtime = 1000.0
             mock_resolve.return_value = mock_path
@@ -178,8 +179,10 @@ class TestLoadDomain:
         old_spec = MagicMock()
         new_spec = MagicMock()
         loader._cache["stale"] = (old_spec, 1000.0)
-        with patch.object(loader, "_resolve_spec_path") as mock_resolve, \
-             patch.object(loader, "_load_and_validate", return_value=new_spec):
+        with (
+            patch.object(loader, "_resolve_spec_path") as mock_resolve,
+            patch.object(loader, "_load_and_validate", return_value=new_spec),
+        ):
             mock_path = MagicMock()
             mock_path.stat.return_value.st_mtime = 2000.0
             mock_resolve.return_value = mock_path

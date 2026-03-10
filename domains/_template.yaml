@@ -1,0 +1,566 @@
+# =============================================================================
+# L9 Graph Cognitive Engine — Domain Spec Template
+# =============================================================================
+# Version: 1.0.0
+# Schema: engine/config/schema.py (DomainSpec)
+# Usage: Copy this file to domains/{domain-id}_domain_spec.yaml
+#
+# This template shows ALL available fields with their types and defaults.
+# Required fields are marked with # REQUIRED
+# Optional fields show their default values or "null" if no default.
+#
+# Field naming: Use snake_case (e.g., match_entities, not matchEntities)
+# Enums: Use lowercase values (e.g., "sync", not "SYNC")
+# =============================================================================
+
+# ---------------------------------------------------------------------------
+# DOMAIN METADATA (REQUIRED)
+# ---------------------------------------------------------------------------
+domain:
+  id: your-domain-id                    # REQUIRED: Unique identifier (kebab-case)
+  name: "Your Domain Name"              # REQUIRED: Human-readable name
+  description: >                        # Optional: Multi-line description
+    Describe what this domain matches, the key entities involved,
+    and the business context.
+  version: "1.0.0"                      # REQUIRED: Semver (no 'v' prefix)
+  alternatedomains: []                  # Optional: List of alias domain IDs
+
+# ---------------------------------------------------------------------------
+# ONTOLOGY (REQUIRED)
+# ---------------------------------------------------------------------------
+ontology:
+  # ─── NODES ───────────────────────────────────────────────────────────────
+  nodes:
+    # Candidate node (what we match TO)
+    - label: Candidate                  # REQUIRED: Neo4j node label
+      description: "The entity being matched to queries"
+      managedby: sync                   # REQUIRED: sync | gds | static | api | computed
+      candidate: true                   # Mark as candidate for matching
+      queryentity: false
+      taxonomy: false
+      auxiliary: false
+      matchdirection: query_to_candidate  # Direction identifier
+      properties:
+        - name: id                      # REQUIRED: Property name (snake_case)
+          type: string                  # REQUIRED: string | int | float | bool | datetime | date | duration | enum
+          required: true
+          nullable: false
+          unit: null                    # Optional: currency | percentage | meters | etc.
+          description: "Unique identifier"
+        - name: score
+          type: float
+          required: false
+          nullable: true
+          managedby: gds                # Property managed by GDS algorithm
+        - name: status
+          type: enum
+          values: [active, inactive, pending]  # Required for enum type
+          required: false
+          nullable: true
+
+    # Query entity node (what we match FROM)
+    - label: QueryEntity
+      description: "The entity initiating the match request"
+      managedby: api
+      candidate: false
+      queryentity: true
+      matchdirection: query_to_candidate
+      properties:
+        - name: query_id
+          type: string
+          required: true
+
+    # Taxonomy node (for classification/categorization)
+    - label: Category
+      description: "Taxonomy classification node"
+      managedby: static
+      taxonomy: true
+      properties:
+        - name: code
+          type: string
+          required: true
+        - name: name
+          type: string
+
+  # ─── EDGES ───────────────────────────────────────────────────────────────
+  edges:
+    # Capability edge (what candidate can do)
+    - type: HAS_CAPABILITY              # REQUIRED: Neo4j relationship type (UPPER_SNAKE)
+      from: Candidate                   # REQUIRED: Source node label
+      to: Category                      # REQUIRED: Target node label
+      direction: DIRECTED               # REQUIRED: DIRECTED | UNDIRECTED
+      category: capability              # REQUIRED: capability | taxonomy | transaction | exclusion | precomputed | market | context | referral | intent
+      managedby: sync                   # REQUIRED: sync | gds | static | api | computed
+      properties: []                    # Optional: Edge properties
+
+    # Exclusion edge (for hard exclusion gates)
+    - type: EXCLUDED_FROM
+      from: Candidate
+      to: Candidate
+      direction: DIRECTED
+      category: exclusion
+      managedby: sync
+      properties: []
+
+    # Transaction edge (for reinforcement learning)
+    - type: TRANSACTED_WITH
+      from: Candidate
+      to: Candidate
+      direction: DIRECTED
+      category: transaction
+      managedby: sync
+      properties:
+        - name: outcome
+          type: enum
+          values: [success, failure, partial]
+        - name: transacted_at
+          type: datetime
+
+# ---------------------------------------------------------------------------
+# MATCH ENTITIES (REQUIRED)
+# ---------------------------------------------------------------------------
+matchentities:
+  candidate:
+    - label: Candidate                  # Must exist in ontology.nodes
+      matchdirection: query_to_candidate
+  queryentity:
+    - label: QueryEntity                # Must exist in ontology.nodes
+      matchdirection: query_to_candidate
+
+# ---------------------------------------------------------------------------
+# QUERY SCHEMA (REQUIRED)
+# ---------------------------------------------------------------------------
+queryschema:
+  matchdirections:                      # REQUIRED: List of valid match directions
+    - query_to_candidate
+  fields:                               # Query parameters accepted by /v1/match
+    - name: category_code               # Field name in query payload
+      type: string
+      required: false
+      default: null
+      mapstotaxonomy: Category          # Auto-join to taxonomy node
+    - name: min_score
+      type: float
+      required: false
+      default: 0.0
+    - name: max_distance_km
+      type: float
+      unit: kilometers
+      required: false
+      default: 100.0
+
+# ---------------------------------------------------------------------------
+# DERIVED PARAMETERS (Optional)
+# ---------------------------------------------------------------------------
+derivedparameters:
+  - name: score_ratio                   # Computed from query fields
+    expression: "min_score / 100.0"     # Simple algebraic expression
+    type: float
+    unit: percentage
+    description: "Normalized score threshold"
+
+# ---------------------------------------------------------------------------
+# TRAVERSAL (REQUIRED)
+# ---------------------------------------------------------------------------
+traversal:
+  steps:
+    # Basic candidate match
+    - name: base_candidates
+      description: "Match all candidates"
+      pattern: "MATCH (candidate:Candidate)"
+      required: true
+      matchdirections: [query_to_candidate]
+
+    # Optional taxonomy join
+    - name: category_join
+      description: "Join to category taxonomy"
+      pattern: "OPTIONAL MATCH (candidate)-[:HAS_CAPABILITY]->(cat:Category)"
+      required: false
+      matchdirections: [query_to_candidate]
+
+# ---------------------------------------------------------------------------
+# GATES (REQUIRED - at least empty list)
+# ---------------------------------------------------------------------------
+# Gate types: range | threshold | boolean | composite | enummap | exclusion |
+#             selfrange | freshness | temporalrange | traversal
+# Null behavior: pass (NULL passes gate) | fail (NULL fails gate)
+gates:
+  # ─── THRESHOLD GATE ──────────────────────────────────────────────────────
+  - name: min_score_gate
+    description: "Candidate score must meet minimum threshold"
+    type: threshold
+    candidateprop: score                # Property on candidate node
+    queryparam: min_score               # Query parameter to compare
+    operator: ">="                      # Comparison operator
+    nullbehavior: pass                  # pass | fail
+    matchdirections: [query_to_candidate]
+    invertible: false
+
+  # ─── RANGE GATE ──────────────────────────────────────────────────────────
+  - name: score_range_gate
+    description: "Query score must fall within candidate's accepted range"
+    type: range
+    candidateprop_min: min_accepted_score
+    candidateprop_max: max_accepted_score
+    queryparam: query_score
+    nullbehavior: pass
+    matchdirections: [query_to_candidate]
+
+  # ─── BOOLEAN GATE ────────────────────────────────────────────────────────
+  - name: active_gate
+    description: "Candidate must be active"
+    type: boolean
+    candidateprop: is_active
+    queryparam: null                    # null = always check candidate prop
+    nullbehavior: fail                  # NULL is_active = rejected
+    matchdirections: [query_to_candidate]
+
+  # ─── ENUMMAP GATE ────────────────────────────────────────────────────────
+  - name: category_compatibility_gate
+    description: "Query category must map to candidate's accepted categories"
+    type: enummap
+    candidateprop: accepted_categories
+    queryparam: category_code
+    mapping:
+      premium: [premium, standard]      # premium query matches premium or standard candidates
+      standard: [standard, basic]
+      basic: [basic]
+    nullbehavior: pass
+    matchdirections: [query_to_candidate]
+
+  # ─── EXCLUSION GATE ──────────────────────────────────────────────────────
+  - name: exclusion_gate
+    description: "Reject if EXCLUDED_FROM edge exists"
+    type: exclusion
+    edgetype: EXCLUDED_FROM             # Must exist in ontology.edges
+    fromnode: QueryEntity
+    tonode: Candidate
+    nullbehavior: pass                  # No edge = passes
+    matchdirections: [query_to_candidate]
+
+  # ─── SELFRANGE GATE ──────────────────────────────────────────────────────
+  - name: capacity_gate
+    description: "Query volume must fit within candidate's min/max capacity"
+    type: selfrange
+    candidateprop_min: min_capacity
+    candidateprop_max: max_capacity
+    queryparam: requested_volume
+    nullbehavior: pass
+    matchdirections: [query_to_candidate]
+
+  # ─── FRESHNESS GATE ──────────────────────────────────────────────────────
+  - name: recency_gate
+    description: "Candidate must have recent activity"
+    type: freshness
+    candidateprop: last_active_at
+    maxagedays: 90                      # Maximum age in days
+    nullbehavior: pass
+    matchdirections: [query_to_candidate]
+
+  # ─── TEMPORALRANGE GATE ──────────────────────────────────────────────────
+  - name: availability_gate
+    description: "Query date must fall within candidate's availability window"
+    type: temporalrange
+    candidateprop_start: available_from
+    candidateprop_end: available_until
+    queryparam: requested_date
+    nullbehavior: pass
+    matchdirections: [query_to_candidate]
+
+  # ─── COMPOSITE GATE ──────────────────────────────────────────────────────
+  - name: premium_composite_gate
+    description: "All premium requirements must pass"
+    type: composite
+    logic: AND                          # AND | OR
+    subgates:
+      - min_score_gate
+      - active_gate
+    nullbehavior: pass
+    matchdirections: [query_to_candidate]
+
+  # ─── TRAVERSAL GATE ──────────────────────────────────────────────────────
+  - name: has_category_gate
+    description: "Candidate must have at least one category"
+    type: traversal
+    pattern: "(candidate)-[:HAS_CAPABILITY]->(:Category)"
+    condition: "EXISTS"                 # EXISTS | NOT EXISTS | COUNT > N
+    nullbehavior: fail
+    matchdirections: [query_to_candidate]
+
+# ---------------------------------------------------------------------------
+# SCORING (REQUIRED)
+# ---------------------------------------------------------------------------
+# Computation types: geodecay | lognormalized | communitymatch | inverselinear |
+#                    candidateproperty | weightedrate | pricealignment |
+#                    temporalproximity | customcypher | traversalalias | kge
+scoring:
+  dimensions:
+    # ─── GEO DECAY ─────────────────────────────────────────────────────────
+    - name: proximity_score
+      description: "Score based on geographic distance"
+      source: candidateproperty
+      candidateprop: location           # Point property
+      queryprop: query_location
+      computation: geodecay
+      decayconstant: 50000              # Distance in meters where score = 0.5
+      defaultwhennull: 0.0
+      weightkey: w_proximity
+      defaultweight: 0.3
+      aggregation: additive
+      matchdirections: [query_to_candidate]
+
+    # ─── LOG NORMALIZED ────────────────────────────────────────────────────
+    - name: capacity_score
+      description: "Log-normalized capacity score"
+      source: candidateproperty
+      candidateprop: capacity
+      computation: lognormalized
+      minvalue: 0.0
+      maxvalue: 1000000.0
+      defaultwhennull: 0.0
+      weightkey: w_capacity
+      defaultweight: 0.2
+      aggregation: additive
+      matchdirections: [query_to_candidate]
+
+    # ─── COMMUNITY MATCH ───────────────────────────────────────────────────
+    - name: community_score
+      description: "Bonus for same Louvain community"
+      source: candidateproperty
+      candidateprop: louvain_community_id
+      queryprop: community_id
+      computation: communitymatch
+      bias: 1.2                         # Multiplicative boost when communities match
+      defaultwhennull: 0.0
+      weightkey: w_community
+      defaultweight: 0.1
+      aggregation: additive
+      matchdirections: [query_to_candidate]
+
+    # ─── INVERSE LINEAR ────────────────────────────────────────────────────
+    - name: price_score
+      description: "Lower price = higher score"
+      source: candidateproperty
+      candidateprop: price
+      computation: inverselinear
+      minvalue: 0.0
+      maxvalue: 10000.0
+      defaultwhennull: 0.0
+      weightkey: w_price
+      defaultweight: 0.2
+      aggregation: additive
+      matchdirections: [query_to_candidate]
+
+    # ─── CANDIDATE PROPERTY (direct) ───────────────────────────────────────
+    - name: rating_score
+      description: "Direct candidate rating"
+      source: candidateproperty
+      candidateprop: rating
+      computation: candidateproperty
+      normalization: "value / 5.0"      # Normalize 0-5 to 0-1
+      defaultwhennull: 0.5
+      weightkey: w_rating
+      defaultweight: 0.1
+      aggregation: additive
+      matchdirections: [query_to_candidate]
+
+    # ─── WEIGHTED RATE ─────────────────────────────────────────────────────
+    - name: success_rate_score
+      description: "Historical success rate"
+      source: candidateproperty
+      candidateprop: success_rate_90d
+      computation: weightedrate
+      defaultwhennull: 0.5
+      weightkey: w_success
+      defaultweight: 0.1
+      aggregation: additive
+      matchdirections: [query_to_candidate]
+
+    # ─── TEMPORAL PROXIMITY ────────────────────────────────────────────────
+    - name: recency_score
+      description: "More recent = higher score"
+      source: candidateproperty
+      candidateprop: last_transaction_at
+      computation: temporalproximity
+      decayconstant: 30                 # Days for half-life decay
+      defaultwhennull: 0.0
+      weightkey: w_recency
+      defaultweight: 0.1
+      aggregation: additive
+      matchdirections: [query_to_candidate]
+
+    # ─── TRAVERSAL ALIAS ───────────────────────────────────────────────────
+    - name: category_match_score
+      description: "Score from traversal alias"
+      source: traversalalias
+      alias: cat                        # Alias from traversal pattern
+      candidateprop: relevance_score
+      computation: traversalalias
+      defaultwhennull: 0.0
+      weightkey: w_category
+      defaultweight: 0.1
+      aggregation: additive
+      matchdirections: [query_to_candidate]
+
+    # ─── CUSTOM CYPHER ─────────────────────────────────────────────────────
+    - name: custom_score
+      description: "Custom Cypher expression"
+      source: computed
+      computation: customcypher
+      expression: "CASE WHEN candidate.premium THEN 1.0 ELSE 0.5 END"
+      defaultwhennull: 0.0
+      weightkey: w_custom
+      defaultweight: 0.05
+      aggregation: additive
+      matchdirections: [query_to_candidate]
+
+# ---------------------------------------------------------------------------
+# SOFT SIGNALS (Optional)
+# ---------------------------------------------------------------------------
+# Bonus/penalty adjustments that don't hard-filter
+softsignals:
+  - name: premium_bonus
+    bonus: 0.1                          # Additive bonus
+    candidateprop: is_premium
+    matchtype: equals
+    threshold: true
+    matchdirections: [query_to_candidate]
+
+  - name: new_candidate_penalty
+    bonus: -0.05                        # Negative = penalty
+    candidateprop: onboarded_at
+    matchtype: greaterthan
+    threshold: "datetime() - duration('P30D')"  # Within last 30 days
+    matchdirections: [query_to_candidate]
+
+# ---------------------------------------------------------------------------
+# SYNC ENDPOINTS (Optional)
+# ---------------------------------------------------------------------------
+sync:
+  endpoints:
+    # Node sync
+    - path: /sync/candidates
+      method: POST
+      targetnode: Candidate
+      idproperty: id
+      batchstrategy: UNWINDMERGE        # UNWINDMERGE | UNWINDMATCHSET
+      taxonomyedges:
+        - field: category_codes         # JSON field containing taxonomy refs
+          edgetype: HAS_CAPABILITY
+          targetlabel: Category
+          targetid: code
+      childsync: []
+
+    # Edge sync
+    - path: /sync/transactions
+      method: POST
+      targetedge: TRANSACTED_WITH
+      fromnode: Candidate
+      tonode: Candidate
+      batchstrategy: UNWINDMERGE
+
+# ---------------------------------------------------------------------------
+# GDS JOBS (Optional)
+# ---------------------------------------------------------------------------
+gdsjobs:
+  # Louvain community detection
+  - name: louvain_communities
+    algorithm: louvain
+    schedule:
+      type: cron
+      cron: "0 2 * * *"                 # Daily at 2 AM
+    projection:
+      nodelabels: [Candidate]
+      edgetypes: [TRANSACTED_WITH]
+    writeproperty: louvain_community_id
+    writeto: Candidate
+
+  # Success rate aggregation
+  - name: success_rate_90d
+    algorithm: reinforcement
+    schedule:
+      type: cron
+      cron: "0 3 * * *"
+    projection:
+      nodelabels: [Candidate]
+      edgetypes: [TRANSACTED_WITH]
+    writeproperty: success_rate_90d
+    writeto: Candidate
+    sourceedge: TRANSACTED_WITH
+    ratenumeratorfilter: "outcome = 'success'"
+    ratedenominatorfilter: "transacted_at > datetime() - duration('P90D')"
+    recencydecay: true
+    recencyhalflifedays: 30
+
+# ---------------------------------------------------------------------------
+# KGE (Optional - Knowledge Graph Embeddings)
+# ---------------------------------------------------------------------------
+kge:
+  model: CompoundE3D                    # Embedding model
+  embeddingdim: 256                     # Embedding dimension
+  trainingrelations:                    # Relations to train on
+    - HAS_CAPABILITY
+    - TRANSACTED_WITH
+  beamsearch:
+    beamwidth: 10
+    maxdepth: 3
+  ensemble:
+    strategy: weightedaverage           # weightedaverage | rankaggregation | mixtureofexperts
+    cypherweight: 0.6
+    kgeweight: 0.4
+  vectorindex:
+    name: candidate_embeddings
+    dimension: 256
+    similarityfunction: cosine
+
+# ---------------------------------------------------------------------------
+# COMPLIANCE (Optional)
+# ---------------------------------------------------------------------------
+compliance:
+  regimes:
+    - name: GDPR
+      description: "EU General Data Protection Regulation"
+    - name: CCPA
+      description: "California Consumer Privacy Act"
+
+  prohibitedfactors:
+    enabled: true
+    blockedfields:                      # Fields that cannot be used in gates/scoring
+      - race
+      - ethnicity
+      - religion
+      - gender
+      - age
+      - disability
+    enforcement: compiletime            # compiletime | runtime | compiletimeandruntime
+    auditonviolation: true
+
+  audit:
+    enabled: true
+    logmatchrequests: true
+    logmatchresults: true
+    logsyncoperations: true
+    logadminoperations: true
+    retentiondays: 90
+
+  pii:
+    enabled: false
+    fields: []                          # Query fields containing PII
+    candidatefields: []                 # Candidate properties containing PII
+    handling: hash                      # hash | encrypt | redact | tokenize
+    encryptionkeysource: env            # env | vault | kms
+
+  retention:
+    transactionttldays: 365
+    auditttldays: 90
+    piittldays: 30
+
+# ---------------------------------------------------------------------------
+# PLUGINS (Optional - Extension Points)
+# ---------------------------------------------------------------------------
+plugins:
+  customgatetypes: []                   # Custom gate type implementations
+  customcomputationtypes: []            # Custom scoring computation types
+  prematchhooks: []                     # Pre-match processing hooks
+  postmatchhooks: []                    # Post-match processing hooks
+  syncvalidators: []                    # Sync payload validators

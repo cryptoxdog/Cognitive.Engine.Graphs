@@ -16,7 +16,7 @@ from __future__ import annotations
 import hashlib
 import json
 from datetime import UTC, datetime
-from enum import Enum
+from enum import StrEnum
 from typing import Any
 from uuid import UUID, uuid4
 
@@ -27,7 +27,7 @@ from pydantic import BaseModel, Field
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 
-class PacketType(str, Enum):
+class PacketType(StrEnum):
     """Extensible. Products register new types at will."""
 
     REQUEST = "request"
@@ -44,7 +44,7 @@ class PacketType(str, Enum):
     HEARTBEAT = "heartbeat"
 
 
-class Action(str, Enum):
+class Action(StrEnum):
     """Chassis-routable actions. Engines extend freely."""
 
     MATCH = "match"
@@ -295,7 +295,8 @@ class PacketEnvelope(BaseModel):
 
     def to_wire(self) -> dict[str, Any]:
         """Serialize to JSON-safe dict for transport."""
-        return json.loads(self.model_dump_json())
+        result: dict[str, Any] = json.loads(self.model_dump_json())
+        return result
 
     @classmethod
     def from_wire(cls, data: dict[str, Any]) -> PacketEnvelope:

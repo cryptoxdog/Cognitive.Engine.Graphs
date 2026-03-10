@@ -21,11 +21,29 @@ from engine.config.schema import DomainSpec
 logger = logging.getLogger(__name__)
 
 # Dangerous Cypher keywords that must not appear in traversal patterns
-_FORBIDDEN_KEYWORDS = frozenset([
-    "call", "with", "unwind", "return", "match", "foreach", "load",
-    "using", "create", "merge", "delete", "remove", "set", "detach",
-    "optional", "union", "apoc", "gds", "dbms",
-])
+_FORBIDDEN_KEYWORDS = frozenset(
+    [
+        "call",
+        "with",
+        "unwind",
+        "return",
+        "match",
+        "foreach",
+        "load",
+        "using",
+        "create",
+        "merge",
+        "delete",
+        "remove",
+        "set",
+        "detach",
+        "optional",
+        "union",
+        "apoc",
+        "gds",
+        "dbms",
+    ]
+)
 
 # Valid traversal pattern regex:
 # (alias:Label)-[:EDGE_TYPE*1..3]->(alias:Label)
@@ -55,8 +73,6 @@ def _validate_traversal_pattern(pattern: str, step_name: str) -> str:
     Raises:
         ValueError: If pattern contains forbidden keywords or invalid syntax
     """
-    pattern_lower = pattern.lower()
-
     # Check for forbidden keywords
     for keyword in _FORBIDDEN_KEYWORDS:
         keyword_re = re.compile(rf"\b{re.escape(keyword)}\b", re.IGNORECASE)

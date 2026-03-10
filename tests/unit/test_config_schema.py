@@ -13,10 +13,8 @@ from pydantic import ValidationError as PydanticValidationError
 
 from engine.config.schema import (
     AuditSpec,
-    ComplianceRegimeSpec,
     ComplianceSpec,
     ComputationType,
-    DerivedParameterSpec,
     DomainMetadata,
     DomainSpec,
     EdgeCategory,
@@ -24,45 +22,28 @@ from engine.config.schema import (
     EdgeSpec,
     GateSpec,
     GateType,
-    GDSJobScheduleSpec,
-    GDSJobSpec,
-    GDSProjectionSpec,
     GDSSpec,
     KGEBeamSearchSpec,
     KGEEnsembleSpec,
     KGESpec,
-    KGEVectorIndexSpec,
     ManagedByType,
-    MatchEntitiesSpec,
-    MatchEntitySpec,
     NodeSpec,
     NullBehavior,
     OntologySpec,
     PIISpec,
-    PluginsSpec,
-    ProhibitedFactorsSpec,
     PropertySpec,
     PropertyType,
-    QueryFieldSpec,
-    QuerySchemaSpec,
-    RetentionSpec,
     ScoringAggregation,
     ScoringDimensionSpec,
     ScoringSource,
-    ScoringSpec,
-    SoftSignalSpec,
     SyncEndpointSpec,
-    SyncSpec,
     SyncStrategy,
-    TaxonomyEdgeSpec,
-    TraversalSpec,
-    TraversalStepSpec,
 )
-
 
 # ============================================================================
 # HELPERS
 # ============================================================================
+
 
 def _minimal_domain_raw() -> dict:
     """Return minimal valid raw dict for DomainSpec."""
@@ -70,14 +51,25 @@ def _minimal_domain_raw() -> dict:
         "domain": {"id": "test", "name": "Test", "version": "0.0.1"},
         "ontology": {
             "nodes": [
-                {"label": "Facility", "managedby": "sync", "candidate": True, "properties": [
-                    {"name": "fid", "type": "int", "required": True},
-                ]},
+                {
+                    "label": "Facility",
+                    "managedby": "sync",
+                    "candidate": True,
+                    "properties": [
+                        {"name": "fid", "type": "int", "required": True},
+                    ],
+                },
                 {"label": "Intake", "managedby": "api", "queryentity": True, "properties": []},
             ],
             "edges": [
-                {"type": "EXCLUDED_FROM", "from": "Facility", "to": "Facility",
-                 "direction": "DIRECTED", "category": "exclusion", "managedby": "sync"},
+                {
+                    "type": "EXCLUDED_FROM",
+                    "from": "Facility",
+                    "to": "Facility",
+                    "direction": "DIRECTED",
+                    "category": "exclusion",
+                    "managedby": "sync",
+                },
             ],
         },
         "matchentities": {
@@ -167,9 +159,13 @@ class TestPropertySpec:
     def test_full_fields(self) -> None:
         """PropertySpec with all optional fields."""
         p = PropertySpec(
-            name="status", type=PropertyType.ENUM, required=True,
-            nullable=False, values=["active", "inactive"],
-            managedby=ManagedByType.SYNC, description="Status field",
+            name="status",
+            type=PropertyType.ENUM,
+            required=True,
+            nullable=False,
+            values=["active", "inactive"],
+            managedby=ManagedByType.SYNC,
+            description="Status field",
         )
         assert p.values == ["active", "inactive"]
         assert p.managedby == ManagedByType.SYNC
@@ -199,8 +195,11 @@ class TestEdgeSpec:
     def test_valid_edge(self) -> None:
         """EdgeSpec validates with alias from_ -> from."""
         e = EdgeSpec(
-            type="EXCLUDED_FROM", **{"from": "A"}, to="B",
-            direction=EdgeDirection.DIRECTED, category=EdgeCategory.EXCLUSION,
+            type="EXCLUDED_FROM",
+            **{"from": "A"},
+            to="B",
+            direction=EdgeDirection.DIRECTED,
+            category=EdgeCategory.EXCLUSION,
             managedby=ManagedByType.SYNC,
         )
         assert e.from_ == "A"
@@ -209,8 +208,11 @@ class TestEdgeSpec:
     def test_populate_by_name(self) -> None:
         """EdgeSpec accepts from_ directly."""
         e = EdgeSpec(
-            type="LINK", from_="X", to="Y",
-            direction=EdgeDirection.UNDIRECTED, category=EdgeCategory.CONTEXT,
+            type="LINK",
+            from_="X",
+            to="Y",
+            direction=EdgeDirection.UNDIRECTED,
+            category=EdgeCategory.CONTEXT,
             managedby=ManagedByType.API,
         )
         assert e.from_ == "X"
@@ -234,26 +236,39 @@ class TestOntologySpec:
     def test_duplicate_edge_signatures_raises(self) -> None:
         """OntologySpec rejects duplicate edge type+from+to tuples."""
         edge = EdgeSpec(
-            type="REL", from_="A", to="B",
-            direction=EdgeDirection.DIRECTED, category=EdgeCategory.CAPABILITY,
+            type="REL",
+            from_="A",
+            to="B",
+            direction=EdgeDirection.DIRECTED,
+            category=EdgeCategory.CAPABILITY,
             managedby=ManagedByType.SYNC,
         )
         with pytest.raises(PydanticValidationError, match="Duplicate edge type signatures"):
             OntologySpec(
-                nodes=[NodeSpec(label="A", managedby=ManagedByType.SYNC),
-                       NodeSpec(label="B", managedby=ManagedByType.SYNC)],
+                nodes=[
+                    NodeSpec(label="A", managedby=ManagedByType.SYNC),
+                    NodeSpec(label="B", managedby=ManagedByType.SYNC),
+                ],
                 edges=[edge, edge],
             )
 
     def test_valid_ontology(self) -> None:
         """OntologySpec passes with unique labels and edges."""
         o = OntologySpec(
-            nodes=[NodeSpec(label="A", managedby=ManagedByType.SYNC),
-                   NodeSpec(label="B", managedby=ManagedByType.SYNC)],
-            edges=[EdgeSpec(type="REL", from_="A", to="B",
-                           direction=EdgeDirection.DIRECTED,
-                           category=EdgeCategory.CAPABILITY,
-                           managedby=ManagedByType.SYNC)],
+            nodes=[
+                NodeSpec(label="A", managedby=ManagedByType.SYNC),
+                NodeSpec(label="B", managedby=ManagedByType.SYNC),
+            ],
+            edges=[
+                EdgeSpec(
+                    type="REL",
+                    from_="A",
+                    to="B",
+                    direction=EdgeDirection.DIRECTED,
+                    category=EdgeCategory.CAPABILITY,
+                    managedby=ManagedByType.SYNC,
+                )
+            ],
         )
         assert len(o.nodes) == 2
 
@@ -291,10 +306,15 @@ class TestDomainSpec:
     def test_exclusion_gate_unknown_edge_type_raises(self) -> None:
         """DomainSpec rejects exclusion gate referencing unknown edge type."""
         raw = _minimal_domain_raw()
-        raw["gates"] = [{
-            "name": "bad_gate", "type": "exclusion",
-            "edgetype": "DOES_NOT_EXIST", "fromnode": "Facility", "tonode": "Facility",
-        }]
+        raw["gates"] = [
+            {
+                "name": "bad_gate",
+                "type": "exclusion",
+                "edgetype": "DOES_NOT_EXIST",
+                "fromnode": "Facility",
+                "tonode": "Facility",
+            }
+        ]
         with pytest.raises(PydanticValidationError, match="unknown edge type"):
             DomainSpec.model_validate(raw)
 
@@ -308,11 +328,14 @@ class TestDomainSpec:
     def test_gds_job_unknown_node_label_raises(self) -> None:
         """DomainSpec rejects GDS job referencing unknown node label."""
         raw = _minimal_domain_raw()
-        raw["gdsjobs"] = [{
-            "name": "bad_job", "algorithm": "louvain",
-            "schedule": {"type": "manual"},
-            "projection": {"nodelabels": ["Ghost"], "edgetypes": ["EXCLUDED_FROM"]},
-        }]
+        raw["gdsjobs"] = [
+            {
+                "name": "bad_job",
+                "algorithm": "louvain",
+                "schedule": {"type": "manual"},
+                "projection": {"nodelabels": ["Ghost"], "edgetypes": ["EXCLUDED_FROM"]},
+            }
+        ]
         with pytest.raises(PydanticValidationError, match="unknown node label"):
             DomainSpec.model_validate(raw)
 
@@ -340,9 +363,11 @@ class TestScoringDimensionSpec:
     def test_valid_dimension(self) -> None:
         """ScoringDimensionSpec with required fields."""
         d = ScoringDimensionSpec(
-            name="geo", source=ScoringSource.COMPUTED,
+            name="geo",
+            source=ScoringSource.COMPUTED,
             computation=ComputationType.GEODECAY,
-            weightkey="w_geo", defaultweight=0.25,
+            weightkey="w_geo",
+            defaultweight=0.25,
         )
         assert d.defaultwhennull == 0.0
         assert d.aggregation == ScoringAggregation.ADDITIVE
@@ -399,8 +424,7 @@ class TestSyncModels:
 
     def test_sync_endpoint_spec(self) -> None:
         """SyncEndpointSpec validates required fields."""
-        s = SyncEndpointSpec(path="/sync/facilities", targetnode="Facility",
-                            batchstrategy=SyncStrategy.UNWINDMERGE)
+        s = SyncEndpointSpec(path="/sync/facilities", targetnode="Facility", batchstrategy=SyncStrategy.UNWINDMERGE)
         assert s.method == "POST"
 
     def test_gds_spec_alias(self) -> None:

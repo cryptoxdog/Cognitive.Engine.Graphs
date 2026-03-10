@@ -8,11 +8,11 @@ Target Coverage: 85%+
 
 from __future__ import annotations
 
-import pytest
 from unittest.mock import patch
 
-from engine.config.settings import Settings
+import pytest
 
+from engine.config.settings import Settings
 
 # ============================================================================
 # TEST CLASSES

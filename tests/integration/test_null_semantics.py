@@ -90,9 +90,9 @@ class TestNullSemanticsPassBehavior:
             database=db,
         )
 
-        assert len(results) == len(
-            seeded_graph["facility_ids"]
-        ), "All facilities should pass threshold gate when query param is NULL"
+        assert len(results) == len(seeded_graph["facility_ids"]), (
+            "All facilities should pass threshold gate when query param is NULL"
+        )
 
     @pytest.mark.asyncio
     async def test_null_boolean_property_fails_boolean_gate(self, graph_driver, seeded_graph):

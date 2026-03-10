@@ -10,17 +10,15 @@ Target Coverage: 85%+
 from __future__ import annotations
 
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
 
 from chassis.app import (
+    ChassisSettings,
     ExecuteRequest,
     ExecuteResponse,
     LifecycleHook,
-    ChassisSettings,
-    create_app,
     _NoOpLifecycle,
+    create_app,
 )
-
 
 # ============================================================================
 # MOCK LIFECYCLE HOOK
@@ -92,8 +90,11 @@ class TestPydanticModels:
     def test_execute_response_valid(self) -> None:
         """ExecuteResponse validates valid input."""
         resp = ExecuteResponse(
-            status="success", action="match", tenant="t1",
-            data={"candidates": []}, meta={"trace_id": "t"},
+            status="success",
+            action="match",
+            tenant="t1",
+            data={"candidates": []},
+            meta={"trace_id": "t"},
         )
         assert resp.status == "success"
 
@@ -105,10 +106,9 @@ class TestLifecycleHook:
     def test_noop_lifecycle_returns_failed(self) -> None:
         """_NoOpLifecycle returns failed status."""
         import asyncio
+
         hook = _NoOpLifecycle()
-        result = asyncio.get_event_loop().run_until_complete(
-            hook.execute("test", {}, "tenant", "trace")
-        )
+        result = asyncio.get_event_loop().run_until_complete(hook.execute("test", {}, "tenant", "trace"))
         assert result["status"] == "failed"
         assert "No engine lifecycle hook" in result["data"]["error"]
 
@@ -123,6 +123,7 @@ class TestCreateApp:
         settings = ChassisSettings(cors_origins=[])
         app = create_app(lifecycle_hook=hook, settings=settings)
         from fastapi import FastAPI
+
         assert isinstance(app, FastAPI)
 
     def test_create_app_with_cors_origins(self) -> None:
@@ -149,18 +150,27 @@ class TestExecuteEndpoint:
     async def test_execute_success(self) -> None:
         """POST /v1/execute routes to lifecycle hook and returns ExecuteResponse."""
         mock_result = {
-            "status": "success", "action": "health", "tenant": "t1",
-            "data": {"status": "healthy"}, "meta": {"trace_id": "tr_1"},
+            "status": "success",
+            "action": "health",
+            "tenant": "t1",
+            "data": {"status": "healthy"},
+            "meta": {"trace_id": "tr_1"},
         }
         hook = MockLifecycleHook(execute_result=mock_result)
         settings = ChassisSettings(cors_origins=[])
         app = create_app(lifecycle_hook=hook, settings=settings)
 
         from httpx import ASGITransport, AsyncClient
+
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
-            resp = await ac.post("/v1/execute", json={
-                "action": "health", "tenant": "t1", "payload": {},
-            })
+            resp = await ac.post(
+                "/v1/execute",
+                json={
+                    "action": "health",
+                    "tenant": "t1",
+                    "payload": {},
+                },
+            )
         assert resp.status_code == 200
         data = resp.json()
         assert data["status"] == "success"
@@ -173,6 +183,7 @@ class TestExecuteEndpoint:
         app = create_app(lifecycle_hook=hook, settings=settings)
 
         from httpx import ASGITransport, AsyncClient
+
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
             resp = await ac.post("/v1/execute", json={"bad": "data"})
         assert resp.status_code == 422
@@ -185,10 +196,16 @@ class TestExecuteEndpoint:
         app = create_app(lifecycle_hook=hook, settings=settings)
 
         from httpx import ASGITransport, AsyncClient
+
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
-            resp = await ac.post("/v1/execute", json={
-                "action": "match", "tenant": "t1", "payload": {},
-            })
+            resp = await ac.post(
+                "/v1/execute",
+                json={
+                    "action": "match",
+                    "tenant": "t1",
+                    "payload": {},
+                },
+            )
         assert resp.status_code == 500
 
     @pytest.mark.asyncio
@@ -206,10 +223,16 @@ class TestExecuteEndpoint:
         app = create_app(lifecycle_hook=hook, settings=settings)
 
         from httpx import ASGITransport, AsyncClient
+
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
-            resp = await ac.post("/v1/execute", json={
-                "action": "match", "tenant": "t1", "payload": {},
-            })
+            resp = await ac.post(
+                "/v1/execute",
+                json={
+                    "action": "match",
+                    "tenant": "t1",
+                    "payload": {},
+                },
+            )
         assert resp.status_code == 422
 
     @pytest.mark.asyncio
@@ -227,10 +250,16 @@ class TestExecuteEndpoint:
         app = create_app(lifecycle_hook=hook, settings=settings)
 
         from httpx import ASGITransport, AsyncClient
+
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
-            resp = await ac.post("/v1/execute", json={
-                "action": "match", "tenant": "t1", "payload": {},
-            })
+            resp = await ac.post(
+                "/v1/execute",
+                json={
+                    "action": "match",
+                    "tenant": "t1",
+                    "payload": {},
+                },
+            )
         assert resp.status_code == 500
 
 
@@ -253,6 +282,7 @@ class TestHealthEndpoint:
         app = create_app(lifecycle_hook=hook, settings=settings)
 
         from httpx import ASGITransport, AsyncClient
+
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
             resp = await ac.get("/v1/health")
         assert resp.status_code == 200
@@ -272,6 +302,7 @@ class TestHealthEndpoint:
         app = create_app(lifecycle_hook=hook, settings=settings)
 
         from httpx import ASGITransport, AsyncClient
+
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
             resp = await ac.get("/v1/health")
         assert resp.status_code == 503
@@ -284,6 +315,7 @@ class TestHealthEndpoint:
         app = create_app(lifecycle_hook=hook, settings=settings)
 
         from httpx import ASGITransport, AsyncClient
+
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
             resp = await ac.get("/v1/health")
         assert resp.status_code == 503

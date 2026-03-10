@@ -35,7 +35,7 @@ import re
 from pathlib import Path
 
 # Read consolidated file
-with open("ALL_DOMAINS_CONSOLIDATED.yaml") as f:
+with Path("ALL_DOMAINS_CONSOLIDATED.yaml").open() as f:
     content = f.read()
 
 # Extract each domain section
@@ -73,7 +73,7 @@ for title, spec in domains:
 
     # Write spec.yaml
     spec_path = domain_dir / "spec.yaml"
-    with open(spec_path, "w") as f:
+    with spec_path.open("w") as f:
         f.write(spec_clean)
 
     print(f"✅ Created: {spec_path} ({len(spec_clean)} bytes)")

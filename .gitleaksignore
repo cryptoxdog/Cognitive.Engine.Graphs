@@ -1,3 +1,6 @@
 # Known false positives — add SHA:path:rule triples here
 # Format: <commit-sha>:<file-path>:<rule-id>
 # Only add entries after manual verification that the match is NOT a real secret.
+
+# Test API key in auth middleware tests (not a real secret)
+auth/test_auth_middleware.py:generic-api-key:34

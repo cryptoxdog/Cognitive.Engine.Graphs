@@ -8,14 +8,12 @@ Target Coverage: 85%+
 
 from __future__ import annotations
 
-import pytest
 from unittest.mock import MagicMock, patch
 
-import numpy as np
+import pytest
 
 from engine.kge.ensemble import (
     EnsembleController,
-    EnsembleResult,
     FusionStrategy,
     MixtureOfExpertsEnsemble,
     RankAggregationEnsemble,
@@ -23,7 +21,6 @@ from engine.kge.ensemble import (
     VariantScore,
     WeightedDistributionScore,
 )
-
 
 # ============================================================================
 # FIXTURES
@@ -33,8 +30,7 @@ from engine.kge.ensemble import (
 def _scores(n: int = 3) -> list[VariantScore]:
     """Create n variant scores for testing."""
     return [
-        VariantScore(variant_id=f"v{i}", variant_type="rotation",
-                     score=0.3 + 0.2 * i, confidence=0.8 + 0.05 * i)
+        VariantScore(variant_id=f"v{i}", variant_type="rotation", score=0.3 + 0.2 * i, confidence=0.8 + 0.05 * i)
         for i in range(n)
     ]
 

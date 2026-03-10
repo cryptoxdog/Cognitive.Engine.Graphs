@@ -11,7 +11,7 @@ import logging
 from typing import TYPE_CHECKING, Any
 
 from engine.compliance.audit import AuditLogger
-from engine.compliance.pii import PIIHandler
+from engine.compliance.pii import PIICategory, PIIHandler, PIISensitivity
 from engine.compliance.prohibited_factors import ProhibitedFactorValidator
 
 if TYPE_CHECKING:
@@ -27,7 +27,17 @@ class ComplianceEngine:
         self._spec = domain_spec
         self._db_pool = db_pool
         self._prohibited = ProhibitedFactorValidator(domain_spec)
-        self._pii = PIIHandler()  # Uses default PII field hints
+
+        # Domain-specific PII enrichment (optional)
+        additional_pii: dict[str, tuple[PIICategory, PIISensitivity]] = {}
+        compliance = getattr(domain_spec, "compliance", None)
+        if compliance and getattr(compliance, "pii", None):
+            pii_cfg = compliance.pii
+            # Convention: compliance.pii.additional_fields: dict[name, (category, sensitivity)]
+            if hasattr(pii_cfg, "additional_fields") and isinstance(pii_cfg.additional_fields, dict):
+                additional_pii = pii_cfg.additional_fields
+
+        self._pii = PIIHandler(additional_pii_fields=additional_pii)
         self._audit = AuditLogger()  # Uses default retention policies
 
         # Default to enabled for SOC2/HIPAA compliance.

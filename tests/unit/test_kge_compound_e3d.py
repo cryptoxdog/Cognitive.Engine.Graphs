@@ -8,13 +8,12 @@ Target Coverage: 85%+
 
 from __future__ import annotations
 
-import pytest
 from unittest.mock import MagicMock, patch
 
 import numpy as np
+import pytest
 
 from engine.kge.compound_e3d import CompoundE3D, CompoundE3DConfig
-
 
 # ============================================================================
 # FIXTURES
@@ -36,7 +35,9 @@ TRAINING_TRIPLES = [
 def config() -> CompoundE3DConfig:
     """Small config for fast tests."""
     return CompoundE3DConfig(
-        embedding_dim=32, max_epochs=5, negative_sample_size=4,
+        embedding_dim=32,
+        max_epochs=5,
+        negative_sample_size=4,
     )
 
 
@@ -164,7 +165,9 @@ class TestCompoundE3DInference:
     def test_predict_tail_trained(self, trained_model: CompoundE3D) -> None:
         """predict_tail returns ranked candidates."""
         results = trained_model.predict_tail(
-            "alpha_recycling", "SUPPLIES_TO", top_k=3,
+            "alpha_recycling",
+            "SUPPLIES_TO",
+            top_k=3,
         )
         assert len(results) <= 3
         assert all(isinstance(r, tuple) and len(r) == 2 for r in results)
@@ -175,7 +178,8 @@ class TestCompoundE3DInference:
     def test_predict_tail_with_candidates(self, trained_model: CompoundE3D) -> None:
         """predict_tail respects candidate list."""
         results = trained_model.predict_tail(
-            "alpha_recycling", "SUPPLIES_TO",
+            "alpha_recycling",
+            "SUPPLIES_TO",
             candidates=["beta_compounding", "gamma_mrf"],
         )
         ids = {r[0] for r in results}
@@ -208,7 +212,8 @@ class TestCompoundE3DScores:
     def test_batch_scores(self, trained_model: CompoundE3D) -> None:
         """compute_kge_scores returns dict of scores."""
         scores = trained_model.compute_kge_scores(
-            "alpha_recycling", "SUPPLIES_TO",
+            "alpha_recycling",
+            "SUPPLIES_TO",
             ["beta_compounding", "gamma_mrf"],
         )
         assert isinstance(scores, dict)
