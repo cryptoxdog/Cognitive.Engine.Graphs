@@ -53,7 +53,7 @@ jobs:
 
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11v4.1.1
+        uses: actions/checkout@v4
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@49b3bc8e6bdd4a60e6116a5414239cba5943d3cfv3.2.0
@@ -124,7 +124,7 @@ jobs:
 
       - name: Scan Image with Trivy
         if: github.event_name != 'pull_request'
-        uses: aquasecurity/trivy-action@6248b7a39d00dc24b36616b6dfb1c3c78e4dfe91v0.28.0
+        uses: aquasecurity/trivy-action@0.35.0
         with:
           image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ steps.build.outputs.digest }}
           format: sarif
@@ -134,7 +134,7 @@ jobs:
 
       - name: Upload Trivy Results to Security Tab
         if: always() && github.event_name != 'pull_request'
-        uses: github/codeql-action/upload-sarif@a57c67b89589d2d13d5ac85a9fc4679e7539e94cv3.27.9
+        uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: trivy-results.sarif
 

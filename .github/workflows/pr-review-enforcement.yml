@@ -38,7 +38,7 @@ jobs:
 
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11v4.1.1
+        uses: actions/checkout@v4
 
       - name: Load Configuration
         id: config
@@ -65,7 +65,7 @@ jobs:
           echo "max_files=${{ vars.PR_MAX_FILES || '' }}${MAX_FILES}" | sed 's/[^0-9].*//' >> $GITHUB_OUTPUT
 
       - name: Check PR Size and Policies
-        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdeav7.0.1
+        uses: actions/github-script@v7
         with:
           script: |
             const pr = context.payload.pull_request;

@@ -56,12 +56,12 @@ jobs:
 
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11v4.1.1
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
       - name: Set up Python
-        uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2bv5.3.0
+        uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: 'pip'
@@ -115,10 +115,10 @@ jobs:
 
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11v4.1.1
+        uses: actions/checkout@v4
 
       - name: Set up Python
-        uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2bv5.3.0
+        uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: 'pip'
@@ -126,7 +126,7 @@ jobs:
       - name: Install Linting Tools
         run: |
           python -m pip install --upgrade pip
-          pip install ruff mypy
+          pip install ruff==0.15.5 mypy==1.14.0
 
       - name: Run Ruff Linter
         run: |
@@ -189,10 +189,10 @@ jobs:
 
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11v4.1.1
+        uses: actions/checkout@v4
 
       - name: Set up Python
-        uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2bv5.3.0
+        uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: 'pip'
@@ -205,7 +205,7 @@ jobs:
           else
             echo "⚠️  No requirements file found at ${{ env.REQUIREMENTS_FILE }}"
           fi
-          pip install pytest pytest-cov pytest-xdist pytest-asyncio pytest-timeout
+          pip install pytest==8.3.5 pytest-cov==6.0.0 pytest-xdist pytest-asyncio pytest-timeout
 
       - name: Run Tests with Coverage
         env:
@@ -225,7 +225,7 @@ jobs:
           echo "✅ All tests passed with coverage >=${{ env.COVERAGE_THRESHOLD }}%"
 
       - name: Upload Coverage to Codecov
-        uses: codecov/codecov-action@15f84a87bdc039a8af98c1a9e12c153c15c1d773v5.1.2
+        uses: codecov/codecov-action@v5
         with:
           files: ./coverage.xml
           flags: unittests
@@ -246,12 +246,12 @@ jobs:
 
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11v4.1.1
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
       - name: Set up Python
-        uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2bv5.3.0
+        uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: 'pip'
@@ -259,7 +259,7 @@ jobs:
       - name: Install Security Tools
         run: |
           python -m pip install --upgrade pip
-          pip install pip-audit safety bandit
+          pip install pip-audit==2.9.0 safety bandit==1.9.0
 
       - name: Run Gitleaks (Secret Detection)
         uses: gitleaks/gitleaks-action@v2
@@ -306,7 +306,7 @@ jobs:
 
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11v4.1.1
+        uses: actions/checkout@v4
 
       - name: Generate Software Bill of Materials
         uses: anchore/sbom-action@fc46e51fb0e4e3ecf1ea2be3b2e00ee50f1c4e44v0.17.7
@@ -331,7 +331,7 @@ jobs:
 
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11v4.1.1
+        uses: actions/checkout@v4
         with:
           persist-credentials: false
 
@@ -343,7 +343,7 @@ jobs:
           publish_results: true
 
       - name: Upload SARIF to GitHub Security
-        uses: github/codeql-action/upload-sarif@a57c67b89589d2d13d5ac85a9fc4679e7539e94cv3.27.9
+        uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: scorecard.sarif
 

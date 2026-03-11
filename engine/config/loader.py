@@ -109,9 +109,7 @@ class DomainPackLoader:
         try:
             candidate.relative_to(self._base_path.resolve())
         except ValueError as exc:
-            raise DomainNotFoundError(
-                f"Invalid domain path: {domain_id!r} resolves outside base directory"
-            ) from exc
+            raise DomainNotFoundError(f"Invalid domain path: {domain_id!r} resolves outside base directory") from exc
 
         if not candidate.exists():
             raise DomainNotFoundError(f"Domain spec not found: {candidate}")
