@@ -13,16 +13,20 @@ jobs:
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ vars.TELEGRAM_CHAT_ID }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          REPO: ${{ github.repository }}
+          PR_NUM: ${{ github.event.pull_request.number }}
         run: |
-          PR_URL="${{ github.event.pull_request.html_url }}"
-          PR_TITLE="${{ github.event.pull_request.title }}"
-          REPO="${{ github.repository }}"
-          PR_NUM="${{ github.event.pull_request.number }}"
+          MESSAGE="🐰 CodeRabbit review ready
 
-          MESSAGE="🐰 CodeRabbit review ready%0A%0ARepo: ${REPO}%0APR #${PR_NUM}: ${PR_TITLE}%0A${PR_URL}%0A%0AImplement fixes, verify CI, merge."
+Repo: ${REPO}
+PR #${PR_NUM}: ${PR_TITLE}
+${PR_URL}
+
+Implement fixes, verify CI, merge."
 
           curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
-            -d "chat_id=${TELEGRAM_CHAT_ID}" \
-            -d "text=${MESSAGE}" \
-            -d "parse_mode=HTML" \
-            --fail --silent
+            --data-urlencode "chat_id=${TELEGRAM_CHAT_ID}" \
+            --data-urlencode "text=${MESSAGE}" \
+            --fail
