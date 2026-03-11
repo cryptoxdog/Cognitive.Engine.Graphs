@@ -33,7 +33,7 @@ import json
 import sys
 from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime
-from enum import Enum
+from enum import StrEnum
 from pathlib import Path
 from typing import Any
 
@@ -46,7 +46,7 @@ except ImportError:
 L9_TEMPLATE_TAG = "L9_TEMPLATE"
 
 
-class Status(str, Enum):
+class Status(StrEnum):
     IMPLEMENTED = "IMPLEMENTED"
     PARTIAL = "PARTIAL"
     MISSING = "MISSING"

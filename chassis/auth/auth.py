@@ -31,11 +31,14 @@ from __future__ import annotations
 import hmac
 import logging
 from collections.abc import Callable
+from typing import TYPE_CHECKING
 
-from fastapi import Request, Response
 from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
-from starlette.types import ASGIApp
+
+if TYPE_CHECKING:
+    from fastapi import Request, Response
+    from starlette.types import ASGIApp
 
 logger = logging.getLogger(__name__)
 

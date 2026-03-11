@@ -24,7 +24,7 @@ import threading
 import uuid
 from collections.abc import Sequence
 from datetime import UTC, datetime
-from enum import Enum
+from enum import StrEnum
 from typing import Any
 
 from pydantic import BaseModel, Field
@@ -35,7 +35,7 @@ logger = logging.getLogger(__name__)
 # ── Enums ──────────────────────────────────────────────────
 
 
-class AuditAction(str, Enum):
+class AuditAction(StrEnum):
     """Auditable action categories."""
 
     ACCESS = "access"
@@ -50,7 +50,7 @@ class AuditAction(str, Enum):
     ADMIN = "admin"
 
 
-class AuditSeverity(str, Enum):
+class AuditSeverity(StrEnum):
     INFO = "info"
     WARNING = "warning"
     CRITICAL = "critical"

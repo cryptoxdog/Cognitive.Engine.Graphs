@@ -21,7 +21,7 @@ from __future__ import annotations
 import hashlib
 import logging
 import re
-from enum import Enum
+from enum import StrEnum
 from typing import Any
 
 from pydantic import BaseModel
@@ -32,7 +32,7 @@ logger = logging.getLogger(__name__)
 # ── PII Field Classification ──────────────────────────────
 
 
-class PIICategory(str, Enum):
+class PIICategory(StrEnum):
     """PII sensitivity categories."""
 
     NAME = "name"
@@ -46,7 +46,7 @@ class PIICategory(str, Enum):
     CUSTOM = "custom"
 
 
-class PIISensitivity(str, Enum):
+class PIISensitivity(StrEnum):
     LOW = "low"  # business name, city
     MEDIUM = "medium"  # email, phone
     HIGH = "high"  # SSN, DOB, financial account

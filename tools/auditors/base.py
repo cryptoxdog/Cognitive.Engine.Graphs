@@ -15,12 +15,12 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from enum import Enum
+from enum import StrEnum
 from pathlib import Path
 from typing import Any
 
 
-class Severity(str, Enum):
+class Severity(StrEnum):
     BLOCKER = "BLOCKER"
     CRITICAL = "CRITICAL"
     HIGH = "HIGH"
@@ -28,7 +28,7 @@ class Severity(str, Enum):
     INFO = "INFO"
 
 
-class AuditTier(str, Enum):
+class AuditTier(StrEnum):
     STATIC = "static"
     REGRESSION = "regression"
     RUNTIME = "runtime"

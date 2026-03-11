@@ -33,7 +33,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from dataclasses import field as dc_field
 from datetime import UTC, datetime
-from enum import Enum
+from enum import StrEnum
 from typing import Any
 
 from pydantic import BaseModel, Field
@@ -41,7 +41,7 @@ from pydantic import BaseModel, Field
 logger = logging.getLogger(__name__)
 
 
-class AuditAction(str, Enum):
+class AuditAction(StrEnum):
     """Auditable action categories — extensible per engine."""
 
     ACCESS = "access"
@@ -56,7 +56,7 @@ class AuditAction(str, Enum):
     HEALTH = "health"
 
 
-class AuditSeverity(str, Enum):
+class AuditSeverity(StrEnum):
     INFO = "info"
     WARNING = "warning"
     CRITICAL = "critical"

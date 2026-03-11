@@ -41,7 +41,7 @@ def route_packet(packet: PacketEnvelope, *, max_hops: int = 20, timeout_ms: floa
             raise ConstellationError("Execution timeout exceeded", status="timeout")
 
         node_name = resolve_initial_node(current_action)
-        node_rec = get_node(node_name)
+        get_node(node_name)
         handler = get_action_handler(current_action)
         hops.append(node_name)
 

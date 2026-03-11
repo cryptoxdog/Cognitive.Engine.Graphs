@@ -26,13 +26,13 @@ from __future__ import annotations
 
 import hashlib
 import re
-from enum import Enum
+from enum import StrEnum
 from typing import Any
 
 from pydantic import BaseModel
 
 
-class PIICategory(str, Enum):
+class PIICategory(StrEnum):
     NAME = "name"
     EMAIL = "email"
     PHONE = "phone"
@@ -44,7 +44,7 @@ class PIICategory(str, Enum):
     CUSTOM = "custom"
 
 
-class PIISensitivity(str, Enum):
+class PIISensitivity(StrEnum):
     LOW = "low"
     MEDIUM = "medium"
     HIGH = "high"

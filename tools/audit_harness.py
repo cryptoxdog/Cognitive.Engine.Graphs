@@ -32,6 +32,7 @@ Usage:
     python tools/audit_harness.py --skip-contracts   # skip contract wiring check
     python tools/audit_harness.py --json             # output JSON summary to stdout
 """
+
 from __future__ import annotations
 
 import argparse
@@ -39,7 +40,7 @@ import json
 import subprocess
 import sys
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -47,6 +48,7 @@ from typing import Any
 @dataclass
 class StepResult:
     """Result from a single audit step."""
+
     name: str
     exit_code: int
     stdout: str = ""
@@ -59,6 +61,7 @@ class StepResult:
 @dataclass
 class HarnessResult:
     """Consolidated result from all audit steps."""
+
     generated_at: str = ""
     repo_root: str = ""
     steps: list[StepResult] = field(default_factory=list)
@@ -232,8 +235,7 @@ def write_harness_report(
             lines.append("|----------|-------------|---------|---------|-------|")
             for cat, data in coverage["categories"].items():
                 lines.append(
-                    f"| {cat} | {data['IMPLEMENTED']} | {data['PARTIAL']} "
-                    f"| {data['MISSING']} | {data['total']} |"
+                    f"| {cat} | {data['IMPLEMENTED']} | {data['PARTIAL']} | {data['MISSING']} | {data['total']} |"
                 )
             lines.append("")
 
@@ -258,9 +260,7 @@ def write_harness_report(
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(
-        description="L9 Audit Harness — orchestrates all static analysis"
-    )
+    parser = argparse.ArgumentParser(description="L9 Audit Harness — orchestrates all static analysis")
     parser.add_argument(
         "--strict",
         action="store_true",
@@ -287,7 +287,7 @@ def main() -> int:
     python = sys.executable
 
     harness = HarnessResult(
-        generated_at=datetime.now(timezone.utc).isoformat(),
+        generated_at=datetime.now(UTC).isoformat(),
         repo_root=str(root),
     )
 
@@ -388,11 +388,11 @@ def main() -> int:
     else:
         print("  ❌ HARNESS FAILED — fix issues before merge")
     print("═" * 42)
-    print(f"\nReports:")
+    print("\nReports:")
     print(f"  Consolidated:  {report_path}")
-    print(f"  Arch audit:    artifacts/audit_report.md")
-    print(f"  Spec coverage: artifacts/coverage_report.md")
-    print(f"  Coverage JSON: artifacts/coverage_matrix.json")
+    print("  Arch audit:    artifacts/audit_report.md")
+    print("  Spec coverage: artifacts/coverage_report.md")
+    print("  Coverage JSON: artifacts/coverage_matrix.json")
 
     if args.json:
         summary_json = {

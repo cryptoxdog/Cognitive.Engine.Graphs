@@ -92,7 +92,7 @@ class CodeGenOutput(BaseModel):
 # ── Validation helper ────────────────────────────────────────
 
 
-def validate_llm_json(raw: str, schema: type[T]) -> T:
+def validate_llm_json[T: BaseModel](raw: str, schema: type[T]) -> T:
     """Parse raw LLM string into a validated Pydantic model."""
     try:
         data = json.loads(raw)

@@ -9,6 +9,7 @@ tags: [L9_TEMPLATE, meta, injector]
 owner: platform
 status: active
 --- /L9_META ---
+"""
 
 from __future__ import annotations
 
@@ -951,7 +952,7 @@ def format_toml_block(meta: FileMeta, engine: str) -> str:
 
 # Matches comment-style L9_META blocks (YAML, shell, Makefile, Dockerfile, Python without docstring)
 # Example:
-#   # RE_COMMENT_META = re.compile(
+RE_COMMENT_META = re.compile(
     r"^[ \t]*#[ \t]*---[ \t]*L9_META[ \t]*---.*?#[ \t]*---[ \t]*/L9_META[ \t]*---[ \t]*\n?",
     re.MULTILINE | re.DOTALL,
 )
@@ -970,7 +971,7 @@ RE_HTML_META = re.compile(
 # Matches L9_META inside Python docstrings
 # Example:
 #   """
-#   RE_PY_DOCSTRING_META = re.compile(
+RE_PY_DOCSTRING_META = re.compile(
     r"---[ \t]*L9_META[ \t]*---.*?---[ \t]*/L9_META[ \t]*---[ \t]*\n?",
     re.DOTALL,
 )

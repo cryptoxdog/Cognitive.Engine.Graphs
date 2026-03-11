@@ -10,7 +10,8 @@ owner: platform
 status: active
 --- /L9_META ---
 """
-# """
+
+"""
 domain_extractor.py
 
 Extract individual domain specs from ALL_DOMAINS_CONSOLIDATED.yaml

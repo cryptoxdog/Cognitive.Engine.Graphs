@@ -144,9 +144,7 @@ _PROPERTY_NAME_RE = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_]*$")
 # Direct property access: n.<identifier> preceded by start-of-string or an operator/whitespace.
 # Intentionally does NOT match n.<identifier> preceded by '(' to block substring(n.prop,...) bypass.
 # Also matches Cypher parameter references ($param_name).
-_DIRECT_PROPERTY_RE = re.compile(
-    r"(?:^|[\s+\-*/])n\.[a-zA-Z_][a-zA-Z0-9_]*|\$[a-zA-Z_][a-zA-Z0-9_]*"
-)
+_DIRECT_PROPERTY_RE = re.compile(r"(?:^|[\s+\-*/])n\.[a-zA-Z_][a-zA-Z0-9_]*|\$[a-zA-Z_][a-zA-Z0-9_]*")
 
 
 def _check_dangerous_patterns(expr_stripped: str, expr_lower: str) -> None:
@@ -179,9 +177,10 @@ def _try_safe_literal(expr_stripped: str, expr_lower: str) -> str | None:
         return expr_stripped
     try:
         float(expr_stripped)
-        return expr_stripped
     except ValueError:
         pass
+    else:
+        return expr_stripped
     # Single or double quoted string literal
     for quote in ("'", '"'):
         if expr_stripped.startswith(quote) and expr_stripped.endswith(quote) and expr_stripped.count(quote) == 2:
