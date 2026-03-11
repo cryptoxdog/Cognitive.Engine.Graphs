@@ -221,10 +221,22 @@ def _resolve_hook(hook: LifecycleHook | None) -> LifecycleHook:
 
 
 def _raise_for_failed_result(result: dict[str, Any]) -> None:
-    """Map engine 'failed' status to the correct HTTPException."""
+    """Map engine 'failed' status to the correct HTTPException.
+
+    Status-code mapping:
+        422 — validation/invalid keyword in error OR ValueError/TypeError exception
+        500 — all other failures
+    """
     error_detail = result.get("data", {}).get("error", "Handler execution failed")
     exc_obj = result.get("data", {}).get("_exc")
-    status = getattr(exc_obj, "status_code", None) or (422 if isinstance(exc_obj, (ValueError, TypeError)) else 500)
+
+    if exc_obj is not None:
+        status = getattr(exc_obj, "status_code", None) or (422 if isinstance(exc_obj, (ValueError, TypeError)) else 500)
+    elif any(kw in error_detail.lower() for kw in ("validation", "invalid")):
+        status = 422
+    else:
+        status = 500
+
     raise HTTPException(status_code=status, detail=error_detail)
 
 
