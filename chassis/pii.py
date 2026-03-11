@@ -98,6 +98,22 @@ class PIIHandler:
             self._hints.update(additional_fields)
         self._mask_char = mask_char
 
+    def _detect_by_key(self, key: str, path: str) -> PIIDetection | None:
+        """Check if a field key matches a known PII hint."""
+        key_lower = key.lower()
+        for hint, (cat, sens) in self._hints.items():
+            if hint in key_lower:
+                return PIIDetection(field_path=path, category=cat, sensitivity=sens, detected_by="field_name")
+        return None
+
+    def _detect_by_pattern(self, value: str, path: str) -> PIIDetection | None:
+        """Check if a string value matches a PII regex pattern."""
+        for cat, pattern in _PII_PATTERNS.items():
+            if pattern.search(value):
+                sens = _PII_FIELD_HINTS.get(cat.value, (cat, PIISensitivity.MEDIUM))[1]
+                return PIIDetection(field_path=path, category=cat, sensitivity=sens, detected_by="pattern")
+        return None
+
     def detect(self, payload: dict[str, Any], prefix: str = "") -> list[PIIDetection]:
         """Recursively detect PII fields in a payload."""
         results: list[PIIDetection] = []
@@ -106,18 +122,13 @@ class PIIHandler:
             if isinstance(value, dict):
                 results.extend(self.detect(value, prefix=path))
                 continue
-            key_lower = key.lower()
-            for hint, (cat, sens) in self._hints.items():
-                if hint in key_lower:
-                    results.append(PIIDetection(field_path=path, category=cat, sensitivity=sens, detected_by="field_name"))
-                    break
-            else:
-                if isinstance(value, str):
-                    for cat, pattern in _PII_PATTERNS.items():
-                        if pattern.search(value):
-                            sens = _PII_FIELD_HINTS.get(cat.value, (cat, PIISensitivity.MEDIUM))[1]
-                            results.append(PIIDetection(field_path=path, category=cat, sensitivity=sens, detected_by="pattern"))
-                            break
+            hit = self._detect_by_key(key, path)
+            if hit is not None:
+                results.append(hit)
+            elif isinstance(value, str):
+                hit = self._detect_by_pattern(value, path)
+                if hit is not None:
+                    results.append(hit)
         return results
 
     def get_pii_paths(self, payload: dict[str, Any]) -> tuple[str, ...]:

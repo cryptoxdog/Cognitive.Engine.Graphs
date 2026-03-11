@@ -165,6 +165,7 @@ class _NoOpLifecycle(LifecycleHook):
         logger.warning("No LifecycleHook configured — chassis running in stub mode")
 
     async def shutdown(self) -> None:
+        # Not implemented — no cleanup required for stub mode
         pass
 
     async def execute(
@@ -212,6 +213,57 @@ def _resolve_hook(hook: LifecycleHook | None) -> LifecycleHook:
             raise
 
     return _NoOpLifecycle()
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+#  ROUTE HANDLER HELPERS  (extracted to reduce create_app cognitive complexity)
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+def _raise_for_failed_result(result: dict[str, Any]) -> None:
+    """Map engine 'failed' status to the correct HTTPException."""
+    error_detail = result.get("data", {}).get("error", "Handler execution failed")
+    if "validation" in error_detail.lower() or "invalid" in error_detail.lower():
+        raise HTTPException(status_code=422, detail=error_detail)
+    raise HTTPException(status_code=500, detail=error_detail)
+
+
+async def _execute_route(request: ExecuteRequest, hook: LifecycleHook) -> ExecuteResponse | JSONResponse:
+    """Execute handler body — delegates to the lifecycle hook."""
+    trace_id = request.trace_id or f"trace_{uuid.uuid4().hex[:12]}"
+    try:
+        result = await hook.execute(
+            action=request.action,
+            payload=request.payload,
+            tenant=request.tenant,
+            trace_id=trace_id,
+        )
+        if result.get("status") == "failed":
+            _raise_for_failed_result(result)
+        return ExecuteResponse(**result)
+    except HTTPException:
+        raise
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:
+        logger.exception("Execute failed: %s", exc)
+        raise HTTPException(status_code=500, detail="Internal server error") from exc
+
+
+async def _health_route(request: Request, hook: LifecycleHook) -> JSONResponse:
+    """Health handler body — delegates to the lifecycle hook."""
+    tenant = request.query_params.get("tenant", "default")
+    trace_id = f"health_{uuid.uuid4().hex[:8]}"
+    try:
+        result = await hook.health(tenant=tenant, trace_id=trace_id)
+        status_code = 200 if result.get("data", {}).get("status") == "healthy" else 503
+        return JSONResponse(content=result, status_code=status_code)
+    except Exception as exc:
+        logger.error("Health check failed: %s", exc)
+        return JSONResponse(
+            content={"status": "unhealthy", "error": "health_check_failed"},
+            status_code=503,
+        )
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -271,7 +323,15 @@ def create_app(
 
     # --- POST /v1/execute  (single ingress) ---------------------------------
 
-    @application.post("/v1/execute", response_model=ExecuteResponse)
+    @application.post(
+        "/v1/execute",
+        response_model=ExecuteResponse,
+        responses={
+            400: {"description": "Unknown or invalid action (ValueError from engine)"},
+            422: {"description": "Payload validation failure"},
+            500: {"description": "Unhandled engine error"},
+        },
+    )
     async def execute(request: ExecuteRequest) -> ExecuteResponse | JSONResponse:
         """
         Universal action endpoint — single ingress for every engine action.
@@ -282,32 +342,7 @@ def create_app(
             422  — payload validation failure (keyword "validation" or "invalid")
             500  — unhandled engine error
         """
-        trace_id = request.trace_id or f"trace_{uuid.uuid4().hex[:12]}"
-
-        try:
-            result = await hook.execute(
-                action=request.action,
-                payload=request.payload,
-                tenant=request.tenant,
-                trace_id=trace_id,
-            )
-
-            # --- Map engine "failed" status to proper HTTP codes -----------
-            if result.get("status") == "failed":
-                error_detail = result.get("data", {}).get("error", "Handler execution failed")
-                if "validation" in error_detail.lower() or "invalid" in error_detail.lower():
-                    raise HTTPException(status_code=422, detail=error_detail)
-                raise HTTPException(status_code=500, detail=error_detail)
-
-            return ExecuteResponse(**result)
-
-        except HTTPException:
-            raise
-        except ValueError as exc:
-            raise HTTPException(status_code=400, detail=str(exc)) from exc
-        except Exception as exc:
-            logger.exception("Execute failed: %s", exc)
-            raise HTTPException(status_code=500, detail="Internal server error") from exc
+        return await _execute_route(request, hook)
 
     # --- GET /v1/health  (unauthenticated) ----------------------------------
 
@@ -317,24 +352,7 @@ def create_app(
         Health probe.  Delegates to hook.health() so the engine controls
         what "healthy" means.  Kubernetes-compatible: 200 = live, 503 = not.
         """
-        tenant = request.query_params.get("tenant", "default")
-        trace_id = f"health_{uuid.uuid4().hex[:8]}"
-
-        try:
-            result = await hook.health(tenant=tenant, trace_id=trace_id)
-
-            status_code = 200 if result.get("data", {}).get("status") == "healthy" else 503
-            return JSONResponse(content=result, status_code=status_code)
-
-        except Exception as exc:
-            logger.error("Health check failed: %s", exc)
-            return JSONResponse(
-                content={
-                    "status": "unhealthy",
-                    "error": "health_check_failed",
-                },
-                status_code=503,
-            )
+        return await _health_route(request, hook)
 
     return application
 

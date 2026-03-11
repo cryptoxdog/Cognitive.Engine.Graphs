@@ -71,21 +71,25 @@ class ChassisError(Exception):
 
 class ValidationError(ChassisError):
     """Payload or schema validation failure → HTTP 422."""
+
     status_code: int = 422
 
 
 class NotFoundError(ChassisError):
     """Resource not found (domain, entity, etc.) → HTTP 404."""
+
     status_code: int = 404
 
 
 class AuthorizationError(ChassisError):
     """Tenant not authorized for this action → HTTP 403."""
+
     status_code: int = 403
 
 
 class RateLimitError(ChassisError):
     """Rate limit exceeded → HTTP 429."""
+
     status_code: int = 429
 
     def __init__(self, message: str = "Rate limit exceeded", *, retry_after: int = 60, **kwargs):
@@ -95,4 +99,5 @@ class RateLimitError(ChassisError):
 
 class ExecutionError(ChassisError):
     """Runtime execution failure (DB down, timeout, etc.) → HTTP 500."""
+
     status_code: int = 500

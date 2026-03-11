@@ -376,7 +376,7 @@ class TestScoringDimensionSpec:
             weightkey="w_geo",
             defaultweight=0.25,
         )
-        assert d.defaultwhennull == 0.0
+        assert d.defaultwhennull == pytest.approx(0.0)
         assert d.aggregation == ScoringAggregation.ADDITIVE
 
 
@@ -393,8 +393,8 @@ class TestKGEModels:
     def test_kge_ensemble_spec(self) -> None:
         """KGEEnsembleSpec stores strategy and weights."""
         e = KGEEnsembleSpec(strategy="weightedaverage")
-        assert e.cypherweight == 0.6
-        assert e.kgeweight == 0.4
+        assert e.cypherweight == pytest.approx(0.6)
+        assert e.kgeweight == pytest.approx(0.4)
 
     def test_kge_spec_defaults(self) -> None:
         """KGESpec has CompoundE3D as default model."""

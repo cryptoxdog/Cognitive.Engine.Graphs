@@ -32,9 +32,11 @@ class MockLifecycleHook(LifecycleHook):
         self._execute_mock = AsyncMock()
 
     async def startup(self) -> None:
+        # Not implemented — test stub requires no startup logic
         pass
 
     async def shutdown(self) -> None:
+        # Not implemented — test stub requires no shutdown logic
         pass
 
     async def execute(

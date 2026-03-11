@@ -10,20 +10,23 @@ status: active
 --- /L9_META ---
 
 Packet routing between internal nodes for the L9 Constellation Runtime."""
+
 import time
-from constellation.types import (
-    PacketEnvelope, TraceEntry, TerminalResult, ConstellationError, _uid
-)
+
 from constellation.action_registry import ACTION_MAP, get_action_handler
 from constellation.node_registry import get_node
+from constellation.types import ConstellationError, PacketEnvelope, TerminalResult, TraceEntry
+
 
 def resolve_initial_node(action: str) -> str:
     if action not in ACTION_MAP:
         raise ConstellationError(f"No node registered for action: {action}", status="rejected")
     return ACTION_MAP[action]
 
+
 def append_trace(packet: PacketEnvelope, entry: TraceEntry):
     packet.trace.append(entry)
+
 
 def route_packet(packet: PacketEnvelope, *, max_hops: int = 20, timeout_ms: float = 60000):
     """Route a packet through internal nodes until a terminal condition."""
@@ -48,29 +51,32 @@ def route_packet(packet: PacketEnvelope, *, max_hops: int = 20, timeout_ms: floa
         except ConstellationError:
             raise
         except Exception as exc:
-            append_trace(packet, TraceEntry(
-                node=node_name, action=current_action, status="error",
-                latency_ms=(time.time() - hop_start) * 1000))
+            append_trace(
+                packet,
+                TraceEntry(
+                    node=node_name, action=current_action, status="error", latency_ms=(time.time() - hop_start) * 1000
+                ),
+            )
             raise ConstellationError(str(exc), status="error")
 
         hop_latency = (time.time() - hop_start) * 1000
         if isinstance(result, TerminalResult):
-            append_trace(packet, TraceEntry(
-                node=node_name, action=current_action, status="completed",
-                latency_ms=hop_latency))
+            append_trace(
+                packet, TraceEntry(node=node_name, action=current_action, status="completed", latency_ms=hop_latency)
+            )
             return result, hops
 
         if isinstance(result, PacketEnvelope):
-            append_trace(packet, TraceEntry(
-                node=node_name, action=current_action, status="forwarded",
-                latency_ms=hop_latency))
+            append_trace(
+                packet, TraceEntry(node=node_name, action=current_action, status="forwarded", latency_ms=hop_latency)
+            )
             current_action = result.action
             packet.payload = result.payload
             continue
 
-        append_trace(packet, TraceEntry(
-            node=node_name, action=current_action, status="completed",
-            latency_ms=hop_latency))
+        append_trace(
+            packet, TraceEntry(node=node_name, action=current_action, status="completed", latency_ms=hop_latency)
+        )
         return TerminalResult(data=result if isinstance(result, dict) else {}), hops
 
     raise ConstellationError("Max internal hops exceeded", status="error")

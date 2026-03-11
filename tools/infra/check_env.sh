@@ -51,6 +51,7 @@ load_var_list() {
     if [[ -f "$config_file" ]]; then
         grep -v '^\s*#' "$config_file" | grep -v '^\s*$' | tr '\n' ' '
     fi
+    return 0
 }
 
 REQUIRED_VARS=( $(load_var_list "$REPO_ROOT/.env.required") )
@@ -115,13 +116,11 @@ fi
 # Universal bug detection: localhost in DATABASE_URL inside Docker
 # ---------------------------------------------------------------------------
 
-if [[ -n "${DATABASE_URL:-}" ]]; then
-    if [[ "$DATABASE_URL" == *"127.0.0.1"* ]] || [[ "$DATABASE_URL" == *"localhost"* ]]; then
-        echo -e "${RED}⚠ WARNING: DATABASE_URL contains localhost!${NC}"
-        echo -e "  This will fail inside Docker containers."
-        echo -e "  Use the service name (e.g. 'postgres') instead of localhost."
-        ((WARNINGS++))
-    fi
+if [[ -n "${DATABASE_URL:-}" ]] && { [[ "$DATABASE_URL" == *"127.0.0.1"* ]] || [[ "$DATABASE_URL" == *"localhost"* ]]; }; then
+    echo -e "${RED}⚠ WARNING: DATABASE_URL contains localhost!${NC}"
+    echo -e "  This will fail inside Docker containers."
+    echo -e "  Use the service name (e.g. 'postgres') instead of localhost."
+    ((WARNINGS++))
 fi
 
 echo ""

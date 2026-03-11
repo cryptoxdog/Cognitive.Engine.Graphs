@@ -90,10 +90,10 @@ NC='\033[0m'
 PASSED=0
 FAILED=0
 
-test_pass() { echo -e "${GREEN}✓${NC} $1"; ((PASSED++)); }
-test_fail() { echo -e "${RED}✗${NC} $1"; ((FAILED++)); }
-test_info() { echo -e "${YELLOW}→${NC} $1"; }
-test_skip() { echo -e "${YELLOW}○${NC} $1 (skipped)"; }
+test_pass() { local msg="$1"; echo -e "${GREEN}✓${NC} $msg"; ((PASSED++)); return 0; }
+test_fail() { local msg="$1"; echo -e "${RED}✗${NC} $msg"; ((FAILED++)); return 0; }
+test_info() { local msg="$1"; echo -e "${YELLOW}→${NC} $msg"; return 0; }
+test_skip() { local msg="$1"; echo -e "${YELLOW}○${NC} $msg (skipped)"; return 0; }
 
 echo "╔══════════════════════════════════════════════════════════════╗"
 echo "║              ${APP_NAME} COMPREHENSIVE TEST SUITE"

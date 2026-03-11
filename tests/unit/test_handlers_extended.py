@@ -278,7 +278,7 @@ class TestHandleResolve:
             assert result["status"] == "resolved"
             call_kwargs = driver.execute_query.call_args
             params = call_kwargs.kwargs.get("parameters") or call_kwargs[1].get("parameters", {})
-            assert params["confidence"] == 0.85
+            assert params["confidence"] == pytest.approx(0.85)
             assert params["signal"] == "embedding"
 
     @pytest.mark.asyncio

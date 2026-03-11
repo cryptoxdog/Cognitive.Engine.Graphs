@@ -24,15 +24,25 @@ Usage:
   python tools/audit_dispatch.py --pr-comment             # Generate PR comment markdown
   python tools/audit_dispatch.py --list                   # Show registered auditors
 """
-import argparse, importlib, json as json_mod, shutil, subprocess, sys
+
+import argparse
+import importlib
+import json as json_mod
+import shutil
+import subprocess
+import sys
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(REPO_ROOT))
 
 from tools.auditors.base import (
-    AuditResult, AuditTier,
-    get_all_auditors, get_auditor, get_auditors_for_domain, get_auditors_for_tier,
+    AuditResult,
+    AuditTier,
+    get_all_auditors,
+    get_auditor,
+    get_auditors_for_domain,
+    get_auditors_for_tier,
 )
 
 # Auto-discover auditor modules
@@ -49,15 +59,18 @@ for py_file in AUDITORS_DIR.glob("*.py"):
 def _check_requirements(auditor) -> bool:
     for req in auditor.requires:
         if req == "git":
-            if not shutil.which("git"): return False
-            r = subprocess.run(["git", "rev-parse", "--git-dir"],
-                               capture_output=True, cwd=REPO_ROOT)
-            if r.returncode != 0: return False
+            if not shutil.which("git"):
+                return False
+            r = subprocess.run(["git", "rev-parse", "--git-dir"], capture_output=True, cwd=REPO_ROOT, check=False)
+            if r.returncode != 0:
+                return False
         elif req == "postgres":
-            try: import psycopg2
-            except ImportError: return False
-        elif req == "pytest-cov":
-            if not (REPO_ROOT / "coverage.json").exists(): return False
+            try:
+                import psycopg2  # noqa: F401
+            except ImportError:
+                return False
+        elif req == "pytest-cov" and not (REPO_ROOT / "coverage.json").exists():
+            return False
     return True
 
 
@@ -69,28 +82,8 @@ def run_auditor(auditor, repo_root, dep_indexes=None):
     return auditor.scan(files, repo_root, index=index, dep_indexes=dep_indexes)
 
 
-def print_results(results, summary=False, as_json=False, pr_comment=False):
-    all_f = []
-    for r in results:
-        all_f.extend(r.findings)
-
-    if as_json:
-        out = [{"auditor": f.group, "severity": f.severity, "code": f.code,
-                "rule": str(f.rule), "category": f.category, "message": f.message,
-                "file": f.file, "line": f.line, "fix_hint": f.fix_hint,
-                "safe_rewrite": f.safe_rewrite, "suggestions": f.suggestions}
-               for f in all_f]
-        print(json_mod.dumps(out, indent=2))
-        return
-
-    if pr_comment:
-        _pr_comment(results, all_f); return
-
-    if not all_f:
-        print("All auditors passed. Zero findings.")
-        for r in results: print(f"  [{r.auditor_name}] clean")
-        return
-
+def _format_findings_by_severity(all_f: list, summary: bool) -> None:
+    """Print findings grouped by severity level."""
     by_sev = {"BLOCKER": [], "CRITICAL": [], "HIGH": [], "MEDIUM": [], "INFO": []}
     for f in all_f:
         by_sev.get(f.severity, by_sev["INFO"]).append(f)
@@ -98,18 +91,60 @@ def print_results(results, summary=False, as_json=False, pr_comment=False):
     mx = 5 if summary else 999
     for sev in ["BLOCKER", "CRITICAL", "HIGH", "MEDIUM", "INFO"]:
         fs = by_sev[sev]
-        if not fs: continue
+        if not fs:
+            continue
         print(f"\n{'=' * 60}\n{sev}: {len(fs)} findings\n{'=' * 60}")
         for f in fs[:mx]:
             print(f"  [{f.code}] {f.message}")
             print(f"         {f.file}:{f.line}")
-            if f.fix_hint: print(f"         Fix: {f.fix_hint}")
-            if f.suggestions: print(f"         Try: {', '.join(f.suggestions)}")
+            if f.fix_hint:
+                print(f"         Fix: {f.fix_hint}")
+            if f.suggestions:
+                print(f"         Try: {', '.join(f.suggestions)}")
             print()
-        if len(fs) > mx: print(f"  ... and {len(fs) - mx} more\n")
+        if len(fs) > mx:
+            print(f"  ... and {len(fs) - mx} more\n")
 
     tb = sum(len(by_sev[s]) for s in ("BLOCKER", "CRITICAL"))
     print(f"\nTOTAL: {len(all_f)} findings ({tb} BLOCKER/CRITICAL, {len(by_sev['HIGH'])} HIGH)")
+
+
+def print_results(results, summary=False, as_json=False, pr_comment=False):
+    all_f = []
+    for r in results:
+        all_f.extend(r.findings)
+
+    if as_json:
+        out = [
+            {
+                "auditor": f.group,
+                "severity": f.severity,
+                "code": f.code,
+                "rule": str(f.rule),
+                "category": f.category,
+                "message": f.message,
+                "file": f.file,
+                "line": f.line,
+                "fix_hint": f.fix_hint,
+                "safe_rewrite": f.safe_rewrite,
+                "suggestions": f.suggestions,
+            }
+            for f in all_f
+        ]
+        print(json_mod.dumps(out, indent=2))
+        return
+
+    if pr_comment:
+        _pr_comment(results, all_f)
+        return
+
+    if not all_f:
+        print("All auditors passed. Zero findings.")
+        for r in results:
+            print(f"  [{r.auditor_name}] clean")
+        return
+
+    _format_findings_by_severity(all_f, summary)
 
 
 def _pr_comment(results, all_f):
@@ -124,12 +159,46 @@ def _pr_comment(results, all_f):
         for f in crit[:5]:
             print(f"- **[{f.code}]** {f.message}")
             print(f"  `{f.file}:{f.line}`")
-            if f.fix_hint: print(f"  \U0001f4a1 {f.fix_hint}")
+            if f.fix_hint:
+                print(f"  \U0001f4a1 {f.fix_hint}")
     if high:
         print(f"\n**{len(high)} HIGH issues:**\n")
         for f in high[:5]:
             print(f"- **[{f.code}]** {f.message}  `{f.file}:{f.line}`")
     print(f"\n---\n*{len(all_f)} total from {len([r for r in results if r.findings])} auditors*")
+
+
+def _resolve_auditors(args):
+    """Select auditors based on CLI args."""
+    if args.auditor:
+        return [get_auditor(args.auditor)]
+    if args.tier:
+        return get_auditors_for_tier(AuditTier(args.tier))
+    if args.domain:
+        return get_auditors_for_domain(args.domain)
+    return get_all_auditors()
+
+
+def _save_report(results, repo_root: Path) -> None:
+    """Persist findings to audit_report.json."""
+    rp = repo_root / "audit_report.json"
+    af = []
+    for r in results:
+        af.extend(
+            [
+                {
+                    "auditor": f.group,
+                    "severity": f.severity,
+                    "code": f.code,
+                    "message": f.message,
+                    "file": f.file,
+                    "line": f.line,
+                }
+                for f in r.findings
+            ]
+        )
+    with rp.open("w") as fh:
+        json_mod.dump(af, fh, indent=2)
 
 
 def main():
@@ -148,16 +217,13 @@ def main():
         auditors = get_all_auditors()
         print(f"Registered auditors ({len(auditors)}):\n")
         print(f"  {'NAME':<25s} {'DOMAIN':<12s} {'TIER':<12s} CONTRACT")
-        print(f"  {'-'*25} {'-'*12} {'-'*12} {'-'*40}")
+        print(f"  {'-' * 25} {'-' * 12} {'-' * 12} {'-' * 40}")
         for a in sorted(auditors, key=lambda x: (x.tier.value, x.domain, x.name)):
             rq = f" [requires: {', '.join(a.requires)}]" if a.requires else ""
             print(f"  {a.name:<25s} {a.domain:<12s} {a.tier.value:<12s} {a.contract_file}{rq}")
         sys.exit(0)
 
-    if args.auditor: auditors = [get_auditor(args.auditor)]
-    elif args.tier: auditors = get_auditors_for_tier(AuditTier(args.tier))
-    elif args.domain: auditors = get_auditors_for_domain(args.domain)
-    else: auditors = get_all_auditors()
+    auditors = _resolve_auditors(args)
 
     runnable, skipped = [], []
     for a in auditors:
@@ -167,7 +233,8 @@ def main():
             print(f"SKIP: [{a.name}] requirements not met: {a.requires}", file=sys.stderr)
 
     if not runnable:
-        print("No runnable auditors. Use --list to see all."); sys.exit(0)
+        print("No runnable auditors. Use --list to see all.")
+        sys.exit(0)
 
     results, indexes = [], {}
     for auditor in runnable:
@@ -178,18 +245,14 @@ def main():
     print_results(results, summary=args.summary, as_json=args.json, pr_comment=args.pr_comment)
 
     if args.strict or args.pr_comment:
-        rp = REPO_ROOT / "audit_report.json"
-        af = []
-        for r in results:
-            af.extend([{"auditor":f.group,"severity":f.severity,"code":f.code,
-                        "message":f.message,"file":f.file,"line":f.line} for f in r.findings])
-        with open(rp, "w") as f: json_mod.dump(af, f, indent=2)
+        _save_report(results, REPO_ROOT)
 
-    if args.strict:
-        if any(r.has_blocking for r in results):
-            print("\nFAIL: Blocking findings detected.", file=sys.stderr); sys.exit(1)
-        else:
-            print("\nPASS: No blocking findings."); sys.exit(0)
+    if args.strict and any(r.has_blocking for r in results):
+        print("\nFAIL: Blocking findings detected.", file=sys.stderr)
+        sys.exit(1)
+    elif args.strict:
+        print("\nPASS: No blocking findings.")
+        sys.exit(0)
 
 
 if __name__ == "__main__":

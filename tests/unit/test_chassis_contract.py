@@ -110,8 +110,8 @@ class TestDeflateEgress:
         )
         assert response.packet_type == PacketType.RESPONSE
         assert response.payload["status"] == "success"
-        assert response.payload["data"]["candidates"][0]["score"] == 0.95
-        assert response.payload["meta"]["execution_ms"] == 42.5
+        assert response.payload["data"]["candidates"][0]["score"] == pytest.approx(0.95)
+        assert response.payload["meta"]["execution_ms"] == pytest.approx(42.5)
 
     def test_preserves_trace_id(self) -> None:
         """deflate_egress preserves trace_id from request."""
@@ -143,7 +143,7 @@ class TestDeflateEgress:
             processing_ms=123.456,
             responding_node="node1",
         )
-        assert response.payload["meta"]["execution_ms"] == 123.456
+        assert response.payload["meta"]["execution_ms"] == pytest.approx(123.456)
 
 
 @pytest.mark.unit

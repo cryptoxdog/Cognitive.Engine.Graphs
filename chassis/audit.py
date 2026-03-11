@@ -30,6 +30,8 @@ import logging
 import threading
 import uuid
 from collections.abc import Sequence
+from dataclasses import dataclass
+from dataclasses import field as dc_field
 from datetime import UTC, datetime
 from enum import Enum
 from typing import Any
@@ -41,6 +43,7 @@ logger = logging.getLogger(__name__)
 
 class AuditAction(str, Enum):
     """Auditable action categories — extensible per engine."""
+
     ACCESS = "access"
     MUTATION = "mutation"
     QUERY = "query"
@@ -61,6 +64,7 @@ class AuditSeverity(str, Enum):
 
 class AuditEntry(BaseModel):
     """Immutable audit log entry."""
+
     model_config = {"frozen": True}
 
     audit_id: str = Field(default_factory=lambda: str(uuid.uuid4()))
@@ -88,6 +92,24 @@ class RetentionPolicy(BaseModel):
     require_immutable_storage: bool = False
 
 
+@dataclass
+class AuditContext:
+    """
+    Groups compliance and resource metadata for ``AuditLogger.log()``.
+
+    Consolidates the seven optional compliance/resource parameters so the
+    ``log()`` method stays within the 13-parameter limit.
+    """
+
+    resource: str | None = None
+    resource_type: str | None = None
+    payload_hash: str | None = None
+    compliance_tags: list[str] = dc_field(default_factory=list)
+    pii_fields_accessed: list[str] = dc_field(default_factory=list)
+    data_subject_id: str | None = None
+    metadata: dict[str, Any] = dc_field(default_factory=dict)
+
+
 DEFAULT_RETENTION: dict[str, RetentionPolicy] = {
     "SOC2": RetentionPolicy(tag="SOC2", retention_days=2555, require_immutable_storage=True),
     "GDPR": RetentionPolicy(tag="GDPR", retention_days=1825, require_encryption=True),
@@ -97,6 +119,7 @@ DEFAULT_RETENTION: dict[str, RetentionPolicy] = {
 
 
 # ── Pluggable sink protocol ──────────────────────────────────────────
+
 
 class AuditSink:
     """
@@ -143,32 +166,42 @@ class AuditLogger:
         *,
         severity: AuditSeverity = AuditSeverity.INFO,
         trace_id: str | None = None,
-        resource: str | None = None,
-        resource_type: str | None = None,
+        context: AuditContext | None = None,
         detail: str | None = None,
-        payload_hash: str | None = None,
-        compliance_tags: list[str] | None = None,
-        pii_fields_accessed: list[str] | None = None,
-        data_subject_id: str | None = None,
         outcome: str = "success",
-        metadata: dict[str, Any] | None = None,
     ) -> AuditEntry:
-        """Create and buffer an audit entry."""
+        """
+        Create and buffer an audit entry.
+
+        Parameters
+        ----------
+        action : AuditAction
+        actor : str
+        tenant : str
+        severity : AuditSeverity
+        trace_id : str | None
+        context : AuditContext | None
+            Consolidates resource, compliance, and PII metadata.
+            Pass ``AuditContext(resource=..., compliance_tags=[...])`` as needed.
+        detail : str | None
+        outcome : str
+        """
+        ctx = context or AuditContext()
         entry = AuditEntry(
             action=action,
             severity=severity,
             actor=actor,
             tenant=tenant,
             trace_id=trace_id,
-            resource=resource,
-            resource_type=resource_type,
+            resource=ctx.resource,
+            resource_type=ctx.resource_type,
             detail=detail,
-            payload_hash=payload_hash,
-            compliance_tags=compliance_tags or [],
-            pii_fields_accessed=pii_fields_accessed or [],
-            data_subject_id=data_subject_id,
+            payload_hash=ctx.payload_hash,
+            compliance_tags=ctx.compliance_tags,
+            pii_fields_accessed=ctx.pii_fields_accessed,
+            data_subject_id=ctx.data_subject_id,
             outcome=outcome,
-            metadata=metadata or {},
+            metadata=ctx.metadata,
         )
         self._emit(entry)
         return entry

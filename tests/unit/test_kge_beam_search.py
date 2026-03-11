@@ -78,7 +78,7 @@ class TestBeamCandidate:
         d = c.to_dict()
         assert d["id"] == "var_0001"
         assert d["type"] == "rotation"
-        assert d["score"] == 0.85
+        assert d["score"] == pytest.approx(0.85)
         assert d["depth"] == 1
         assert d["parent_id"] == "var_0000"
 
@@ -171,7 +171,7 @@ class TestBeamSearchEngine:
             sc = result["search_config"]
             assert sc["beam_width"] == 5
             assert sc["max_depth"] == 2
-            assert sc["score_threshold"] == 0.4
+            assert sc["score_threshold"] == pytest.approx(0.4)
 
     def test_pruned_candidates_logged(self, model: CompoundE3D) -> None:
         """Pruned candidates are logged when log_pruned=True."""
@@ -248,7 +248,7 @@ class TestParamSimilarity:
     def test_identical_params(self) -> None:
         """Identical params give similarity 1.0."""
         sim = BeamSearchEngine._param_similarity({"a": 1.0}, {"a": 1.0})
-        assert sim == 1.0
+        assert sim == pytest.approx(1.0)
 
     def test_different_params(self) -> None:
         """Different params give similarity < 1.0."""
@@ -258,7 +258,7 @@ class TestParamSimilarity:
     def test_empty_params(self) -> None:
         """Empty params give similarity 1.0."""
         sim = BeamSearchEngine._param_similarity({}, {})
-        assert sim == 1.0
+        assert sim == pytest.approx(1.0)
 
 
 @pytest.mark.unit

@@ -71,7 +71,7 @@ class TestCompoundE3DConfig:
         """Default config has expected values."""
         c = CompoundE3DConfig()
         assert c.embedding_dim == 256
-        assert c.learning_rate == 1e-3
+        assert c.learning_rate == pytest.approx(1e-3)
         assert c.margin == 1.0
 
     def test_from_kge_spec(self) -> None:
