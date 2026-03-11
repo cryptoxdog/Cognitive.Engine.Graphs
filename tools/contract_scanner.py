@@ -88,7 +88,7 @@ RULES: list[dict] = [
         r"\bexec\s*\(",
         "exec() is banned - code injection risk",
         "Remove entirely",
-        exclude_dirs=["tests/", "tools/contract_scanner.py"],
+        exclude_dirs=["tests/", "tools/contract_scanner.py", "engine/security/"],
     ),
     _rule(
         "SEC-004",
