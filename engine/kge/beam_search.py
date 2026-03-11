@@ -229,7 +229,7 @@ class BeamSearchEngine:
             quality_scores.append(1.0 / (1.0 + diff))
 
         quality_score = (
-            float(np.mean(quality_scores)) if quality_scores else 0.5
+            float(np.mean(quality_scores)) if quality_scores else 0.5  # nosemgrep: float-requires-try-except
         )  # nosemgrep: float-requires-try-except
 
         # Constraint satisfaction

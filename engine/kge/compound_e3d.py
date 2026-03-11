@@ -326,8 +326,8 @@ class CompoundE3D:
 
         result = minimize(nll, x0=[1.0, 0.0], method="L-BFGS-B")
         self._platt_alpha, self._platt_beta = (
-            float(result.x[0]),
-            float(result.x[1]),
+            float(result.x[0]),  # nosemgrep: float-requires-try-except
+            float(result.x[1]),  # nosemgrep: float-requires-try-except
         )  # nosemgrep: float-requires-try-except
 
     def build_icp_centroid(

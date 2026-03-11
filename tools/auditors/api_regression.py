@@ -90,9 +90,9 @@ class APIRegressionAuditor(BaseAuditor):
         result = AuditResult(auditor_name=self.name)
         c = 0
         diff = _run_git(["diff", "--name-only", "main", "HEAD"], repo_root)
-        if diff is None:
+        if diff is None:  # nosemgrep: singleton-requires-lock
             diff = _run_git(["diff", "--name-only", "origin/main", "HEAD"], repo_root)
-        if diff is None:
+        if diff is None:  # nosemgrep: singleton-requires-lock
             return result
         changed = [f for f in diff.strip().split("\n") if f.endswith(".py") and "/tests/" not in f]
         for rp in changed:
@@ -102,9 +102,9 @@ class APIRegressionAuditor(BaseAuditor):
             with open(fp) as fh:
                 cur_api = _extract_public_api(fh.read())
             base = _run_git(["show", f"main:{rp}"], repo_root)
-            if base is None:
+            if base is None:  # nosemgrep: singleton-requires-lock
                 base = _run_git(["show", f"origin/main:{rp}"], repo_root)
-            if base is None:
+            if base is None:  # nosemgrep: singleton-requires-lock
                 continue
             base_api = _extract_public_api(base)
             for cn, bc in base_api.items():

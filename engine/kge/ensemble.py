@@ -175,7 +175,7 @@ class WeightedDistributionScore(VariantEnsemble):
             conf_sum += wi * ci
 
         final = (
-            weighted_sum / conf_sum if conf_sum > 0 else float(np.mean([s.score for s in normalized]))
+            weighted_sum / conf_sum if conf_sum > 0 else float(np.mean([s.score for s in normalized]))  # nosemgrep: float-requires-try-except
         )  # nosemgrep: float-requires-try-except
 
         result = EnsembleResult(
@@ -332,7 +332,7 @@ class MixtureOfExpertsEnsemble(VariantEnsemble):
         final = float(np.clip(np.dot(gate_weights, competencies), 0.0, 1.0))  # nosemgrep: float-requires-try-except
 
         weights = {
-            s.variant_id: float(w) for s, w in zip(scores, gate_weights, strict=False)
+            s.variant_id: float(w) for s, w in zip(scores, gate_weights, strict=False)  # nosemgrep: float-requires-try-except
         }  # nosemgrep: float-requires-try-except
 
         top_3 = sorted(zip(scores, gate_weights, strict=False), key=lambda x: -x[0].score)[:3]

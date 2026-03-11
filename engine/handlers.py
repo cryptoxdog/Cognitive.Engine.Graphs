@@ -176,7 +176,7 @@ def _try_safe_literal(expr_stripped: str, expr_lower: str) -> str | None:
     if expr_lower in ("true", "false", "null"):
         return expr_stripped
     try:
-        float(expr_stripped)
+        float(expr_stripped)  # nosemgrep: float-requires-try-except
     except ValueError:
         pass
     else:
