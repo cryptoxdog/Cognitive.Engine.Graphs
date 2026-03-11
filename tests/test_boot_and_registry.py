@@ -32,8 +32,9 @@ class TestBootModule:
 
     def test_graph_lifecycle_has_startup(self):
         """GraphLifecycle has a startup coroutine."""
-        from engine.boot import GraphLifecycle
         import inspect
+
+        from engine.boot import GraphLifecycle
 
         lifecycle = GraphLifecycle()
         assert hasattr(lifecycle, "startup")
@@ -41,8 +42,9 @@ class TestBootModule:
 
     def test_graph_lifecycle_has_shutdown(self):
         """GraphLifecycle has a shutdown coroutine."""
-        from engine.boot import GraphLifecycle
         import inspect
+
+        from engine.boot import GraphLifecycle
 
         lifecycle = GraphLifecycle()
         assert hasattr(lifecycle, "shutdown")
@@ -50,8 +52,9 @@ class TestBootModule:
 
     def test_graph_lifecycle_has_execute(self):
         """GraphLifecycle has an execute coroutine."""
-        from engine.boot import GraphLifecycle
         import inspect
+
+        from engine.boot import GraphLifecycle
 
         lifecycle = GraphLifecycle()
         assert hasattr(lifecycle, "execute")
