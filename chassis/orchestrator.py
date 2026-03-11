@@ -77,7 +77,7 @@ def execute(request: dict) -> dict:
             "action": request.get("action", "unknown"),
             "domain": request.get("domain", "unknown"),
             "data": {"error": str(exc)},
-            "meta": {"trace_id": request.get("trace_id", _uid()), "execution_ms": round(elapsed, 2), "node_hops": []},
+            "meta": {"trace_id": request.get("trace_id") or _uid(), "execution_ms": round(elapsed, 2), "node_hops": []},
         }
 
 

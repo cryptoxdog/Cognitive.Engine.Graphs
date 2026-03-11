@@ -27,11 +27,11 @@ from tools.auditors.base import (
 )
 
 
-def _run_git(args, cwd):
+def _run_git(args: list[str], cwd: str | None) -> str | None:
     try:
-        r = subprocess.run(["git"] + args, capture_output=True, text=True, cwd=cwd, timeout=30)
-        return r.stdout if r.returncode == 0 else None
-    except (subprocess.TimeoutExpired, FileNotFoundError):
+        r = subprocess.run(["git", *args], capture_output=True, text=True, cwd=cwd, timeout=30, check=True)
+        return r.stdout
+    except (subprocess.TimeoutExpired, FileNotFoundError, subprocess.CalledProcessError):
         return None
 
 

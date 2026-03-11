@@ -110,7 +110,7 @@ class PIIHandler:
         """Check if a string value matches a PII regex pattern."""
         for cat, pattern in _PII_PATTERNS.items():
             if pattern.search(value):
-                sens = _PII_FIELD_HINTS.get(cat.value, (cat, PIISensitivity.MEDIUM))[1]
+                sens = self._hints.get(cat.value, (cat, PIISensitivity.MEDIUM))[1]
                 return PIIDetection(field_path=path, category=cat, sensitivity=sens, detected_by="pattern")
         return None
 

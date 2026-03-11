@@ -115,8 +115,10 @@ class YAMLDomainLoader(BaseDomainLoader):
 
         if raw_path.is_symlink():
             raise DomainNotFoundError(f"Symlinked spec rejected: {domain_id!r}")
-        if not str(candidate).startswith(str(self._base_path)):
-            raise DomainNotFoundError(f"Path traversal rejected: {domain_id!r}")
+        try:
+            candidate.resolve().relative_to(self._base_path.resolve())
+        except ValueError as exc:
+            raise DomainNotFoundError(f"Domain path escapes base: {domain_id!r}") from exc
         if not candidate.exists():
             raise DomainNotFoundError(f"Domain spec not found: {candidate}")
         return candidate

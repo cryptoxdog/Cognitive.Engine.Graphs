@@ -93,9 +93,9 @@ async def lifespan(app: FastAPI):
 def _raise_for_failed_status(result: dict[str, Any]) -> None:
     """Map engine 'failed' status dict to the appropriate HTTPException."""
     error_detail = result.get("data", {}).get("error", "Handler execution failed")
-    if "validation" in error_detail.lower() or "invalid" in error_detail.lower():
-        raise HTTPException(status_code=422, detail=error_detail)
-    raise HTTPException(status_code=500, detail=error_detail)
+    exc_obj = result.get("data", {}).get("_exc")
+    status = getattr(exc_obj, "status_code", None) or (422 if isinstance(exc_obj, (ValueError, TypeError)) else 500)
+    raise HTTPException(status_code=status, detail=error_detail)
 
 
 async def _execute_handler(request: ExecuteRequest) -> ExecuteResponse:

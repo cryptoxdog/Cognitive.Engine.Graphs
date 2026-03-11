@@ -11,10 +11,13 @@ status: active
 
 Action-to-node resolution for the L9 Constellation Runtime."""
 
+from collections.abc import Callable
+from typing import Any
+
 from constellation.types import SNAKE, ConstellationError
 
 ACTION_MAP: dict[str, str] = {}
-_HANDLERS: dict[str, callable] = {}
+_HANDLERS: dict[str, Callable[..., Any]] = {}
 
 
 def register_action(action_name: str, node_name_or_handler=None):

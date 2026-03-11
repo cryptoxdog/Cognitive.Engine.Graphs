@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 from typing import Any, TypeVar
 
 # These come from P1-5 (engine/security/llm.py)
@@ -132,10 +133,15 @@ class ValidatedLLMClient:
     ) -> CypherQueryOutput:
         clean = sanitize_llm_input(natural_language, max_length=500)
 
+        # Sanitize schema_hint to prevent prompt injection via untrusted schema content.
+        schema_hint_clean: str | None = None
+        if schema_hint:
+            schema_hint_clean = re.sub(r"[^\w\s.\-_\[\]{}]", "", str(schema_hint))[:500]
+
         system = "You are a Cypher query expert. Return JSON with: cypher_query, parameters, explanation, confidence."
         user = f"Convert to Cypher: {clean}"
-        if schema_hint:
-            user += f"\nGraph schema:\n{schema_hint}"
+        if schema_hint_clean:
+            user += f"\nGraph schema:\n{schema_hint_clean}"
 
         with track_llm_usage(model=self.model):
             raw = self._call(system, user)
@@ -157,6 +163,11 @@ class ValidatedLLMClient:
 
     def generate_code(self, task: str, language: str = "python") -> CodeGenOutput:
         clean = sanitize_llm_input(task, max_length=500)
+
+        # Validate language against allowlist to prevent prompt injection.
+        allowed_languages = {"cypher", "python", "json", "yaml", "javascript"}
+        if language not in allowed_languages:
+            raise ValueError(f"Unsupported language: {language!r}")
 
         system = f"Generate {language} code. Return JSON with: code, language, explanation, dependencies."
 

@@ -45,7 +45,7 @@ VALIDATION_ERRORS=0
 
 log()     { local msg="$1"; echo -e "${BLUE}[INFO]${NC} $msg"; return 0; }
 success() { local msg="$1"; echo -e "${GREEN}[✓]${NC} $msg"; return 0; }
-error()   { local msg="$1"; echo -e "${RED}[✗]${NC} $msg" >&2; ((VALIDATION_ERRORS++)); return 0; }
+error()   { local msg="$1"; echo -e "${RED}[✗]${NC} $msg" >&2; VALIDATION_ERRORS=$((VALIDATION_ERRORS + 1)); return 0; }
 warning() { local msg="$1"; echo -e "${YELLOW}[!]${NC} $msg"; return 0; }
 
 ################################################################################

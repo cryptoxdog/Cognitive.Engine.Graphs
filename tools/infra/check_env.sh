@@ -82,10 +82,10 @@ if [[ ${#REQUIRED_VARS[@]} -gt 0 ]]; then
         value="${!var:-}"
         if [[ -z "$value" ]]; then
             echo -e "  ${RED}✗${NC} $var — MISSING"
-            ((ERRORS++))
+            ERRORS=$((ERRORS + 1))
         elif [[ "$value" == *"YOUR_"* ]] || [[ "$value" == *"_HERE"* ]]; then
             echo -e "  ${RED}✗${NC} $var — PLACEHOLDER (needs real value)"
-            ((ERRORS++))
+            ERRORS=$((ERRORS + 1))
         else
             masked="${value:0:4}****${value: -4}"
             echo -e "  ${GREEN}✓${NC} $var = $masked"
@@ -104,7 +104,7 @@ if [[ ${#RECOMMENDED_VARS[@]} -gt 0 ]]; then
         value="${!var:-}"
         if [[ -z "$value" ]]; then
             echo -e "  ${YELLOW}○${NC} $var — not set (using default)"
-            ((WARNINGS++))
+            WARNINGS=$((WARNINGS + 1))
         else
             echo -e "  ${GREEN}✓${NC} $var = (set)"
         fi
@@ -120,7 +120,7 @@ if [[ -n "${DATABASE_URL:-}" ]] && { [[ "$DATABASE_URL" == *"127.0.0.1"* ]] || [
     echo -e "${RED}⚠ WARNING: DATABASE_URL contains localhost!${NC}"
     echo -e "  This will fail inside Docker containers."
     echo -e "  Use the service name (e.g. 'postgres') instead of localhost."
-    ((WARNINGS++))
+    WARNINGS=$((WARNINGS + 1))
 fi
 
 echo ""

@@ -143,6 +143,10 @@ _DANGEROUS_PATTERNS = frozenset(
 # Valid property name pattern (alphanumeric + underscore, must start with letter/underscore)
 _PROPERTY_NAME_RE = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_]*$")
 
+# Direct property access: n.<identifier> preceded by start-of-string or an operator/whitespace.
+# Intentionally does NOT match n.<identifier> preceded by '(' to block substring(n.prop,...) bypass.
+_DIRECT_PROPERTY_RE = re.compile(r"(?:^|[\s+\-*/])n\.[a-zA-Z_][a-zA-Z0-9_]*")
+
 
 def _check_dangerous_patterns(expr_stripped: str, expr_lower: str) -> None:
     """Raise ValidationError if expression contains any dangerous pattern."""
@@ -222,16 +226,19 @@ def _sanitize_expression(expr: str) -> str:
     expr_stripped = expr.strip()
     expr_lower = expr_stripped.lower()
 
-    _check_dangerous_patterns(expr_stripped, expr_lower)
-
+    # Fast-path: safe literals bypass the dangerous-pattern check entirely.
     safe_literal = _try_safe_literal(expr_stripped, expr_lower)
     if safe_literal is not None:
         return safe_literal
 
+    _check_dangerous_patterns(expr_stripped, expr_lower)
+
     has_safe_function = any(
         expr_lower.startswith(f) or f" {f}" in expr_lower or f"({f}" in expr_lower for f in _SAFE_CYPHER_FUNCTIONS
     )
-    has_property_access = "n." in expr_lower
+    # Only allow direct property references (n.<identifier>), not function calls that wrap
+    # property access (e.g. substring(n.name, 0, 3) is rejected here).
+    has_property_access = bool(_DIRECT_PROPERTY_RE.search(expr_stripped))
 
     if not has_safe_function and not has_property_access:
         raise ValidationError(

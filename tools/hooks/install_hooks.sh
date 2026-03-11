@@ -53,7 +53,7 @@ for hook_name in $KNOWN_HOOKS; do
         cp "$source_file" "$HOOKS_DEST/$hook_name"
         chmod +x "$HOOKS_DEST/$hook_name"
         echo -e "  ${GREEN}✓${NC} $hook_name"
-        ((INSTALLED++))
+        INSTALLED=$((INSTALLED + 1))
     fi
 done
 
