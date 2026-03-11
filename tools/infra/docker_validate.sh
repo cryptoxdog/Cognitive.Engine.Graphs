@@ -54,7 +54,7 @@ discover_docker_files() {
         [[ -f "$file" ]] && DOCKERFILES+=("$file") && log "Found Dockerfile: $file"
     done < <(find . -maxdepth 3 -name "Dockerfile*" -type f)
 
-    [[ ${#COMPOSE_FILES[@]} -eq 0 ]] && { error "No docker-compose files found!"; return 1; }
+    [[ ${#COMPOSE_FILES[@]} -eq 0 ]] && { error "No compose files found!"; return 1; }
     [[ ${#DOCKERFILES[@]} -eq 0 ]] && { error "No Dockerfiles found!"; return 1; }
 
     success "Discovered ${#COMPOSE_FILES[@]} compose file(s) and ${#DOCKERFILES[@]} Dockerfile(s)"
@@ -65,13 +65,13 @@ discover_docker_files() {
 ################################################################################
 
 validate_compose_files() {
-    log "Phase 2: Validating docker-compose syntax..."
+    log "Phase 2: Validating compose syntax..."
 
     for compose in "${COMPOSE_FILES[@]}"; do
         log "Checking: $compose"
-        if ! docker-compose -f "$compose" config > /dev/null 2>&1; then
+        if ! docker compose -f "$compose" config > /dev/null 2>&1; then
             error "Invalid syntax in: $compose"
-            docker-compose -f "$compose" config 2>&1 | head -20
+            docker compose -f "$compose" config 2>&1 | head -20
             return 1
         fi
         success "Valid: $compose"
@@ -112,7 +112,7 @@ validate_build_contexts() {
         log "Checking build contexts in: $compose"
         local compose_dir=$(dirname "$compose")
 
-        docker-compose -f "$compose" config 2>/dev/null | \
+        docker compose -f "$compose" config 2>/dev/null | \
         grep -A 5 "build:" | \
         grep -E "(context|dockerfile):" | \
         while read -r line; do
@@ -161,7 +161,7 @@ build_dockerfiles() {
 
     for compose in "${COMPOSE_FILES[@]}"; do
         log "Building services from: $compose"
-        if ! docker-compose -f "$compose" build --no-cache 2>&1 | tee /tmp/docker-build.log; then
+        if ! docker compose -f "$compose" build --no-cache 2>&1 | tee /tmp/docker-build.log; then
             error "Build failed for: $compose"
             tail -50 /tmp/docker-build.log
             return 1
@@ -178,7 +178,7 @@ verify_built_images() {
     log "Phase 7: Verifying built images..."
 
     for compose in "${COMPOSE_FILES[@]}"; do
-        local images=$(docker-compose -f "$compose" config 2>/dev/null | grep "image:" | sed 's/.*image: //g' | tr -d " " | sort | uniq)
+        local images=$(docker compose -f "$compose" config 2>/dev/null | grep "image:" | sed 's/.*image: //g' | tr -d " " | sort | uniq)
         while IFS= read -r image; do
             if [[ -n "$image" ]]; then
                 if docker image inspect "$image" > /dev/null 2>&1; then
