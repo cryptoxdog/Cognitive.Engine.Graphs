@@ -1,32 +1,14 @@
 #!/usr/bin/env python3
-# --- L9_META ---
-# l9_schema: 1
-# origin: l9-template
-# engine: graph
-# layer: [meta]
-# tags: [L9_TEMPLATE, meta, injector]
-# owner: platform
-# status: active
-# --- /L9_META ---
 """
-l9_meta_injector.py — Deterministic L9_META Header Injection
-=============================================================
-
-Zero-LLM, zero-token script that injects L9_META headers into every tracked
-file in a constellation engine repo.  Run it once, commit the result, done.
-
-Reads the file registry (FILE_REGISTRY below) and injects the correct
-header format for each filetype.  Idempotent — re-running replaces any
-existing L9_META block rather than duplicating it.
-
-Usage:
-    python tools/l9_meta_injector.py                    # dry-run (default)
-    python tools/l9_meta_injector.py --apply            # write changes
-    python tools/l9_meta_injector.py --apply --engine enrichment  # override engine id
-
-Designed for the Cognitive.Engine.Graphs repo but works on any L9 engine
-repo by changing ENGINE_ID and FILE_REGISTRY.
-"""
+--- L9_META ---
+l9_schema: 1
+origin: l9-template
+engine: graph
+layer: [meta]
+tags: [L9_TEMPLATE, meta, injector]
+owner: platform
+status: active
+--- /L9_META ---
 
 from __future__ import annotations
 
@@ -905,15 +887,7 @@ def _yaml_list(items: list[str]) -> str:
 def format_comment_block(meta: FileMeta, engine: str, prefix: str = "# ") -> str:
     """Format L9_META as comment block for YAML, shell, Makefile, Dockerfile, etc."""
     lines = [
-        f"{prefix}--- L9_META ---",
-        f"{prefix}l9_schema: {L9_SCHEMA_VERSION}",
-        f"{prefix}origin: {meta.origin}",
-        f"{prefix}engine: {engine}",
-        f"{prefix}layer: {_yaml_list(meta.layer)}",
-        f"{prefix}tags: {_yaml_list(meta.tags)}",
-        f"{prefix}owner: {meta.owner}",
-        f"{prefix}status: {meta.status}",
-        f"{prefix}--- /L9_META ---",
+        f"{prefix}",
     ]
     return "\n".join(lines)
 
@@ -937,15 +911,7 @@ def format_html_comment(meta: FileMeta, engine: str) -> str:
 def format_python_docstring_block(meta: FileMeta, engine: str) -> str:
     """Format L9_META for Python docstring insertion."""
     lines = [
-        "--- L9_META ---",
-        f"l9_schema: {L9_SCHEMA_VERSION}",
-        f"origin: {meta.origin}",
-        f"engine: {engine}",
-        f"layer: {_yaml_list(meta.layer)}",
-        f"tags: {_yaml_list(meta.tags)}",
-        f"owner: {meta.owner}",
-        f"status: {meta.status}",
-        "--- /L9_META ---",
+        "",
     ]
     return "\n".join(lines)
 
@@ -985,11 +951,7 @@ def format_toml_block(meta: FileMeta, engine: str) -> str:
 
 # Matches comment-style L9_META blocks (YAML, shell, Makefile, Dockerfile, Python without docstring)
 # Example:
-#   # --- L9_META ---
-#   # l9_schema: 1
-#   # ...
-#   # --- /L9_META ---
-RE_COMMENT_META = re.compile(
+#   # RE_COMMENT_META = re.compile(
     r"^[ \t]*#[ \t]*---[ \t]*L9_META[ \t]*---.*?#[ \t]*---[ \t]*/L9_META[ \t]*---[ \t]*\n?",
     re.MULTILINE | re.DOTALL,
 )
@@ -1008,13 +970,16 @@ RE_HTML_META = re.compile(
 # Matches L9_META inside Python docstrings
 # Example:
 #   """
-#   --- L9_META ---
-#   l9_schema: 1
-#   ...
-#   --- /L9_META ---
-RE_PY_DOCSTRING_META = re.compile(
+#   RE_PY_DOCSTRING_META = re.compile(
     r"---[ \t]*L9_META[ \t]*---.*?---[ \t]*/L9_META[ \t]*---[ \t]*\n?",
     re.DOTALL,
+)
+
+# Matches broken/uncommented L9_META blocks in YAML files (missing # prefix)
+# These need to be stripped before injecting the correct comment-style block
+RE_BROKEN_YAML_META = re.compile(
+    r"^---[ \t]*L9_META[ \t]*---.*?---[ \t]*/L9_META[ \t]*---[ \t]*\n?",
+    re.MULTILINE | re.DOTALL,
 )
 
 
@@ -1157,12 +1122,17 @@ def inject_meta(content: str, meta: FileMeta, engine: str) -> str:
 
     # --- YAML ---
     if ftype == "yaml":
+        # Strip both comment-style and broken (uncommented) meta blocks
         content = RE_COMMENT_META.sub("", content)
+        content = RE_BROKEN_YAML_META.sub("", content)
         block = format_comment_block(meta, engine)
-        if content.lstrip().startswith("---"):
+        # Handle YAML document separator
+        content_stripped = content.lstrip()
+        if content_stripped.startswith("---"):
+            # Find the first --- that's a YAML doc separator (not part of meta)
             idx = content.index("---")
             return block + "\n" + content[idx:]
-        return block + "\n" + content
+        return block + "\n" + content.lstrip()
 
     # --- Fallback: comment-style ---
     content = RE_COMMENT_META.sub("", content)

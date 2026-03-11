@@ -1,5 +1,15 @@
-# tests/test_scoring_extended.py
-"""Tests for traversalalias, kge, and candidateproperty C-06 fix."""
+"""
+--- L9_META ---
+l9_schema: 1
+origin: engine-specific
+engine: graph
+layer: [test]
+tags: [test, scoring]
+owner: engine-team
+status: active
+--- /L9_META ---
+
+Tests for traversalalias, kge, and candidateproperty C-06 fix."""
 
 from __future__ import annotations
 

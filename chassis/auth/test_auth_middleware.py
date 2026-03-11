@@ -1,14 +1,14 @@
-# --- L9_META ---
-# l9_schema: 1
-# origin: engine-specific
-# engine: graph
-# layer: [test]
-# tags: [test, auth, middleware, bearer-token]
-# owner: engine-team
-# status: active
-# --- /L9_META ---
-# tests/unit/test_auth_middleware.py
 """
+--- L9_META ---
+l9_schema: 1
+origin: chassis
+engine: graph
+layer: [api, auth, test]
+tags: [chassis, auth, test]
+owner: platform-team
+status: active
+--- /L9_META ---
+
 Tests for BearerAuthMiddleware.
 
 Covers:

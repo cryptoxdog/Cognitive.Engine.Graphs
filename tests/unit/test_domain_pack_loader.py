@@ -1,7 +1,14 @@
-# ============================================================================
-# tests/unit/test_domain_pack_loader.py
-# ============================================================================
 """
+--- L9_META ---
+l9_schema: 1
+origin: engine-specific
+engine: graph
+layer: [test]
+tags: [test, unit, config]
+owner: engine-team
+status: active
+--- /L9_META ---
+
 Unit tests for engine/config/loader.py — DomainPackLoader.
 Target Coverage: 85%+
 """

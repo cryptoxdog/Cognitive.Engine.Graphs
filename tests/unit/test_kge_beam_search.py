@@ -1,7 +1,14 @@
-# ============================================================================
-# tests/unit/test_kge_beam_search.py
-# ============================================================================
 """
+--- L9_META ---
+l9_schema: 1
+origin: engine-specific
+engine: graph
+layer: [test]
+tags: [test, unit, kge]
+owner: engine-team
+status: active
+--- /L9_META ---
+
 Unit tests for engine/kge/beam_search.py — BeamSearchEngine.
 Target Coverage: 85%+
 """

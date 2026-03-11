@@ -1,13 +1,13 @@
-#
 # --- L9_META ---
-l9_schema: 1
-origin: l9-template
-engine: graph
-layer: [ci, governance]
-tags: [L9_TEMPLATE, ci, governance]
-owner: platform
-status: active
+# l9_schema: 1
+# origin: l9-template
+# engine: graph
+# layer: [ci, governance]
+# tags: [L9_TEMPLATE, ci, governance]
+# owner: platform
+# status: active
 # --- /L9_META ---
+#
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # Universal CI/CD Pack — PR Review Policy Enforcement
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

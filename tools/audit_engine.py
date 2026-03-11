@@ -1,13 +1,15 @@
-# --- L9_META ---
-# l9_schema: 1
-# origin: l9-template
-# engine: graph
-# layer: [audit]
-# tags: [L9_TEMPLATE, audit, compliance]
-# owner: platform
-# status: active
-# --- /L9_META ---
-from __future__ import annotations
+"""
+--- L9_META ---
+l9_schema: 1
+origin: l9-template
+engine: graph
+layer: [audit]
+tags: [L9_TEMPLATE, audit, compliance]
+owner: platform
+status: active
+--- /L9_META ---
+"""
+# from __future__ import annotations
 
 import json
 import re

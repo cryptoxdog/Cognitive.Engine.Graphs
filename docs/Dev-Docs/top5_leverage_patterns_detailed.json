@@ -1,4 +1,18 @@
 {
+  "_l9_meta": {
+    "l9_schema": 1,
+    "origin": "engine-specific",
+    "engine": "graph",
+    "layer": [
+      "docs"
+    ],
+    "tags": [
+      "dev-docs",
+      "analysis"
+    ],
+    "owner": "engine-team",
+    "status": "active"
+  },
   "1_COLLABORATIVE_FILTERING_AT_SCALE": {
     "pattern_name": "Behavioral Graph Collaborative Filtering",
     "revenue_proof": {

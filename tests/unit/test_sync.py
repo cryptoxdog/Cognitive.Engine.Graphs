@@ -1,8 +1,14 @@
-# ============================================================================
-# tests/unit/test_sync.py
-# ============================================================================
-
 """
+--- L9_META ---
+l9_schema: 1
+origin: engine-specific
+engine: graph
+layer: [test]
+tags: [test, unit, sync]
+owner: engine-team
+status: active
+--- /L9_META ---
+
 Unit tests for sync query generation.
 Target Coverage: 70%+
 """

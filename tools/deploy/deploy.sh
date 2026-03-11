@@ -1,4 +1,13 @@
 #!/usr/bin/env bash
+# --- L9_META ---
+# l9_schema: 1
+# origin: l9-template
+# engine: graph
+# layer: [scripts, deploy]
+# tags: [L9_TEMPLATE, deploy]
+# owner: platform
+# status: active
+# --- /L9_META ---
 # =============================================================================
 # VPS Deploy (Repo-Agnostic)
 #

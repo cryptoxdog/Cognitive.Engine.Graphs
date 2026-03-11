@@ -1,11 +1,10 @@
-# tests/test_enrich.py
 """
 --- L9_META ---
 l9_schema: 1
 origin: engine-specific
 engine: graph
 layer: [test]
-tags: [test, handlers, enrich]
+tags: [test, enrich]
 owner: engine-team
 status: active
 --- /L9_META ---

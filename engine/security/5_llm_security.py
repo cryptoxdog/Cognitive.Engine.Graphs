@@ -1,4 +1,14 @@
 """
+--- L9_META ---
+l9_schema: 1
+origin: engine-specific
+engine: graph
+layer: [security]
+tags: [security, llm]
+owner: engine-team
+status: active
+--- /L9_META ---
+
 LLM Output Validation & Security
 Implements: Gap Analysis P1-5 (AI Governance)
 

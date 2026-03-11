@@ -1,3 +1,13 @@
+<!-- L9_META
+l9_schema: 1
+origin: l9-template
+engine: graph
+layer: [docs, contracts]
+tags: [L9_TEMPLATE, contracts, cypher]
+owner: platform
+status: active
+/L9_META -->
+
 <!-- L9_TEMPLATE: true -->
 # L9 Cypher Safety Contract
 

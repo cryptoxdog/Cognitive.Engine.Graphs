@@ -1,14 +1,14 @@
-# --- L9_META ---
-# l9_schema: 1
-# origin: engine-specific
-# engine: graph
-# layer: [api]
-# tags: [api, auth, middleware, bearer-token]
-# owner: engine-team
-# status: active
-# --- /L9_META ---
-# engine/api/auth.py
 """
+--- L9_META ---
+l9_schema: 1
+origin: chassis
+engine: graph
+layer: [api, auth]
+tags: [chassis, auth, middleware]
+owner: platform-team
+status: active
+--- /L9_META ---
+
 Bearer token authentication middleware for L9 Graph Cognitive Engine.
 
 Validates L9_API_KEY from Authorization header on all routes except

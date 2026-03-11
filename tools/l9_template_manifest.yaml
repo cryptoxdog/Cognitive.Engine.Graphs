@@ -1,13 +1,13 @@
+# --- L9_META ---
+# l9_schema: 1
+# origin: l9-template
+# engine: graph
+# layer: [meta]
+# tags: [L9_TEMPLATE, meta, manifest]
+# owner: platform
+# status: active
+# --- /L9_META ---
 #
---- L9_META ---
-l9_schema: 1
-origin: l9-template
-engine: graph
-layer: [meta]
-tags: [L9_TEMPLATE, meta, manifest]
-owner: platform
-status: active
---- /L9_META ---
 l9_template:
   enabled: true
   tag: "L9_TEMPLATE"

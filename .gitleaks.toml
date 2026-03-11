@@ -125,3 +125,12 @@ regexes = [
     "\\.sample$",
     "_example\\.",
 ]
+
+[tool.l9_meta]
+l9_schema = 1
+origin = "l9-template"
+engine = "graph"
+layer = ["security"]
+tags = ["L9_TEMPLATE", "gitleaks", "secrets"]
+owner = "platform"
+status = "active"

@@ -1,14 +1,14 @@
-# --- L9_META ---
-# l9_schema: 1
-# origin: engine-specific
-# engine: graph
-# layer: [config]
-# tags: [gates, null-semantics]
-# owner: engine-team
-# status: active
-# --- /L9_META ---
-# engine/gates/null_semantics.py
 """
+--- L9_META ---
+l9_schema: 1
+origin: engine-specific
+engine: graph
+layer: [config]
+tags: [gates, null-semantics]
+owner: engine-team
+status: active
+--- /L9_META ---
+
 NULL value handling for gates.
 Defines deterministic behavior when candidate properties or query parameters are NULL.
 """

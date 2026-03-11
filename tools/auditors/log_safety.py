@@ -1,4 +1,15 @@
-"""Log Safety Auditor — catches sensitive data in log/print statements.
+"""
+--- L9_META ---
+l9_schema: 1
+origin: l9-template
+engine: graph
+layer: [audit]
+tags: [L9_TEMPLATE, auditors, logging]
+owner: platform
+status: active
+--- /L9_META ---
+
+Log Safety Auditor — catches sensitive data in log/print statements.
 Bug Classes: A) SENSITIVE_LOGGED (HIGH), B) CREDENTIAL_PRINT (HIGH), C) STACK_TRACE_LEAK (MEDIUM)
 """
 import re

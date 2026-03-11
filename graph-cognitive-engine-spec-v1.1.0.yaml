@@ -1,13 +1,13 @@
+# --- L9_META ---
+# l9_schema: 1
+# origin: engine-specific
+# engine: graph
+# layer: [config]
+# tags: [spec, engine-spec]
+# owner: engine-team
+# status: active
+# --- /L9_META ---
 #
---- L9_META ---
-l9_schema: 1
-origin: engine-specific
-engine: graph
-layer: [config]
-tags: [spec, engine-spec]
-owner: engine-team
-status: active
---- /L9_META ---
 specversion: 1.1.0
 projectname: L9 Graph Cognitive Matching Engine
 description: 'Domain-agnostic graph-native cognitive engine for gate-then-score matching,

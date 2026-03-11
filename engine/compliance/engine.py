@@ -1,5 +1,14 @@
-# engine/compliance/engine.py
 """
+--- L9_META ---
+l9_schema: 1
+origin: engine-specific
+engine: graph
+layer: [compliance]
+tags: [compliance, engine]
+owner: engine-team
+status: active
+--- /L9_META ---
+
 Compliance orchestrator.
 Coordinates prohibited-factor validation, PII handling, and audit logging
 across match, sync, and admin request lifecycles.

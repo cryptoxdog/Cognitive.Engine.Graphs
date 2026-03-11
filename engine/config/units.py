@@ -1,14 +1,14 @@
-# --- L9_META ---
-# l9_schema: 1
-# origin: engine-specific
-# engine: graph
-# layer: [config]
-# tags: [config, units]
-# owner: engine-team
-# status: active
-# --- /L9_META ---
-# engine/config/units.py
 """
+--- L9_META ---
+l9_schema: 1
+origin: engine-specific
+engine: graph
+layer: [config]
+tags: [config, units]
+owner: engine-team
+status: active
+--- /L9_META ---
+
 Unit conversion system for cross-domain measurement normalization.
 Handles currency, distance, weight, time, temperature, rates, etc.
 """

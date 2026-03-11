@@ -1,14 +1,14 @@
-# --- L9_META ---
-# l9_schema: 1
-# origin: engine-specific
-# engine: graph
-# layer: [kge]
-# tags: [kge, compound-e3d, embeddings, phase-4]
-# owner: engine-team
-# status: active
-# --- /L9_META ---
-# engine/kge/__init__.py
 """
+--- L9_META ---
+l9_schema: 1
+origin: engine-specific
+engine: graph
+layer: [kge]
+tags: [kge, embeddings]
+owner: engine-team
+status: active
+--- /L9_META ---
+
 Knowledge Graph Embedding (KGE) — Phase 4 module.
 
 Provides CompoundE3D model, beam search variant discovery,

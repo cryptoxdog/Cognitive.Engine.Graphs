@@ -1,11 +1,11 @@
 """
 --- L9_META ---
 l9_schema: 1
-origin: engine-specific
+origin: chassis
 engine: graph
-layer: [config]
-tags: [config, settings]
-owner: engine-team
+layer: [api, auth, config]
+tags: [chassis, auth, settings]
+owner: platform-team
 status: active
 --- /L9_META ---
 

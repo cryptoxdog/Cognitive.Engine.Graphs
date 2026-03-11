@@ -1,15 +1,15 @@
 #!/usr/bin/env python3
-# --- L9_META ---
-# l9_schema: 1
-# origin: engine-specific
-# engine: graph
-# layer: [ops]
-# tags: [ops, keygen, aws, secrets]
-# owner: engine-team
-# status: active
-# --- /L9_META ---
-# tools/generate_l9_api_key.py
 """
+--- L9_META ---
+l9_schema: 1
+origin: chassis
+engine: graph
+layer: [api, auth]
+tags: [chassis, auth, keygen]
+owner: platform-team
+status: active
+--- /L9_META ---
+
 Generate L9_API_KEY and optionally store in AWS Secrets Manager.
 
 Usage:

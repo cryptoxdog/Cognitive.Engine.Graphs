@@ -1,4 +1,13 @@
 #!/usr/bin/env bash
+# --- L9_META ---
+# l9_schema: 1
+# origin: l9-template
+# engine: graph
+# layer: [scripts, infra]
+# tags: [L9_TEMPLATE, infra, diagnostics]
+# owner: platform
+# status: active
+# --- /L9_META ---
 # =============================================================================
 # Deep MRI — Production VPS Diagnostics (Repo-Agnostic)
 #

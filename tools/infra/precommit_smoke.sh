@@ -1,4 +1,13 @@
 #!/usr/bin/env bash
+# --- L9_META ---
+# l9_schema: 1
+# origin: l9-template
+# engine: graph
+# layer: [scripts, infra]
+# tags: [L9_TEMPLATE, infra, precommit]
+# owner: platform
+# status: active
+# --- /L9_META ---
 # =============================================================================
 # Pre-Commit Docker Smoke Test (Repo-Agnostic)
 #

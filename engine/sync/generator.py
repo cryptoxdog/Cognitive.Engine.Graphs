@@ -1,5 +1,14 @@
-# engine/sync/generator.py
 """
+--- L9_META ---
+l9_schema: 1
+origin: engine-specific
+engine: graph
+layer: [config]
+tags: [sync, cypher, merge]
+owner: engine-team
+status: active
+--- /L9_META ---
+
 Sync generator: Spec -> UNWIND MERGE/MATCH SET Cypher.
 Generates batch sync queries from domain sync endpoint specs.
 """

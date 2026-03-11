@@ -1,4 +1,14 @@
 """
+--- L9_META ---
+l9_schema: 1
+origin: engine-specific
+engine: graph
+layer: [test]
+tags: [test, performance, throughput]
+owner: engine-team
+status: active
+--- /L9_META ---
+
 tests/performance/test_sync_throughput.py
 Performance benchmarks for batch sync throughput.
 Measures entities/second for UNWIND/MERGE sync operations against Neo4j.

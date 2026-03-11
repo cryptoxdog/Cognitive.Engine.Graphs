@@ -1,4 +1,14 @@
 """
+--- L9_META ---
+l9_schema: 1
+origin: engine-specific
+engine: graph
+layer: [test]
+tags: [test, integration, null-semantics]
+owner: engine-team
+status: active
+--- /L9_META ---
+
 tests/integration/test_null_semantics.py
 Integration tests for NULL semantics in gate compilation and query execution.
 Validates NullBehavior.PASS, FAIL, and SKIP against live Neo4j with seeded data.

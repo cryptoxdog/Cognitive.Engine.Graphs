@@ -1,5 +1,14 @@
-# engine/config/loader.py
 """
+--- L9_META ---
+l9_schema: 1
+origin: engine-specific
+engine: graph
+layer: [config]
+tags: [config, domain-loader]
+owner: engine-team
+status: active
+--- /L9_META ---
+
 Domain pack loader.
 Discovers, validates, caches, and hot-reloads domain spec YAML files.
 """

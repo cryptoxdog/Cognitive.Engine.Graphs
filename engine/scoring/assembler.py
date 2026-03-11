@@ -1,5 +1,14 @@
-# engine/scoring/assembler.py
 """
+--- L9_META ---
+l9_schema: 1
+origin: engine-specific
+engine: graph
+layer: [config]
+tags: [scoring, assembler, cypher]
+owner: engine-team
+status: active
+--- /L9_META ---
+
 Scoring assembler: dimensions -> WITH clause.
 Compiles scoring dimensions into Cypher WITH clause with weighted aggregation.
 """

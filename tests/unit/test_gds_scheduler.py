@@ -1,5 +1,14 @@
-# tests/test_gds_scheduler.py
 """
+--- L9_META ---
+l9_schema: 1
+origin: engine-specific
+engine: graph
+layer: [test]
+tags: [test, unit, gds]
+owner: engine-team
+status: active
+--- /L9_META ---
+
 Tests for engine.gds.scheduler — GDSScheduler.
 
 Covers:

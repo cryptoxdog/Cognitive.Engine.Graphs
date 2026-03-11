@@ -1,3 +1,13 @@
+<!-- L9_META
+l9_schema: 1
+origin: engine-specific
+engine: graph
+layer: [docs]
+tags: [requirements]
+owner: engine-team
+status: active
+/L9_META -->
+
 <img src="https://r2cdn.perplexity.ai/pplx-full-logo-primary-dark%402x.png" style="height:64px;margin-right:32px"/>
 
 # Reset, Re-align \& Lock In- No Drifting!

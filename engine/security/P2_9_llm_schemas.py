@@ -1,4 +1,14 @@
 """
+--- L9_META ---
+l9_schema: 1
+origin: engine-specific
+engine: graph
+layer: [security]
+tags: [security, llm, schemas]
+owner: engine-team
+status: active
+--- /L9_META ---
+
 LLM Output Schemas + Validated Client — engine/llm/schemas.py
 P2-9 Implementation | Impact: AI Governance 65% -> 75%
 

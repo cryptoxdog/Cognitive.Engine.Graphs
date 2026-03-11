@@ -1,3 +1,13 @@
+<!-- L9_META
+l9_schema: 1
+origin: engine-specific
+engine: graph
+layer: [reports]
+tags: [gap-analysis]
+owner: engine-team
+status: active
+/L9_META -->
+
 # GAP ANALYSIS: Audit Harness & Spec Coverage
 
 **Scope:** Audit harness explanation, spec coverage extractor, and “what the harness does / doesn’t do” (from `current work/yes that sounds like the logical next step - i ena.md`).

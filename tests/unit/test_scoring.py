@@ -1,8 +1,14 @@
-# ============================================================================
-# tests/unit/test_scoring.py
-# ============================================================================
-
 """
+--- L9_META ---
+l9_schema: 1
+origin: engine-specific
+engine: graph
+layer: [test]
+tags: [test, unit, scoring]
+owner: engine-team
+status: active
+--- /L9_META ---
+
 Unit tests for scoring dimension assembly.
 Target Coverage: 75%+
 """

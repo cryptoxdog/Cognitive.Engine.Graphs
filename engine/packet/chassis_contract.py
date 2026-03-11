@@ -1,13 +1,15 @@
-# --- L9_META ---
-# l9_schema: 1
-# origin: engine-specific
-# engine: graph
-# layer: [config]
-# tags: [packet, chassis-bridge]
-# owner: engine-team
-# status: active
-# --- /L9_META ---
-# L9 Chassis ↔ PacketEnvelope v3.0.0 Bridge
+"""
+--- L9_META ---
+l9_schema: 1
+origin: engine-specific
+engine: graph
+layer: [config]
+tags: [packet, chassis-bridge]
+owner: engine-team
+status: active
+--- /L9_META ---
+"""
+# # L9 Chassis ↔ PacketEnvelope v3.0.0 Bridge
 # Inflates minimal client JSON → full constellation PacketEnvelope.
 # Deflates engine response → wire-safe outbound envelope.
 

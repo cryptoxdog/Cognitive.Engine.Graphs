@@ -1,8 +1,14 @@
-# ============================================================================
-# tests/compliance/test_prohibited_factors.py
-# ============================================================================
-
 """
+--- L9_META ---
+l9_schema: 1
+origin: engine-specific
+engine: graph
+layer: [test]
+tags: [test, compliance, prohibited-factors]
+owner: engine-team
+status: active
+--- /L9_META ---
+
 CRITICAL: Compliance tests for prohibited factors (ECOA, HIPAA, FMCSA, etc.)
 Target Coverage: 95%+
 

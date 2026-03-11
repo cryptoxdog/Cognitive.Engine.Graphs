@@ -1,7 +1,14 @@
-# ============================================================================
-# tests/unit/test_kge_compound_e3d.py
-# ============================================================================
 """
+--- L9_META ---
+l9_schema: 1
+origin: engine-specific
+engine: graph
+layer: [test]
+tags: [test, unit, kge]
+owner: engine-team
+status: active
+--- /L9_META ---
+
 Unit tests for engine/kge/compound_e3d.py — CompoundE3D model.
 Target Coverage: 85%+
 """

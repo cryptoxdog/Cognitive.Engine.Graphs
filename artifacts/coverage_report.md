@@ -1,3 +1,13 @@
+<!-- L9_META
+l9_schema: 1
+origin: engine-specific
+engine: graph
+layer: [artifacts]
+tags: [coverage, report]
+owner: engine-team
+status: active
+/L9_META -->
+
 # L9 Spec Coverage Report
 
 - Generated: 2026-03-02T04:01:38.660740+00:00

@@ -1,14 +1,14 @@
-# --- L9_META ---
-# l9_schema: 1
-# origin: engine-specific
-# engine: graph
-# layer: [kge]
-# tags: [kge, compound-e3d, embeddings, model]
-# owner: engine-team
-# status: gated
-# --- /L9_META ---
-# engine/kge/compound_e3d.py
 """
+--- L9_META ---
+l9_schema: 1
+origin: engine-specific
+engine: graph
+layer: [kge]
+tags: [kge, compound-e3d, model]
+owner: engine-team
+status: active
+--- /L9_META ---
+
 CompoundE3D — 3-D Knowledge Graph Embedding Model.
 
 Implements the core embedding model referenced by:

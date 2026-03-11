@@ -1,5 +1,15 @@
 #!/usr/bin/env python3
 """
+--- L9_META ---
+l9_schema: 1
+origin: l9-template
+engine: graph
+layer: [audit]
+tags: [L9_TEMPLATE, audit, contracts]
+owner: platform
+status: active
+--- /L9_META ---
+
 L9 Contract Violation Scanner
 Encodes all 20 contracts as grep-able rules.
 Exit code 1 = violations found = commit/merge blocked.

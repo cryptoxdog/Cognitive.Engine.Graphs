@@ -1,14 +1,16 @@
 #!/usr/bin/env python3
-# --- L9_META ---
-# l9_schema: 1
-# origin: domain-specific
-# engine: graph
-# layer: [config]
-# tags: [domains, extractor]
-# owner: domain-team
-# status: active
-# --- /L9_META ---
 """
+--- L9_META ---
+l9_schema: 1
+origin: l9-template
+engine: graph
+layer: [scripts]
+tags: [L9_TEMPLATE, scripts, domain-extractor]
+owner: platform
+status: active
+--- /L9_META ---
+"""
+# """
 domain_extractor.py
 
 Extract individual domain specs from ALL_DOMAINS_CONSOLIDATED.yaml

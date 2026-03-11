@@ -1,5 +1,14 @@
-# tests/test_packet_envelope.py
 """
+--- L9_META ---
+l9_schema: 1
+origin: engine-specific
+engine: graph
+layer: [test]
+tags: [test, unit, packet]
+owner: engine-team
+status: active
+--- /L9_META ---
+
 Tests for engine.packet — PacketEnvelope v3.0.0 + chassis_contract bridge.
 
 Relocated from engine/packet/test_packet_envelope.py (misplaced).

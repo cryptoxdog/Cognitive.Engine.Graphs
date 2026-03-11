@@ -1,3 +1,13 @@
+<!-- L9_META
+l9_schema: 1
+origin: engine-specific
+engine: graph
+layer: [reports]
+tags: [gmp-report]
+owner: engine-team
+status: active
+/L9_META -->
+
 # GMP Report 130 — L9 Contract Enforcement System
 
 **GMP ID:** GMP-130

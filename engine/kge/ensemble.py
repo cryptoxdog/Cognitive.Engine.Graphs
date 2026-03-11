@@ -1,14 +1,14 @@
-# --- L9_META ---
-# l9_schema: 1
-# origin: engine-specific
-# engine: graph
-# layer: [kge]
-# tags: [kge, ensemble, wds, fusion, compound-e3d]
-# owner: engine-team
-# status: active
-# --- /L9_META ---
-# engine/kge/ensemble.py
 """
+--- L9_META ---
+l9_schema: 1
+origin: engine-specific
+engine: graph
+layer: [kge]
+tags: [kge, ensemble, aggregation]
+owner: engine-team
+status: active
+--- /L9_META ---
+
 Ensemble Methods for CompoundE3D Fusion.
 
 Implements Weighted Distribution Score (WDS) fusion + rank aggregation

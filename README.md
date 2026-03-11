@@ -1,3 +1,13 @@
+<!-- L9_META
+l9_schema: 1
+origin: engine-specific
+engine: graph
+layer: [docs]
+tags: [readme, overview]
+owner: engine-team
+status: active
+/L9_META -->
+
 # L9 Graph Cognitive Engine
 
 **Domain-agnostic, graph-native matching engine.** Define rules in YAML. Get a deployed, multi-tenant matching API with zero custom code.

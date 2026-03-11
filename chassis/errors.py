@@ -2,9 +2,9 @@
 --- L9_META ---
 l9_schema: 1
 origin: chassis
-engine: "*"
+engine: graph
 layer: [api]
-tags: [chassis, errors, exceptions, engine-agnostic]
+tags: [chassis, errors, exceptions]
 owner: platform-team
 status: active
 --- /L9_META ---

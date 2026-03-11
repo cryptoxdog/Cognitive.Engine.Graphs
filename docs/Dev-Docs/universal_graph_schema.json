@@ -1,4 +1,18 @@
 {
+  "_l9_meta": {
+    "l9_schema": 1,
+    "origin": "engine-specific",
+    "engine": "graph",
+    "layer": [
+      "docs"
+    ],
+    "tags": [
+      "dev-docs",
+      "schema"
+    ],
+    "owner": "engine-team",
+    "status": "active"
+  },
   "universal_graph_schema": {
     "description": "Node and edge types present in Google, Amazon, and Meta that generate $510B revenue",
     "core_nodes": {

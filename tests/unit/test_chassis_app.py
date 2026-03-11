@@ -1,7 +1,14 @@
-# ============================================================================
-# tests/unit/test_chassis_app.py
-# ============================================================================
 """
+--- L9_META ---
+l9_schema: 1
+origin: engine-specific
+engine: graph
+layer: [test]
+tags: [test, unit, chassis]
+owner: engine-team
+status: active
+--- /L9_META ---
+
 Unit tests for chassis/app.py — FastAPI factory and endpoints.
 Tests the engine-agnostic chassis with LifecycleHook abstraction.
 Target Coverage: 85%+

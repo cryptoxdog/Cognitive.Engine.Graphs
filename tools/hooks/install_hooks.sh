@@ -1,4 +1,13 @@
 #!/usr/bin/env bash
+# --- L9_META ---
+# l9_schema: 1
+# origin: l9-template
+# engine: graph
+# layer: [scripts, hooks]
+# tags: [L9_TEMPLATE, git-hooks]
+# owner: platform
+# status: active
+# --- /L9_META ---
 # =============================================================================
 # Git Hooks Installer (Repo-Agnostic)
 #

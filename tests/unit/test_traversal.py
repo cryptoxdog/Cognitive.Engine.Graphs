@@ -1,5 +1,14 @@
-# tests/test_traversal.py
 """
+--- L9_META ---
+l9_schema: 1
+origin: engine-specific
+engine: graph
+layer: [test]
+tags: [test, unit, traversal]
+owner: engine-team
+status: active
+--- /L9_META ---
+
 Tests for engine.traversal — assembler + parameter resolver.
 
 Covers:

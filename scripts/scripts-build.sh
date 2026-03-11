@@ -1,3 +1,12 @@
+# --- L9_META ---
+# l9_schema: 1
+# origin: l9-template
+# engine: graph
+# layer: [scripts]
+# tags: [L9_TEMPLATE, scripts, build]
+# owner: platform
+# status: active
+# --- /L9_META ---
 #
 !/usr/bin/env bash
 --- L9_META ---

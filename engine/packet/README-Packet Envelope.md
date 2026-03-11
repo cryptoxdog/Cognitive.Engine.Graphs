@@ -1,3 +1,13 @@
+<!-- L9_META
+l9_schema: 1
+origin: engine-specific
+engine: graph
+layer: [docs]
+tags: [packet, envelope]
+owner: engine-team
+status: active
+/L9_META -->
+
 <img src="https://r2cdn.perplexity.ai/pplx-full-logo-primary-dark%402x.png" style="height:64px;margin-right:32px"/>
 
 # Omit memory system from scope it was only an example of how the envelope was used but it was a WIP. I wanna only use the concept but rebuilt it completely as I just said to be used inside a constellation ai ecosystem- full rls per product and full security hardening / hashing / tracing for auditability

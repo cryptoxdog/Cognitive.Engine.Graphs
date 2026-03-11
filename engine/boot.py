@@ -3,8 +3,8 @@
 l9_schema: 1
 origin: engine-specific
 engine: graph
-layer: [boot]
-tags: [lifecycle, boot, graph-engine]
+layer: [config]
+tags: [engine, boot, lifecycle]
 owner: engine-team
 status: active
 --- /L9_META ---

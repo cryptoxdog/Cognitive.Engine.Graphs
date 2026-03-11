@@ -1,5 +1,15 @@
 #!/usr/bin/env python3
 """
+--- L9_META ---
+l9_schema: 1
+origin: l9-template
+engine: graph
+layer: [audit]
+tags: [L9_TEMPLATE, audit, verify]
+owner: platform
+status: active
+--- /L9_META ---
+
 L9 Contract Files Existence + Wiring Check
 Verifies all 20 contract files exist AND are referenced in .cursorrules and CLAUDE.md.
 Exit code 1 = missing file or unwired -> blocks CI/merge.

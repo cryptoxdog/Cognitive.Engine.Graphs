@@ -1,5 +1,16 @@
 #!/usr/bin/env python3
-"""L9 Unified Audit Dispatch v2 — tiered execution, progressive output, PR comments.
+"""
+--- L9_META ---
+l9_schema: 1
+origin: l9-template
+engine: graph
+layer: [audit]
+tags: [L9_TEMPLATE, audit, dispatch]
+owner: platform
+status: active
+--- /L9_META ---
+
+L9 Unified Audit Dispatch v2 — tiered execution, progressive output, PR comments.
 
 Usage:
   python tools/audit_dispatch.py                          # All static auditors

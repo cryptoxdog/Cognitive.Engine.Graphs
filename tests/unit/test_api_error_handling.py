@@ -1,5 +1,14 @@
-# tests/unit/test_api_error_handling.py
 """
+--- L9_META ---
+l9_schema: 1
+origin: engine-specific
+engine: graph
+layer: [test]
+tags: [test, unit, api]
+owner: engine-team
+status: active
+--- /L9_META ---
+
 Tests for API error handling and HTTP status codes.
 
 Verifies that handler failures return appropriate HTTP status codes

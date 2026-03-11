@@ -1,14 +1,14 @@
-# --- L9_META ---
-# l9_schema: 1
-# origin: engine-specific
-# engine: graph
-# layer: [kge]
-# tags: [kge, transformations, 3d, geometry]
-# owner: engine-team
-# status: active
-# --- /L9_META ---
-# engine/kge/transformations.py
 """
+--- L9_META ---
+l9_schema: 1
+origin: engine-specific
+engine: graph
+layer: [kge]
+tags: [kge, transformations]
+owner: engine-team
+status: active
+--- /L9_META ---
+
 3D Transformation Primitives for CompoundE3D.
 
 Defines the geometric operations used in knowledge graph embedding space:

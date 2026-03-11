@@ -1,4 +1,14 @@
 """
+--- L9_META ---
+l9_schema: 1
+origin: engine-specific
+engine: graph
+layer: [test]
+tags: [test, unit, handlers]
+owner: engine-team
+status: active
+--- /L9_META ---
+
 Tests for handle_enrich and handle_healthcheck handlers.
 
 Covers:

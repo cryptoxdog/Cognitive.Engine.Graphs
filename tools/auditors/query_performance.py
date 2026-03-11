@@ -1,4 +1,15 @@
-"""Query Performance Auditor — N+1 patterns, unbounded queries.
+"""
+--- L9_META ---
+l9_schema: 1
+origin: l9-template
+engine: graph
+layer: [audit]
+tags: [L9_TEMPLATE, auditors, performance]
+owner: platform
+status: active
+--- /L9_META ---
+
+Query Performance Auditor — N+1 patterns, unbounded queries.
 Bug Classes: A) N_PLUS_ONE (HIGH), B) UNBOUNDED_QUERY (MEDIUM), C) STR_COLLECTION (HIGH)
 """
 import ast, re

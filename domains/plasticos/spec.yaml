@@ -1,10 +1,10 @@
 # --- L9_META ---
 # l9_schema: 1
-# origin: l9-template
+# origin: domain-specific
 # engine: graph
-# layer: [domain]
-# tags: [L9_TEMPLATE, domain, plasticos, test]
-# owner: platform
+# layer: [config]
+# tags: [domains, plasticos]
+# owner: domain-team
 # status: active
 # --- /L9_META ---
 #

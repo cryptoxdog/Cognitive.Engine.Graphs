@@ -1,3 +1,13 @@
+<!-- L9_META
+l9_schema: 1
+origin: domain-specific
+engine: graph
+layer: [docs]
+tags: [plasticos, changelog]
+owner: domain-team
+status: active
+/L9_META -->
+
 ## Diff Summary: v0.3.0 → v0.4.0
 
 ### High-Level Statistics

@@ -1,7 +1,14 @@
-# ============================================================================
-# tests/unit/test_kge_transformations.py
-# ============================================================================
 """
+--- L9_META ---
+l9_schema: 1
+origin: engine-specific
+engine: graph
+layer: [test]
+tags: [test, unit, kge]
+owner: engine-team
+status: active
+--- /L9_META ---
+
 Unit tests for engine/kge/transformations.py — 3D transformations.
 Target Coverage: 85%+
 """

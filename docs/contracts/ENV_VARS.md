@@ -1,3 +1,12 @@
+<!-- L9_META
+l9_schema: 1
+origin: l9-template
+engine: graph
+layer: [docs, contracts]
+tags: [L9_TEMPLATE, contracts]
+owner: platform
+status: active
+/L9_META -->
 
 **Closes:** Agents inventing random environment variable names
 

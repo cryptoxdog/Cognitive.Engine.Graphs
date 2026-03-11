@@ -1,7 +1,14 @@
-# ============================================================================
-# tests/unit/test_handlers_extended.py
-# ============================================================================
 """
+--- L9_META ---
+l9_schema: 1
+origin: engine-specific
+engine: graph
+layer: [test]
+tags: [test, unit, handlers]
+owner: engine-team
+status: active
+--- /L9_META ---
+
 Unit tests for engine/handlers.py — extended coverage.
 Covers: handle_outcomes, handle_resolve, handle_admin, register_all,
         init_dependencies, _require_deps, _require_key.

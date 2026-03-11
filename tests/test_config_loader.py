@@ -1,5 +1,15 @@
-# tests/test_config_loader.py
-"""Tests for DomainPackLoader cache invalidation and path security."""
+"""
+--- L9_META ---
+l9_schema: 1
+origin: engine-specific
+engine: graph
+layer: [test]
+tags: [test, config]
+owner: engine-team
+status: active
+--- /L9_META ---
+
+Tests for DomainPackLoader cache invalidation and path security."""
 
 from __future__ import annotations
 

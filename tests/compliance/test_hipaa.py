@@ -1,8 +1,14 @@
-# ============================================================================
-# tests/compliance/test_hipaa.py
-# ============================================================================
-
 """
+--- L9_META ---
+l9_schema: 1
+origin: engine-specific
+engine: graph
+layer: [test]
+tags: [test, compliance, hipaa]
+owner: engine-team
+status: active
+--- /L9_META ---
+
 HIPAA compliance tests (PII handling, prohibited factors).
 Target Coverage: 95%+
 """

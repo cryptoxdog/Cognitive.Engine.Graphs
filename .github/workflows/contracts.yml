@@ -1,3 +1,12 @@
+# --- L9_META ---
+# l9_schema: 1
+# origin: l9-template
+# engine: graph
+# layer: [ci]
+# tags: [L9_TEMPLATE, ci, contracts]
+# owner: platform
+# status: active
+# --- /L9_META ---
 # L9 Contract Enforcement — 20 contracts as hard gates
 # Blocks merge on missing contract files or scanner violations.
 

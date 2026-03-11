@@ -1,5 +1,14 @@
-# tests/test_safe_eval.py
 """
+--- L9_META ---
+l9_schema: 1
+origin: engine-specific
+engine: graph
+layer: [test]
+tags: [test, unit, utils]
+owner: engine-team
+status: active
+--- /L9_META ---
+
 Tests for engine.utils.safe_eval — AST-whitelist expression evaluator.
 
 Covers:

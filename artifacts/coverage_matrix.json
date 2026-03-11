@@ -1,4 +1,18 @@
 {
+  "_l9_meta": {
+    "l9_schema": 1,
+    "origin": "engine-specific",
+    "engine": "graph",
+    "layer": [
+      "artifacts"
+    ],
+    "tags": [
+      "coverage",
+      "matrix"
+    ],
+    "owner": "engine-team",
+    "status": "active"
+  },
   "categories": {
     "gates": {
       "IMPLEMENTED": 10,

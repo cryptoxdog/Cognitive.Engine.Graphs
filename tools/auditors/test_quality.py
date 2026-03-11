@@ -1,4 +1,15 @@
-"""Test Quality Auditor — catches weak, broken, and missing tests.
+"""
+--- L9_META ---
+l9_schema: 1
+origin: l9-template
+engine: graph
+layer: [audit]
+tags: [L9_TEMPLATE, auditors, test-quality]
+owner: platform
+status: active
+--- /L9_META ---
+
+Test Quality Auditor — catches weak, broken, and missing tests.
 Bug Classes: A) WEAK_TEST (HIGH), B) EMPTY_TEST_FILE (HIGH),
              C) HANDLER_UNTESTED (MEDIUM), D) FIXTURE_BROKEN (HIGH)
 """

@@ -1,3 +1,13 @@
+<!-- L9_META
+l9_schema: 1
+origin: engine-specific
+engine: graph
+layer: [artifacts]
+tags: [audit, report]
+owner: engine-team
+status: active
+/L9_META -->
+
 # L9 Engine Audit Report
 
 - Generated: 2026-03-02T03:59:06.049206+00:00

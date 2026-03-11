@@ -1,3 +1,13 @@
+<!-- L9_META
+l9_schema: 1
+origin: l9-template
+engine: graph
+layer: [templates]
+tags: [L9_TEMPLATE, styleguide]
+owner: platform
+status: active
+/L9_META -->
+
 # {{PROJECT_NAME}} Repository Style Guide for AI Code Assist
 
 > Copy this template into your repo and fill in the `{{...}}` sections.

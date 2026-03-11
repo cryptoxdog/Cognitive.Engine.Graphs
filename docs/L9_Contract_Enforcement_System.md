@@ -1,3 +1,13 @@
+<!-- L9_META
+l9_schema: 1
+origin: engine-specific
+engine: graph
+layer: [docs]
+tags: [contracts, enforcement]
+owner: engine-team
+status: active
+/L9_META -->
+
 # L9 Contract Enforcement System
 ## Making 20 Contracts Enforced Law — Not Aspirational Guidelines
 ### Version 1.0.0 | 2026-03-01

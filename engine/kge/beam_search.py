@@ -1,14 +1,14 @@
-# --- L9_META ---
-# l9_schema: 1
-# origin: engine-specific
-# engine: graph
-# layer: [kge]
-# tags: [kge, beam-search, variant-discovery, compound-e3d]
-# owner: engine-team
-# status: active
-# --- /L9_META ---
-# engine/kge/beam_search.py
 """
+--- L9_META ---
+l9_schema: 1
+origin: engine-specific
+engine: graph
+layer: [kge]
+tags: [kge, beam-search, link-prediction]
+owner: engine-team
+status: active
+--- /L9_META ---
+
 Beam Search for CompoundE3D Variant Discovery.
 
 Implements efficient beam search over 3D transformation space to discover

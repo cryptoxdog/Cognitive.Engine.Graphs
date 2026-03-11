@@ -1,4 +1,14 @@
 """
+--- L9_META ---
+l9_schema: 1
+origin: engine-specific
+engine: graph
+layer: [test]
+tags: [test, unit, scoring]
+owner: engine-team
+status: active
+--- /L9_META ---
+
 Tests for scoring assembler security — CUSTOMCYPHER expression validation.
 
 Covers AUD8-HIGH-03: CUSTOMCYPHER validator test coverage.

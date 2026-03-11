@@ -1,4 +1,15 @@
-"""Shared types for the L9 Constellation Runtime v1.0.0."""
+"""
+--- L9_META ---
+l9_schema: 1
+origin: chassis
+engine: graph
+layer: [api]
+tags: [chassis, types, pydantic]
+owner: platform-team
+status: active
+--- /L9_META ---
+
+Shared types for the L9 Constellation Runtime v1.0.0."""
 import uuid, time, re, hashlib, json, copy
 from dataclasses import dataclass, field
 from typing import Any, Optional

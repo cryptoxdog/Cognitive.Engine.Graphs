@@ -1,4 +1,14 @@
 """
+--- L9_META ---
+l9_schema: 1
+origin: engine-specific
+engine: graph
+layer: [test]
+tags: [test, integration, multi-tenant]
+owner: engine-team
+status: active
+--- /L9_META ---
+
 tests/integration/test_multi_tenant.py
 Integration tests for multi-tenant isolation in the L9 Graph Cognitive Engine.
 Validates that tenants cannot see each other's data at the graph level.

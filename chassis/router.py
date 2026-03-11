@@ -1,4 +1,15 @@
-"""Packet routing between internal nodes for the L9 Constellation Runtime."""
+"""
+--- L9_META ---
+l9_schema: 1
+origin: chassis
+engine: graph
+layer: [api]
+tags: [chassis, router, action-dispatch]
+owner: platform-team
+status: active
+--- /L9_META ---
+
+Packet routing between internal nodes for the L9 Constellation Runtime."""
 import time
 from constellation.types import (
     PacketEnvelope, TraceEntry, TerminalResult, ConstellationError, _uid

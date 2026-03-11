@@ -1,14 +1,14 @@
-# --- L9_META ---
-# l9_schema: 1
-# origin: engine-specific
-# engine: graph
-# layer: [config]
-# tags: [chassis]
-# owner: engine-team
-# status: active
-# --- /L9_META ---
-# chassis/__init__.py
 """
+--- L9_META ---
+l9_schema: 1
+origin: chassis
+engine: graph
+layer: [api]
+tags: [chassis]
+owner: platform-team
+status: active
+--- /L9_META ---
+
 L9 Chassis Integration Layer.
 Bridges HTTP boundary to engine action handlers via PacketEnvelope.
 """

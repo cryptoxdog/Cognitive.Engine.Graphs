@@ -1,5 +1,15 @@
-# tests/test_compliance_engine.py
-"""Tests for ComplianceEngine orchestrator."""
+"""
+--- L9_META ---
+l9_schema: 1
+origin: engine-specific
+engine: graph
+layer: [test]
+tags: [test, compliance]
+owner: engine-team
+status: active
+--- /L9_META ---
+
+Tests for ComplianceEngine orchestrator."""
 
 from __future__ import annotations
 

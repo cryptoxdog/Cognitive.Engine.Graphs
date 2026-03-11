@@ -1,14 +1,14 @@
-# --- L9_META ---
-# l9_schema: 1
-# origin: engine-specific
-# engine: graph
-# layer: [config]
-# tags: [gates, types, implementation]
-# owner: engine-team
-# status: active
-# --- /L9_META ---
-# engine/gates/types/all_gates.py
 """
+--- L9_META ---
+l9_schema: 1
+origin: engine-specific
+engine: graph
+layer: [config]
+tags: [gates, types, implementation]
+owner: engine-team
+status: active
+--- /L9_META ---
+
 All 10 gate type implementations in one file.
 Production-grade, enterprise-quality, frontier AI lab standard.
 """

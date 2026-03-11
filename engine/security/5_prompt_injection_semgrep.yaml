@@ -1,3 +1,12 @@
+# --- L9_META ---
+# l9_schema: 1
+# origin: engine-specific
+# engine: graph
+# layer: [security]
+# tags: [security, semgrep, prompt-injection]
+# owner: engine-team
+# status: active
+# --- /L9_META ---
 # Semgrep Rules for Prompt Injection & LLM Output Security
 # Add to semgrep-rules.yaml
 # Implements: Gap Analysis P1-5 (AI Governance 45% → 65%)

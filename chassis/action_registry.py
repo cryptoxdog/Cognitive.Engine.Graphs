@@ -1,4 +1,15 @@
-"""Action-to-node resolution for the L9 Constellation Runtime."""
+"""
+--- L9_META ---
+l9_schema: 1
+origin: chassis
+engine: graph
+layer: [api]
+tags: [chassis, registry]
+owner: platform-team
+status: active
+--- /L9_META ---
+
+Action-to-node resolution for the L9 Constellation Runtime."""
 from constellation.types import SNAKE, ConstellationError
 
 ACTION_MAP: dict[str, str] = {}

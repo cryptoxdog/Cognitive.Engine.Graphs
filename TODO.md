@@ -1,3 +1,13 @@
+<!-- L9_META
+l9_schema: 1
+origin: engine-specific
+engine: graph
+layer: [docs]
+tags: [todo, planning]
+owner: engine-team
+status: active
+/L9_META -->
+
 # TODO — Graph Cognitive Engine
 
 ## 🚀 Deployment Pipeline

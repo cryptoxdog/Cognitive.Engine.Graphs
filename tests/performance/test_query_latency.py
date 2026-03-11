@@ -1,4 +1,14 @@
 """
+--- L9_META ---
+l9_schema: 1
+origin: engine-specific
+engine: graph
+layer: [test]
+tags: [test, performance, latency]
+owner: engine-team
+status: active
+--- /L9_META ---
+
 tests/performance/test_query_latency.py
 Performance benchmarks for match query latency.
 Tests p50/p95/p99 latency against Neo4j with seeded graph data.

@@ -2,9 +2,9 @@
 # --- L9_META ---
 # l9_schema: 1
 # origin: l9-template
-# engine: "*"
+# engine: graph
 # layer: [scripts]
-# tags: [L9_TEMPLATE, scripts, entrypoint, engine-agnostic]
+# tags: [L9_TEMPLATE, scripts, entrypoint]
 # owner: platform
 # status: active
 # --- /L9_META ---

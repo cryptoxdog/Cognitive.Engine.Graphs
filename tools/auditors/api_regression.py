@@ -1,4 +1,15 @@
-"""API Regression Auditor — detects breaking changes vs main branch.
+"""
+--- L9_META ---
+l9_schema: 1
+origin: l9-template
+engine: graph
+layer: [audit]
+tags: [L9_TEMPLATE, auditors, api]
+owner: platform
+status: active
+--- /L9_META ---
+
+API Regression Auditor — detects breaking changes vs main branch.
 Prevents: Rule 7 (constructor signature drift), Rule 8 (payload contract drift)
 Bug Classes: A) CLASS_REMOVED (CRITICAL), B) METHOD_REMOVED (CRITICAL),
              C) SIGNATURE_CHANGED (HIGH), D) RETURN_TYPE_CHANGED (HIGH)

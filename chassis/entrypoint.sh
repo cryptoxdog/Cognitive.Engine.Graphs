@@ -1,11 +1,11 @@
 #!/bin/sh
 # --- L9_META ---
 # l9_schema: 1
-# origin: l9-template
-# engine: "*"
-# layer: [scripts]
-# tags: [L9_TEMPLATE, scripts, entrypoint, engine-agnostic]
-# owner: platform
+# origin: chassis
+# engine: graph
+# layer: [docker]
+# tags: [chassis, entrypoint]
+# owner: platform-team
 # status: active
 # --- /L9_META ---
 # ─────────────────────────────────────────────────────────────

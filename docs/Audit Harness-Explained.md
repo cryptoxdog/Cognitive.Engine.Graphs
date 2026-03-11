@@ -1,3 +1,13 @@
+<!-- L9_META
+l9_schema: 1
+origin: engine-specific
+engine: graph
+layer: [docs]
+tags: [audit, harness]
+owner: engine-team
+status: active
+/L9_META -->
+
 # L9 Audit Harness & Spec Coverage Extractor
 
 Run **`make audit`** for full architecture compliance + spec coverage. Reports go to `artifacts/`.

@@ -1,4 +1,15 @@
-"""Public entrypoint runtime for the L9 Constellation Runtime v1.0.0."""
+"""
+--- L9_META ---
+l9_schema: 1
+origin: chassis
+engine: graph
+layer: [api]
+tags: [chassis, orchestrator]
+owner: platform-team
+status: active
+--- /L9_META ---
+
+Public entrypoint runtime for the L9 Constellation Runtime v1.0.0."""
 import time
 from constellation.types import (
     PacketEnvelope, normalize_packet, TerminalResult, ConstellationError, _uid

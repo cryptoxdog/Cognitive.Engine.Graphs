@@ -1,3 +1,13 @@
+<!-- L9_META
+l9_schema: 1
+origin: engine-specific
+engine: graph
+layer: [docs]
+tags: [changelog]
+owner: engine-team
+status: active
+/L9_META -->
+
 # Changelog
 
 All notable changes to L9 Engine will be documented in this file.

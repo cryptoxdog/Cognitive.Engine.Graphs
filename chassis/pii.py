@@ -2,9 +2,9 @@
 --- L9_META ---
 l9_schema: 1
 origin: chassis
-engine: "*"
-layer: [compliance]
-tags: [chassis, pii, gdpr, masking, engine-agnostic]
+engine: graph
+layer: [api, compliance]
+tags: [chassis, pii, redaction]
 owner: platform-team
 status: active
 --- /L9_META ---

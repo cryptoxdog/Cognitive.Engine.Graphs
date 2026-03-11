@@ -1,3 +1,13 @@
+<!-- L9_META
+l9_schema: 1
+origin: l9-template
+engine: graph
+layer: [test]
+tags: [L9_TEMPLATE, test, docs]
+owner: platform
+status: active
+/L9_META -->
+
 # tests/README.md
 """
 L9 Graph Cognitive Engine - Test Suite
