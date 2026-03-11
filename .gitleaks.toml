@@ -28,7 +28,7 @@ keywords = ["sk-proj"]
 [[rules]]
 id = "generic-api-key"
 description = "Generic API Key (key= or api_key= with long value)"
-regex = """(?i)(?:api[_-]?key|apikey|secret[_-]?key)\s*[=:]\s*['"]?[a-zA-Z0-9_\-]{20,}['"]?"""
+regex = '''(?i)(?:api[_-]?key|apikey|secret[_-]?key)\s*[=:]\s*['"]?[a-zA-Z0-9_\-]{20,}['"]?'''
 keywords = ["api_key", "apikey", "secret_key"]
 
 [[rules]]
@@ -60,7 +60,7 @@ keywords = ["neo4j", "bolt"]
 [[rules]]
 id = "neo4j-password-assignment"
 description = "Neo4j Password Assignment"
-regex = """(?i)neo4j[_-]?password\s*[=:]\s*['"]?[a-zA-Z0-9!@#$%^&*()_+=-]{8,}['"]?"""
+regex = '''(?i)neo4j[_-]?password\s*[=:]\s*['"]?[a-zA-Z0-9!@#$%^&*()_+=-]{8,}['"]?'''
 keywords = ["neo4j_password", "neo4j-password", "NEO4J_PASSWORD"]
 
 [[rules]]

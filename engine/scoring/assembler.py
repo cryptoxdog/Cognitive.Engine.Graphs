@@ -108,6 +108,8 @@ class ScoringAssembler:
             ComputationType.TEMPORALPROXIMITY: self._compile_temporalproximity,
             ComputationType.TRAVERSALALIAS: self._compile_traversalalias,
             ComputationType.KGE: self._compile_kge,
+            ComputationType.VARIANTDISCOVERY: self._compile_variantdiscovery,
+            ComputationType.ENSEMBLECONFIDENCE: self._compile_ensembleconfidence,
         }
 
         if dim.computation == ComputationType.CANDIDATEPROPERTY:
@@ -234,6 +236,47 @@ class ScoringAssembler:
             prop = sanitize_label(dim.candidateprop)
             return f"coalesce(candidate.{prop}, {default})"
         raise ValueError(f"Dimension '{dim.name}': kge requires 'alias' or 'candidateprop'")
+
+    def _compile_variantdiscovery(self, dim: ScoringDimensionSpec) -> str:
+        """Variant discovery score from BeamSearchEngine.
+
+        Reads pre-computed variant_discovery_score from candidate node.
+        This score represents novel scoring dimensions discovered autonomously
+        through beam search over CompoundE3D geometric space.
+
+        The score is written to Neo4j by BeamSearchEngine.search() and
+        consumed here during match scoring.
+
+        Ref: engine/kge/beam_search.py, Deep Research Directive §8
+        """
+        default = float(dim.defaultwhennull)
+        prop = sanitize_label(dim.candidateprop or "variant_discovery_score")
+        if dim.alias:
+            alias = sanitize_label(dim.alias)
+            return f"coalesce({alias}.{prop}, {default})"
+        return f"coalesce(candidate.{prop}, {default})"
+
+    def _compile_ensembleconfidence(self, dim: ScoringDimensionSpec) -> str:
+        """Ensemble confidence from multi-variant fusion.
+
+        Reads pre-computed ensemble_confidence from candidate node.
+        This score indicates inference robustness from WDS, Borda count,
+        or Mixture-of-Experts ensemble fusion.
+
+        Higher confidence = more agreement across KGE variants.
+        Lower confidence = divergent predictions (higher uncertainty).
+
+        The score is written to Neo4j by EnsembleController.predict() and
+        consumed here during match scoring.
+
+        Ref: engine/kge/ensemble.py, Deep Research Directive §9
+        """
+        default = float(dim.defaultwhennull)
+        prop = sanitize_label(dim.candidateprop or "ensemble_confidence")
+        if dim.alias:
+            alias = sanitize_label(dim.alias)
+            return f"coalesce({alias}.{prop}, {default})"
+        return f"coalesce(candidate.{prop}, {default})"
 
     def _build_score_expression(self, weight_exprs: list[str]) -> str:
         if not weight_exprs:

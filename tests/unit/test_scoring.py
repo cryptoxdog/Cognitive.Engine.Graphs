@@ -34,6 +34,9 @@ def make_mock_domain_spec(dimensions: list[dict] | None = None) -> MagicMock:
         dim.maxvalue = dim_dict.get("maxvalue")
         dim.defaultwhennull = dim_dict.get("defaultwhennull", 0.0)
         dim.expression = dim_dict.get("expression")
+        dim.alias = dim_dict.get("alias")
+        dim.decayconstant = dim_dict.get("decayconstant")
+        dim.bias = dim_dict.get("bias")
         mock_dims.append(dim)
 
     spec.scoring.dimensions = mock_dims
@@ -165,3 +168,131 @@ class TestScoringAssembler:
 
         assert "coalesce" in cypher
         assert "rating" in cypher
+
+    def test_variantdiscovery_compiles(self) -> None:
+        """VariantDiscovery dimension reads pre-computed beam search score."""
+        domain_spec = make_mock_domain_spec(
+            [
+                {
+                    "name": "variant_score",
+                    "candidateprop": "variant_discovery_score",
+                    "computation": "variantdiscovery",
+                    "defaultwhennull": 0.0,
+                    "weightkey": "wvariant",
+                    "defaultweight": 0.15,
+                }
+            ]
+        )
+        assembler = ScoringAssembler(domain_spec)
+
+        cypher = assembler.assemble_scoring_clause(match_direction="any", weights={})
+
+        assert "variant_discovery_score" in cypher
+        assert "coalesce" in cypher
+        assert "variant_score" in cypher
+
+    def test_variantdiscovery_default_prop(self) -> None:
+        """VariantDiscovery uses default property name when not specified."""
+        domain_spec = make_mock_domain_spec(
+            [
+                {
+                    "name": "variant_score",
+                    "computation": "variantdiscovery",
+                    "defaultwhennull": 0.5,
+                    "weightkey": "wvariant",
+                    "defaultweight": 0.1,
+                }
+            ]
+        )
+        assembler = ScoringAssembler(domain_spec)
+
+        cypher = assembler.assemble_scoring_clause(match_direction="any", weights={})
+
+        assert "variant_discovery_score" in cypher
+        assert "0.5" in cypher
+
+    def test_ensembleconfidence_compiles(self) -> None:
+        """EnsembleConfidence dimension reads pre-computed fusion confidence."""
+        domain_spec = make_mock_domain_spec(
+            [
+                {
+                    "name": "ensemble_conf",
+                    "candidateprop": "ensemble_confidence",
+                    "computation": "ensembleconfidence",
+                    "defaultwhennull": 0.5,
+                    "weightkey": "wensemble",
+                    "defaultweight": 0.10,
+                }
+            ]
+        )
+        assembler = ScoringAssembler(domain_spec)
+
+        cypher = assembler.assemble_scoring_clause(match_direction="any", weights={})
+
+        assert "ensemble_confidence" in cypher
+        assert "coalesce" in cypher
+        assert "ensemble_conf" in cypher
+
+    def test_ensembleconfidence_default_prop(self) -> None:
+        """EnsembleConfidence uses default property name when not specified."""
+        domain_spec = make_mock_domain_spec(
+            [
+                {
+                    "name": "ensemble_conf",
+                    "computation": "ensembleconfidence",
+                    "defaultwhennull": 0.5,
+                    "weightkey": "wensemble",
+                    "defaultweight": 0.1,
+                }
+            ]
+        )
+        assembler = ScoringAssembler(domain_spec)
+
+        cypher = assembler.assemble_scoring_clause(match_direction="any", weights={})
+
+        assert "ensemble_confidence" in cypher
+        assert "0.5" in cypher
+
+    def test_kge_scoring_dimensions_combined(self) -> None:
+        """All 3 KGE scoring dimensions (kge, variantdiscovery, ensembleconfidence) work together."""
+        domain_spec = make_mock_domain_spec(
+            [
+                {
+                    "name": "kge_score",
+                    "candidateprop": "kge_score",
+                    "computation": "kge",
+                    "defaultwhennull": 0.0,
+                    "weightkey": "wkge",
+                    "defaultweight": 0.40,
+                },
+                {
+                    "name": "variant_score",
+                    "candidateprop": "variant_discovery_score",
+                    "computation": "variantdiscovery",
+                    "defaultwhennull": 0.0,
+                    "weightkey": "wvariant",
+                    "defaultweight": 0.15,
+                },
+                {
+                    "name": "ensemble_conf",
+                    "candidateprop": "ensemble_confidence",
+                    "computation": "ensembleconfidence",
+                    "defaultwhennull": 0.5,
+                    "weightkey": "wensemble",
+                    "defaultweight": 0.10,
+                },
+            ]
+        )
+        assembler = ScoringAssembler(domain_spec)
+
+        cypher = assembler.assemble_scoring_clause(
+            match_direction="any",
+            weights={"wkge": 0.5, "wvariant": 0.3, "wensemble": 0.2},
+        )
+
+        assert "kge_score" in cypher
+        assert "variant_discovery_score" in cypher
+        assert "ensemble_confidence" in cypher
+        assert "0.5" in cypher
+        assert "0.3" in cypher
+        assert "0.2" in cypher

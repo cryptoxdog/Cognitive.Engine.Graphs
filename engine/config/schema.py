@@ -15,13 +15,13 @@ Defines the contract every spec.yaml must satisfy.
 
 from __future__ import annotations
 
-from enum import Enum
+from enum import StrEnum
 from typing import Any
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
 
-class ManagedByType(str, Enum):
+class ManagedByType(StrEnum):
     """Entity lifecycle management source."""
 
     SYNC = "sync"
@@ -32,7 +32,7 @@ class ManagedByType(str, Enum):
     CUSTOMAGGREGATION = "customaggregation"
 
 
-class PropertyType(str, Enum):
+class PropertyType(StrEnum):
     """Supported property data types."""
 
     STRING = "string"
@@ -45,14 +45,14 @@ class PropertyType(str, Enum):
     ENUM = "enum"
 
 
-class EdgeDirection(str, Enum):
+class EdgeDirection(StrEnum):
     """Edge directionality."""
 
     DIRECTED = "DIRECTED"
     UNDIRECTED = "UNDIRECTED"
 
 
-class EdgeCategory(str, Enum):
+class EdgeCategory(StrEnum):
     """Semantic edge classification."""
 
     CAPABILITY = "capability"
@@ -66,7 +66,7 @@ class EdgeCategory(str, Enum):
     INTENT = "intent"
 
 
-class GateType(str, Enum):
+class GateType(StrEnum):
     """Gate type registry."""
 
     RANGE = "range"
@@ -81,14 +81,14 @@ class GateType(str, Enum):
     TRAVERSAL = "traversal"
 
 
-class NullBehavior(str, Enum):
+class NullBehavior(StrEnum):
     """NULL value handling strategy."""
 
     PASS = "pass"
     FAIL = "fail"
 
 
-class ComputationType(str, Enum):
+class ComputationType(StrEnum):
     """Scoring computation function registry."""
 
     GEODECAY = "geodecay"
@@ -102,9 +102,11 @@ class ComputationType(str, Enum):
     CUSTOMCYPHER = "customcypher"
     TRAVERSALALIAS = "traversalalias"
     KGE = "kge"
+    VARIANTDISCOVERY = "variantdiscovery"
+    ENSEMBLECONFIDENCE = "ensembleconfidence"
 
 
-class ScoringSource(str, Enum):
+class ScoringSource(StrEnum):
     """Scoring dimension data source."""
 
     CANDIDATEPROPERTY = "candidateproperty"
@@ -114,14 +116,14 @@ class ScoringSource(str, Enum):
     EXTERNAL = "external"
 
 
-class ScoringAggregation(str, Enum):
+class ScoringAggregation(StrEnum):
     """Score combination method."""
 
     ADDITIVE = "additive"
     MULTIPLICATIVE = "multiplicative"
 
 
-class SyncStrategy(str, Enum):
+class SyncStrategy(StrEnum):
     """Batch sync Cypher generation strategy."""
 
     UNWINDMERGE = "UNWINDMERGE"
