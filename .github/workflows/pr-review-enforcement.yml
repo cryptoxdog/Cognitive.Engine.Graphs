@@ -1,5 +1,5 @@
 #
---- L9_META ---
+# --- L9_META ---
 l9_schema: 1
 origin: l9-template
 engine: graph
@@ -7,14 +7,14 @@ layer: [ci, governance]
 tags: [L9_TEMPLATE, ci, governance]
 owner: platform
 status: active
---- /L9_META ---
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Universal CI/CD Pack — PR Review Policy Enforcement
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-VERSION: 1.0.0
-PURPOSE: Automated PR size limits and review policy enforcement
-FEATURES: Configurable thresholds, auto-comments, merge blocking
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# --- /L9_META ---
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# Universal CI/CD Pack — PR Review Policy Enforcement
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# VERSION: 1.0.0
+# PURPOSE: Automated PR size limits and review policy enforcement
+# FEATURES: Configurable thresholds, auto-comments, merge blocking
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 name: PR Review Enforcement
 
@@ -45,12 +45,12 @@ jobs:
         run: |
           CONFIG=".github/pr_review_config.yaml"
 
-Set defaults
+          # Set defaults
           WARN=300
           BLOCK=1000
           MAX_FILES=50
 
-Override from config file if exists
+          # Override from config file if exists
           if [ -f "$CONFIG" ]; then
             if command -v python3 &> /dev/null; then
               WARN=$(python3 -c "import yaml; c=yaml.safe_load(open('$CONFIG')); print(c.get('size_limits',{}).get('warn_threshold', 300))" 2>/dev/null || echo 300)
@@ -59,7 +59,7 @@ Override from config file if exists
             fi
           fi
 
-Repository variables override everything
+          # Repository variables override everything
           echo "warn=${{ vars.PR_WARN_LINES || '' }}${WARN}" | sed 's/[^0-9].*//' >> $GITHUB_OUTPUT
           echo "block=${{ vars.PR_BLOCK_LINES || '' }}${BLOCK}" | sed 's/[^0-9].*//' >> $GITHUB_OUTPUT
           echo "max_files=${{ vars.PR_MAX_FILES || '' }}${MAX_FILES}" | sed 's/[^0-9].*//' >> $GITHUB_OUTPUT
@@ -179,6 +179,6 @@ Repository variables override everything
               core.setFailed('PR exceeds size policy limits');
             }
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-END OF PR REVIEW ENFORCEMENT
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# END OF PR REVIEW ENFORCEMENT
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

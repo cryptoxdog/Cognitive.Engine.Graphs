@@ -7,14 +7,14 @@
 # owner: platform
 # status: active
 # --- /L9_META ---
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Universal CI/CD Pack — Main CI Pipeline
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-VERSION: 1.0.0
-PURPOSE: Production-grade CI for any Python repository
-ZERO-CONFIG: Works immediately with sensible defaults
-CONFIGURABLE: Customize via Repository Variables (see env.template)
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# Universal CI/CD Pack — Main CI Pipeline
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# VERSION: 1.0.0
+# PURPOSE: Production-grade CI for any Python repository
+# ZERO-CONFIG: Works immediately with sensible defaults
+# CONFIGURABLE: Customize via Repository Variables (see env.template)
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 name: CI Pipeline
 
@@ -44,9 +44,9 @@ env:
   SOURCE_DIR: ${{ vars.SOURCE_DIR || '.' }}
 
 jobs:
-────────────────────────────────────────────────────────────────────────
-PHASE 1: VALIDATION
-────────────────────────────────────────────────────────────────────────
+# ────────────────────────────────────────────────────────────────────────
+# PHASE 1: VALIDATION
+# ────────────────────────────────────────────────────────────────────────
   validate:
     name: Validate Structure
     runs-on: ubuntu-latest
@@ -102,9 +102,9 @@ PHASE 1: VALIDATION
           print('✅ All YAML workflow files are valid')
           "
 
-────────────────────────────────────────────────────────────────────────
-PHASE 2: LINT & TYPE CHECK
-────────────────────────────────────────────────────────────────────────
+# ────────────────────────────────────────────────────────────────────────
+# PHASE 2: LINT & TYPE CHECK
+# ────────────────────────────────────────────────────────────────────────
   lint:
     name: Lint & Type Check
     runs-on: ubuntu-latest
@@ -150,9 +150,9 @@ PHASE 2: LINT & TYPE CHECK
             --non-interactive \
             || echo "⚠️  Type check warnings (non-blocking)"
 
-────────────────────────────────────────────────────────────────────────
-PHASE 3: TEST SUITE
-────────────────────────────────────────────────────────────────────────
+# ────────────────────────────────────────────────────────────────────────
+# PHASE 3: TEST SUITE
+# ────────────────────────────────────────────────────────────────────────
   test:
     name: Test Suite
     runs-on: ubuntu-latest
@@ -175,7 +175,7 @@ PHASE 3: TEST SUITE
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
-Service only runs if POSTGRES_ENABLED=true (GitHub ignores services with falsy conditions)
+      # Service only runs if POSTGRES_ENABLED=true (GitHub ignores services with falsy conditions)
 
       redis:
         image: ${{ vars.REDIS_IMAGE || 'redis:7-alpine' }}
@@ -231,9 +231,9 @@ Service only runs if POSTGRES_ENABLED=true (GitHub ignores services with falsy c
           flags: unittests
           fail_ci_if_error: false
 
-────────────────────────────────────────────────────────────────────────
-PHASE 4: SECURITY SCANNING
-────────────────────────────────────────────────────────────────────────
+# ────────────────────────────────────────────────────────────────────────
+# PHASE 4: SECURITY SCANNING
+# ────────────────────────────────────────────────────────────────────────
   security:
     name: Security Scanning
     runs-on: ubuntu-latest
@@ -292,9 +292,9 @@ PHASE 4: SECURITY SCANNING
         with:
           fail-on-severity: high
 
-────────────────────────────────────────────────────────────────────────
-PHASE 5: SBOM GENERATION
-────────────────────────────────────────────────────────────────────────
+# ────────────────────────────────────────────────────────────────────────
+# PHASE 5: SBOM GENERATION
+# ────────────────────────────────────────────────────────────────────────
   sbom:
     name: Generate SBOM
     runs-on: ubuntu-latest
@@ -316,9 +316,9 @@ PHASE 5: SBOM GENERATION
           upload-artifact: true
           upload-release-assets: false
 
-────────────────────────────────────────────────────────────────────────
-PHASE 6: OPENSSF SCORECARD
-────────────────────────────────────────────────────────────────────────
+# ────────────────────────────────────────────────────────────────────────
+# PHASE 6: OPENSSF SCORECARD
+# ────────────────────────────────────────────────────────────────────────
   scorecard:
     name: OpenSSF Scorecard
     runs-on: ubuntu-latest
@@ -347,9 +347,9 @@ PHASE 6: OPENSSF SCORECARD
         with:
           sarif_file: scorecard.sarif
 
-────────────────────────────────────────────────────────────────────────
-PHASE 7: CI GATE (Fan-In)
-────────────────────────────────────────────────────────────────────────
+# ────────────────────────────────────────────────────────────────────────
+# PHASE 7: CI GATE (Fan-In)
+# ────────────────────────────────────────────────────────────────────────
   ci-gate:
     name: CI Gate
     runs-on: ubuntu-latest
@@ -381,7 +381,7 @@ PHASE 7: CI GATE (Fan-In)
           echo "  scorecard: ${{ needs.scorecard.result }}"
           echo ""
 
-Check for failures in required jobs
+          # Check for failures in required jobs
           if [[ "${{ needs.validate.result }}" == "failure" ]] || \
              [[ "${{ needs.lint.result }}" == "failure" ]] || \
              [[ "${{ needs.test.result }}" == "failure" ]]; then
@@ -399,6 +399,6 @@ Check for failures in required jobs
           echo "   Ready for code review and merge"
           echo ""
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-END OF CI PIPELINE
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# END OF CI PIPELINE
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

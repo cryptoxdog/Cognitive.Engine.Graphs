@@ -1,0 +1,18 @@
+# dev.conf — Local development configuration
+# Copy to your repo root as dev.conf and edit.
+# This file should be .gitignored (contains local paths).
+#
+#   cp tools/templates/dev.conf.template dev.conf
+
+# REQUIRED: uvicorn app:module path
+APP_MODULE="api.main:app"
+
+# Optional overrides
+APP_PORT=8000
+APP_HOST=127.0.0.1
+ENV_FILE=".env.local"
+DEV_FLAG="LOCAL_DEV"
+
+# Grep pattern for env vars to show on startup (masked)
+# Example: "EXECUTOR|API_KEY|LOCAL_DEV"
+SHOW_VARS=""

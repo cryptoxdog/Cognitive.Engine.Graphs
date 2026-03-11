@@ -80,6 +80,22 @@ local-api:Run API locally against Dockerized DBs
 	PLASTICOS_LOG_LEVEL=debug \
 	uvicorn engine.api.app:create_app --factory --reload --port 8000
 
+# ── Production ─────────────────────────────────────────────
+
+.PHONY: prod prod-build prod-down prod-logs
+
+prod:	## Start production stack
+	docker compose -f docker-compose.prod.yml up -d
+
+prod-build:	## Rebuild + start production stack
+	docker compose -f docker-compose.prod.yml up -d --build
+
+prod-down:	## Stop production stack
+	docker compose -f docker-compose.prod.yml down
+
+prod-logs:	## Tail production logs
+	docker compose -f docker-compose.prod.yml logs -f
+
 # ── Cleanup ────────────────────────────────────────────────
 
 clean:	## Remove volumes + containers

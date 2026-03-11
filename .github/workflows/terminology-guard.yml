@@ -1,5 +1,5 @@
 #
---- L9_META ---
+# --- L9_META ---
 l9_schema: 1
 origin: l9-template
 engine: graph
@@ -7,17 +7,17 @@ layer: [ci]
 tags: [L9_TEMPLATE, ci, terminology]
 owner: platform
 status: active
---- /L9_META ---
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-DORA META: Terminology Consistency Guard
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-CREATED: 2026-02-15T21:34:00-04:00
-AUTHOR: L9 Engineering (cryptoxdog)
-PURPOSE: Enforce consistent terminology across codebase (PacketEnvelope, not Packet)
-DEPENDENCIES: grep, terminology dictionary
-DEPLOYMENT: Runs on all PRs
-DORA METRICS: Zero terminology drift | Review time saved >2hr/week
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# --- /L9_META ---
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# DORA META: Terminology Consistency Guard
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# CREATED: 2026-02-15T21:34:00-04:00
+# AUTHOR: L9 Engineering (cryptoxdog)
+# PURPOSE: Enforce consistent terminology across codebase (PacketEnvelope, not Packet)
+# DEPENDENCIES: grep, terminology dictionary
+# DEPLOYMENT: Runs on all PRs
+# DORA METRICS: Zero terminology drift | Review time saved >2hr/week
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 name: Terminology Guard
 
@@ -44,7 +44,7 @@ jobs:
 
       - name: Check Forbidden Terms
         run: |
-Define forbidden terms (must use canonical versions)
+          # Define forbidden terms (must use canonical versions)
           FORBIDDEN_TERMS=(
             "\\bPacket\\b(?!Envelope)"
             "\\bSubstrate\\b(?!Service)"
@@ -62,7 +62,7 @@ Define forbidden terms (must use canonical versions)
           for term in "${FORBIDDEN_TERMS[@]}"; do
             echo "Checking for: $term"
 
-            if grep -rn -E "$term" \
+            if grep -rn -P "$term" \
               --include="*.py" \
               --exclude-dir=venv \
               --exclude-dir=.venv \
@@ -92,8 +92,8 @@ Define forbidden terms (must use canonical versions)
 
           echo "✅ No terminology violations found"
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-DORA META END
-LAST_MODIFIED: 2026-02-15T21:34:00-04:00
-CHANGE_SUMMARY: Fixed bash array escaping, action version updates
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# DORA META END
+# LAST_MODIFIED: 2026-02-15T21:34:00-04:00
+# CHANGE_SUMMARY: Fixed bash array escaping, action version updates
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

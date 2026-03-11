@@ -1,0 +1,130 @@
+# Semgrep Rules for Prompt Injection & LLM Output Security
+# Add to semgrep-rules.yaml
+# Implements: Gap Analysis P1-5 (AI Governance 45% → 65%)
+
+rules:
+  - id: prompt-injection-unvalidated-input
+    pattern-either:
+      - pattern: |
+          $LLM.generate(..., prompt=$USER_INPUT, ...)
+      - pattern: |
+          $LLM.chat(..., messages=[..., {"role": "user", "content": $USER_INPUT}, ...], ...)
+      - pattern: |
+          f"... {$USER_INPUT} ..."
+    message: |
+      Potential prompt injection: User input passed directly to LLM without validation.
+
+      User input can contain:
+      - Instruction injection: "Ignore previous instructions and..."
+      - Context poisoning: "Your previous response was..."
+      - Role manipulation: "You are now a harmful assistant..."
+
+      Mitigations:
+      1. Sanitize input: Remove/escape special tokens (<|im_start|>, [INST], etc.)
+      2. Use a prompt template with clear boundaries
+      3. Validate input length and character set
+      4. Log all LLM inputs for monitoring
+
+      Example:
+        from engine.security import sanitize_llm_input
+        clean_input = sanitize_llm_input(user_input)
+        response = llm.generate(prompt=f"Task: {clean_input}")
+    severity: ERROR
+    languages: [python]
+    metadata:
+      cwe: "CWE-74: Improper Neutralization of Special Elements"
+      owasp: "A03:2021 – Injection"
+      references:
+        - https://owasp.org/www-project-top-10-for-large-language-model-applications/
+        - https://simonwillison.net/2023/Apr/14/worst-that-can-happen/
+
+  - id: llm-output-unvalidated-execution
+    pattern-either:
+      - pattern: |
+          $RESPONSE = $LLM.generate(...)
+          eval($RESPONSE)
+      - pattern: |
+          $RESPONSE = $LLM.generate(...)
+          exec($RESPONSE)
+      - pattern: |
+          $RESPONSE = $LLM.generate(...)
+          subprocess.run($RESPONSE, shell=True)
+    message: |
+      Critical: LLM output executed without validation.
+
+      LLMs can hallucinate code, inject malicious commands, or generate syntax errors.
+      NEVER execute LLM output directly.
+
+      Mitigations:
+      1. Parse and validate against expected schema (Pydantic, JSON Schema)
+      2. Sandbox execution environment (Docker, gVisor)
+      3. Allowlist acceptable functions/commands
+      4. Human-in-the-loop for code execution
+
+      Example:
+        from engine.security import validate_generated_code
+        code = llm.generate(prompt="...")
+        if validate_generated_code(code, allowed_imports=["math", "datetime"]):
+            exec(code)
+        else:
+            raise SecurityError("Generated code failed validation")
+    severity: ERROR
+    languages: [python]
+    metadata:
+      cwe: "CWE-94: Improper Control of Generation of Code"
+
+  - id: llm-response-missing-schema-validation
+    pattern: |
+      $RESPONSE = $LLM.generate(...)
+      $DATA = json.loads($RESPONSE)
+    message: |
+      LLM JSON response parsed without schema validation.
+
+      LLMs can return:
+      - Malformed JSON
+      - Extra fields not in schema
+      - Wrong data types
+      - Malicious payloads in string fields
+
+      Always validate against Pydantic model:
+        from pydantic import BaseModel
+
+        class ExpectedOutput(BaseModel):
+            field1: str
+            field2: int
+
+        response = llm.generate(...)
+        validated = ExpectedOutput.model_validate_json(response)
+    severity: WARNING
+    languages: [python]
+
+  - id: llm-api-key-in-client-code
+    pattern-either:
+      - pattern: openai.api_key = "..."
+      - pattern: anthropic.api_key = "..."
+      - pattern: |
+          OpenAI(api_key="...")
+      - pattern: |
+          Anthropic(api_key="...")
+    message: |
+      LLM API key hardcoded in source.
+
+      Use environment variables:
+        import os
+        openai.api_key = os.getenv("OPENAI_API_KEY")
+    severity: ERROR
+    languages: [python]
+
+  - id: llm-cost-monitoring-missing
+    pattern: |
+      $LLM.generate(...)
+    message: |
+      LLM call without cost/token monitoring.
+
+      Wrap all LLM calls in monitoring:
+        from engine.observability import track_llm_usage
+
+        with track_llm_usage(model="gpt-4", user_id=user.id):
+            response = llm.generate(...)
+    severity: WARNING
+    languages: [python]

@@ -1,5 +1,5 @@
 #
---- L9_META ---
+# --- L9_META ---
 l9_schema: 1
 origin: l9-template
 engine: graph
@@ -7,7 +7,7 @@ layer: [ci]
 tags: [L9_TEMPLATE, ci, audit]
 owner: platform
 status: active
---- /L9_META ---
+# --- /L9_META ---
 name: L9 Audit + Spec Coverage
 
 on:
@@ -35,7 +35,7 @@ jobs:
 
       - name: Upload reports
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v4
         with:
           name: l9-audit-reports
           path: artifacts/

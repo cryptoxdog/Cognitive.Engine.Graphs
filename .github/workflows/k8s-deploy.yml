@@ -1,5 +1,5 @@
 #
---- L9_META ---
+# --- L9_META ---
 l9_schema: 1
 origin: l9-template
 engine: graph
@@ -7,14 +7,14 @@ layer: [ci]
 tags: [L9_TEMPLATE, ci, deploy]
 owner: platform
 status: active
---- /L9_META ---
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Universal CI/CD Pack — Kubernetes Deployment
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-VERSION: 1.0.0
-PURPOSE: Helm-based deployment with health checks, auto-rollback, notifications
-REQUIRES: secrets.KUBECONFIG (base64-encoded Kubernetes config)
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# --- /L9_META ---
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# Universal CI/CD Pack — Kubernetes Deployment
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# VERSION: 1.0.0
+# PURPOSE: Helm-based deployment with health checks, auto-rollback, notifications
+# REQUIRES: secrets.KUBECONFIG (base64-encoded Kubernetes config)
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 name: Kubernetes Deployment
 
@@ -147,7 +147,7 @@ jobs:
           echo "Running smoke tests..."
           echo ""
 
-Health endpoint
+          # Health endpoint
           echo "Testing: ${BASE_URL}${HEALTH}"
           if curl -f -s --max-time 10 "${BASE_URL}${HEALTH}" > /dev/null; then
             echo "  ✅ Health endpoint OK"
@@ -156,7 +156,7 @@ Health endpoint
             exit 1
           fi
 
-Version endpoint
+          # Version endpoint
           echo "Testing: ${BASE_URL}${VERSION}"
           if curl -f -s --max-time 10 "${BASE_URL}${VERSION}" > /dev/null; then
             echo "  ✅ Version endpoint OK"
@@ -219,6 +219,6 @@ Version endpoint
               }'
           fi
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-END OF KUBERNETES DEPLOYMENT
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# END OF KUBERNETES DEPLOYMENT
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
