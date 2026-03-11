@@ -1,0 +1,62 @@
+# --- L9_META ---
+# l9_schema: 1
+# origin: chassis
+# engine: "*"
+# layer: [docker]
+# tags: [L9_TEMPLATE, docker, engine-agnostic]
+# owner: platform-team
+# status: active
+# --- /L9_META ---
+# ─────────────────────────────────────────────────────────────
+# L9 Chassis — Multi-stage Dockerfile (Engine-Agnostic)
+#
+# Build args:
+#   ENGINE_PACKAGE — the engine source directory (e.g. "engine", "enrich")
+#   DOMAINS_DIR   — domain specs directory (default: "domains")
+# ─────────────────────────────────────────────────────────────
+
+ARG PYTHON_VERSION=3.12
+
+# ── Stage 1: Dependencies ────────────────────────────────────
+FROM python:${PYTHON_VERSION}-slim AS deps
+
+WORKDIR /build
+COPY requirements.txt requirements.txt
+RUN pip install --no-cache-dir --prefix=/install -r requirements.txt
+
+# ── Stage 2: Runtime ─────────────────────────────────────────
+FROM python:${PYTHON_VERSION}-slim AS runtime
+
+ARG ENGINE_PACKAGE=engine
+ARG DOMAINS_DIR=domains
+
+WORKDIR /app
+
+# Installed packages
+COPY --from=deps /install /usr/local
+
+# Chassis (shared across all engines)
+COPY chassis/ /app/chassis/
+
+# Engine-specific code (parameterized)
+COPY ${ENGINE_PACKAGE}/ /app/${ENGINE_PACKAGE}/
+
+# Domain specs
+COPY ${DOMAINS_DIR}/ /app/domains/
+
+# Entrypoint
+COPY scripts/entrypoint.sh /app/entrypoint.sh
+RUN chmod +x /app/entrypoint.sh
+
+# Non-root user
+RUN groupadd -r l9 && useradd -r -g l9 -d /app -s /sbin/nologin l9 \
+    && chown -R l9:l9 /app
+USER l9
+
+EXPOSE 8000
+
+# Health check
+HEALTHCHECK --interval=15s --timeout=5s --retries=3 \
+    CMD python -c "import httpx; r=httpx.get('http://localhost:8000/v1/health'); exit(0 if r.status_code==200 else 1)"
+
+ENTRYPOINT ["/app/entrypoint.sh"]
