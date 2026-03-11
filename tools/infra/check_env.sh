@@ -51,6 +51,7 @@ load_var_list() {
     if [[ -f "$config_file" ]]; then
         grep -v '^\s*#' "$config_file" | grep -v '^\s*$' | tr '\n' ' '
     fi
+    return 0
 }
 
 REQUIRED_VARS=( $(load_var_list "$REPO_ROOT/.env.required") )
@@ -81,10 +82,10 @@ if [[ ${#REQUIRED_VARS[@]} -gt 0 ]]; then
         value="${!var:-}"
         if [[ -z "$value" ]]; then
             echo -e "  ${RED}✗${NC} $var — MISSING"
-            ((ERRORS++))
+            ERRORS=$((ERRORS + 1))
         elif [[ "$value" == *"YOUR_"* ]] || [[ "$value" == *"_HERE"* ]]; then
             echo -e "  ${RED}✗${NC} $var — PLACEHOLDER (needs real value)"
-            ((ERRORS++))
+            ERRORS=$((ERRORS + 1))
         else
             masked="${value:0:4}****${value: -4}"
             echo -e "  ${GREEN}✓${NC} $var = $masked"
@@ -103,7 +104,7 @@ if [[ ${#RECOMMENDED_VARS[@]} -gt 0 ]]; then
         value="${!var:-}"
         if [[ -z "$value" ]]; then
             echo -e "  ${YELLOW}○${NC} $var — not set (using default)"
-            ((WARNINGS++))
+            WARNINGS=$((WARNINGS + 1))
         else
             echo -e "  ${GREEN}✓${NC} $var = (set)"
         fi
@@ -115,13 +116,11 @@ fi
 # Universal bug detection: localhost in DATABASE_URL inside Docker
 # ---------------------------------------------------------------------------
 
-if [[ -n "${DATABASE_URL:-}" ]]; then
-    if [[ "$DATABASE_URL" == *"127.0.0.1"* ]] || [[ "$DATABASE_URL" == *"localhost"* ]]; then
-        echo -e "${RED}⚠ WARNING: DATABASE_URL contains localhost!${NC}"
-        echo -e "  This will fail inside Docker containers."
-        echo -e "  Use the service name (e.g. 'postgres') instead of localhost."
-        ((WARNINGS++))
-    fi
+if [[ -n "${DATABASE_URL:-}" ]] && { [[ "$DATABASE_URL" == *"127.0.0.1"* ]] || [[ "$DATABASE_URL" == *"localhost"* ]]; }; then
+    echo -e "${RED}⚠ WARNING: DATABASE_URL contains localhost!${NC}"
+    echo -e "  This will fail inside Docker containers."
+    echo -e "  Use the service name (e.g. 'postgres') instead of localhost."
+    WARNINGS=$((WARNINGS + 1))
 fi
 
 echo ""

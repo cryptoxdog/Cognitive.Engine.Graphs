@@ -26,18 +26,19 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import Any, Optional, TypeVar
-
-from pydantic import BaseModel, Field, field_validator, ValidationError
+import re
+from typing import Any, TypeVar
 
 # These come from P1-5 (engine/security/llm.py)
 from engine.security.llm import sanitize_llm_input, track_llm_usage
+from pydantic import BaseModel, Field, ValidationError, field_validator
 
 logger = logging.getLogger(__name__)
 T = TypeVar("T", bound=BaseModel)
 
 
 # ── Output Schemas ───────────────────────────────────────────
+
 
 class CypherQueryOutput(BaseModel):
     """Expected shape for LLM-generated Cypher."""
@@ -71,7 +72,7 @@ class GraphAnalysisOutput(BaseModel):
     edge_count: int = Field(..., ge=0)
     key_insights: list[str] = Field(..., min_length=1, max_length=10)
     recommendations: list[str] = Field(default_factory=list, max_length=5)
-    risk_score: Optional[float] = Field(None, ge=0.0, le=10.0)
+    risk_score: float | None = Field(None, ge=0.0, le=10.0)
 
 
 class NLResponse(BaseModel):
@@ -90,6 +91,7 @@ class CodeGenOutput(BaseModel):
 
 # ── Validation helper ────────────────────────────────────────
 
+
 def validate_llm_json(raw: str, schema: type[T]) -> T:
     """Parse raw LLM string into a validated Pydantic model."""
     try:
@@ -100,6 +102,7 @@ def validate_llm_json(raw: str, schema: type[T]) -> T:
 
 
 # ── Validated Client ─────────────────────────────────────────
+
 
 class ValidatedLLMClient:
     """
@@ -119,15 +122,6 @@ class ValidatedLLMClient:
         Raw LLM call — replace body with your provider SDK.
         Must return the raw text/JSON string from the model.
         """
-        # response = self._client.chat.completions.create(
-        #     model=self.model,
-        #     response_format={"type": "json_object"},
-        #     messages=[
-        #         {"role": "system", "content": system},
-        #         {"role": "user",   "content": user},
-        #     ],
-        # )
-        # return response.choices[0].message.content
         raise NotImplementedError("Wire up your LLM SDK here")
 
     # ---- public API ------------------------------------------------
@@ -135,17 +129,19 @@ class ValidatedLLMClient:
     def generate_cypher(
         self,
         natural_language: str,
-        schema_hint: Optional[str] = None,
+        schema_hint: str | None = None,
     ) -> CypherQueryOutput:
         clean = sanitize_llm_input(natural_language, max_length=500)
 
-        system = (
-            "You are a Cypher query expert. "
-            "Return JSON with: cypher_query, parameters, explanation, confidence."
-        )
-        user = f"Convert to Cypher: {clean}"
+        # Sanitize schema_hint to prevent prompt injection via untrusted schema content.
+        schema_hint_clean: str | None = None
         if schema_hint:
-            user += f"\nGraph schema:\n{schema_hint}"
+            schema_hint_clean = re.sub(r"[^\w\s.\-_\[\]{}]", "", str(schema_hint))[:500]
+
+        system = "You are a Cypher query expert. Return JSON with: cypher_query, parameters, explanation, confidence."
+        user = f"Convert to Cypher: {clean}"
+        if schema_hint_clean:
+            user += f"\nGraph schema:\n{schema_hint_clean}"
 
         with track_llm_usage(model=self.model):
             raw = self._call(system, user)
@@ -165,15 +161,15 @@ class ValidatedLLMClient:
 
         return validate_llm_json(raw, GraphAnalysisOutput)
 
-    def generate_code(
-        self, task: str, language: str = "python"
-    ) -> CodeGenOutput:
+    def generate_code(self, task: str, language: str = "python") -> CodeGenOutput:
         clean = sanitize_llm_input(task, max_length=500)
 
-        system = (
-            f"Generate {language} code. "
-            "Return JSON with: code, language, explanation, dependencies."
-        )
+        # Validate language against allowlist to prevent prompt injection.
+        allowed_languages = {"cypher", "python", "json", "yaml", "javascript"}
+        if language not in allowed_languages:
+            raise ValueError(f"Unsupported language: {language!r}")
+
+        system = f"Generate {language} code. Return JSON with: code, language, explanation, dependencies."
 
         with track_llm_usage(model=self.model):
             raw = self._call(system, clean)

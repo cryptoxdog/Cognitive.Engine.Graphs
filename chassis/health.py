@@ -29,8 +29,9 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
-from typing import Any, Callable, Awaitable
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -123,7 +124,7 @@ class HealthAggregator:
             healthy = await asyncio.wait_for(fn(), timeout=self.timeout_seconds)
             latency = (time.perf_counter() - start) * 1000
             return ProbeResult(name=name, healthy=bool(healthy), latency_ms=round(latency, 2))
-        except asyncio.TimeoutError:
+        except TimeoutError:
             latency = (time.perf_counter() - start) * 1000
             logger.warning("Health probe %s timed out after %.0fms", name, latency)
             return ProbeResult(name=name, healthy=False, latency_ms=round(latency, 2), detail="timeout")

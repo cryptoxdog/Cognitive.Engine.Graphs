@@ -27,7 +27,7 @@ NC='\033[0m'
 # Resolve paths
 REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null)"
 if [[ -z "$REPO_ROOT" ]]; then
-    echo "❌ ERROR: Not inside a git repository."
+    echo "❌ ERROR: Not inside a git repository." >&2
     exit 1
 fi
 
@@ -53,7 +53,7 @@ for hook_name in $KNOWN_HOOKS; do
         cp "$source_file" "$HOOKS_DEST/$hook_name"
         chmod +x "$HOOKS_DEST/$hook_name"
         echo -e "  ${GREEN}✓${NC} $hook_name"
-        ((INSTALLED++))
+        INSTALLED=$((INSTALLED + 1))
     fi
 done
 

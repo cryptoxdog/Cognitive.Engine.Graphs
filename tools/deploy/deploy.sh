@@ -93,7 +93,10 @@ COMMIT_MSG="deploy: $(date +'%Y-%m-%d %H:%M:%S')"
 # Helpers
 # ---------------------------------------------------------------------------
 
-run() { if $DRY_RUN; then echo "DRY: $*"; else eval "$@"; fi; }
+run() {
+    if $DRY_RUN; then echo "DRY: $*"; else eval "$@"; fi
+    return 0
+}
 die() { echo "❌ $*" 1>&2; exit 1; }
 
 usage() {
@@ -119,6 +122,7 @@ Examples:
   ./tools/deploy/deploy.sh --core
   ./tools/deploy/deploy.sh --msg "critical hotfix" --godmode
 EOF
+    return 0
 }
 
 # ---------------------------------------------------------------------------
@@ -127,12 +131,11 @@ EOF
 
 ensure_gitignore_allows_env_template() {
     [[ -f ".gitignore" ]] || return 0
-    if grep -qE '^\s*\.env\.\*' .gitignore; then
-        if ! grep -qE "^\s*!${ENV_VPS_TEMPLATE}" .gitignore; then
-            echo " + Patching .gitignore to allow tracking ${ENV_VPS_TEMPLATE}"
-            printf '\n# Allow committing env template (placeholders only)\n!%s\n' "$ENV_VPS_TEMPLATE" >> .gitignore
-        fi
+    if grep -qE '^\s*\.env\.\*' .gitignore && ! grep -qE "^\s*!${ENV_VPS_TEMPLATE}" .gitignore; then
+        echo " + Patching .gitignore to allow tracking ${ENV_VPS_TEMPLATE}"
+        printf '\n# Allow committing env template (placeholders only)\n!%s\n' "$ENV_VPS_TEMPLATE" >> .gitignore
     fi
+    return 0
 }
 
 patch_env_template_from_example() {
@@ -204,6 +207,7 @@ sync_env_to_server() {
 remote_git_hard_reset() {
     echo "[VPS] Hard reset to origin/$BRANCH (SSOT)"
     ssh $SSH_OPTS "$VPS_HOST" "cd '$VPS_REPO' && git fetch origin '$BRANCH' && git reset --hard 'origin/$BRANCH' && git clean -fd"
+    return 0
 }
 
 remote_rebuild_stack() {
@@ -231,6 +235,7 @@ remote_rebuild_stack() {
             echo "[VPS] --prune-docker requested but ALLOW_DOCKER_PRUNE!=true, skipping."
         fi
     fi
+    return 0
 }
 
 remote_health() {
@@ -263,6 +268,7 @@ remote_health() {
         echo ""
         echo "ℹ️ GOD MODE skipped (use --godmode for E2E validation)"
     fi
+    return 0
 }
 
 # ---------------------------------------------------------------------------

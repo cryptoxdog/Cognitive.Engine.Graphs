@@ -45,8 +45,8 @@ echo "📁 Repo root: $REPO_ROOT"
 
 # --- Check venv existence ---
 if [[ ! -d "venv" ]]; then
-    echo "❌ ERROR: venv/ not found. Create it first:"
-    echo "   python3 -m venv venv"
+    echo "❌ ERROR: venv/ not found. Create it first:" >&2
+    echo "   python3 -m venv venv" >&2
     exit 1
 fi
 
@@ -55,8 +55,8 @@ source venv/bin/activate
 
 # --- Check env file existence ---
 if [[ ! -f "$ENV_FILE" ]]; then
-    echo "❌ ERROR: $ENV_FILE not found in repo root."
-    echo "   Create it with your local development variables."
+    echo "❌ ERROR: $ENV_FILE not found in repo root." >&2
+    echo "   Create it with your local development variables." >&2
     exit 1
 fi
 

@@ -10,13 +10,13 @@ status: active
 --- /L9_META ---
 
 Public entrypoint runtime for the L9 Constellation Runtime v1.0.0."""
+
 import time
-from constellation.types import (
-    PacketEnvelope, normalize_packet, TerminalResult, ConstellationError, _uid
-)
-from constellation.action_registry import ACTION_MAP, get_action_handler
-from constellation.node_registry import list_nodes, get_node
+
+from constellation.action_registry import ACTION_MAP
+from constellation.node_registry import list_nodes
 from constellation.router import route_packet
+from constellation.types import ConstellationError, _uid, normalize_packet
 
 _DOMAINS: set[str] = set()
 _METRICS: dict = {
@@ -28,8 +28,10 @@ _METRICS: dict = {
     "cost_total": 0.0,
 }
 
+
 def register_domain(domain: str):
     _DOMAINS.add(domain)
+
 
 def execute(request: dict) -> dict:
     start = time.time()
@@ -75,9 +77,9 @@ def execute(request: dict) -> dict:
             "action": request.get("action", "unknown"),
             "domain": request.get("domain", "unknown"),
             "data": {"error": str(exc)},
-            "meta": {"trace_id": request.get("trace_id", _uid()),
-                     "execution_ms": round(elapsed, 2), "node_hops": []},
+            "meta": {"trace_id": request.get("trace_id") or _uid(), "execution_ms": round(elapsed, 2), "node_hops": []},
         }
+
 
 def health() -> dict:
     nodes = list_nodes()
@@ -89,8 +91,10 @@ def health() -> dict:
         "domains_registered": len(_DOMAINS),
     }
 
+
 def metrics() -> dict:
     return dict(_METRICS)
+
 
 def validate_startup():
     errors = []

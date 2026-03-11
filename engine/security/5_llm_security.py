@@ -26,14 +26,15 @@ Usage:
 """
 
 import json
-import re
-from typing import Any, Type, TypeVar, Optional
-from pydantic import BaseModel, ValidationError
 import logging
+import re
+from typing import Any, TypeVar
+
+from pydantic import BaseModel, ValidationError
 
 logger = logging.getLogger(__name__)
 
-T = TypeVar('T', bound=BaseModel)
+T = TypeVar("T", bound=BaseModel)
 
 
 # ============================================================
@@ -46,18 +47,15 @@ INJECTION_PATTERNS = [
     r"forget (everything|all) (you were told|previous)",
     r"you (are|must|will) now",
     r"new (instructions|system prompt|role):",
-
     # Role manipulation
     r"(system|assistant):\s*(now|you are|from now)",
     r"<\|im_start\|>",
     r"<\|im_end\|>",
     r"\[INST\]",
     r"\[/INST\]",
-
     # Context poisoning
     r"previous (response|output|message) (was|said|contained)",
     r"you (previously|already|earlier) (said|stated|mentioned)",
-
     # Data exfiltration attempts
     r"(show|display|reveal|output) (your|the) (system prompt|instructions|context)",
 ]
@@ -93,8 +91,7 @@ def sanitize_llm_input(user_input: str, max_length: int = 2000) -> str:
     if matches:
         logger.warning(f"Potential prompt injection detected: {matches[:3]}")
         raise ValueError(
-            "Input contains potentially malicious patterns. "
-            "Please rephrase your request without meta-instructions."
+            "Input contains potentially malicious patterns. Please rephrase your request without meta-instructions."
         )
 
     # Truncate
@@ -104,10 +101,14 @@ def sanitize_llm_input(user_input: str, max_length: int = 2000) -> str:
 
     # Remove special tokens (model-specific)
     special_tokens = [
-        "<|im_start|>", "<|im_end|>",
-        "[INST]", "[/INST]",
-        "<s>", "</s>",
-        "###", "```system",
+        "<|im_start|>",
+        "<|im_end|>",
+        "[INST]",
+        "[/INST]",
+        "<s>",
+        "</s>",
+        "###",
+        "```system",
     ]
     for token in special_tokens:
         user_input = user_input.replace(token, "")
@@ -122,11 +123,8 @@ def sanitize_llm_input(user_input: str, max_length: int = 2000) -> str:
 # Output Validation (Schema Enforcement)
 # ============================================================
 
-def validate_llm_output(
-    llm_response: str,
-    expected_schema: Type[T],
-    strict: bool = True
-) -> T:
+
+def validate_llm_output(llm_response: str, expected_schema: type[T], strict: bool = True) -> T:
     """
     Validate LLM JSON output against Pydantic schema.
 
@@ -183,11 +181,7 @@ from RestrictedPython import compile_restricted, safe_globals
 from RestrictedPython.Guards import guarded_iter_unpack_sequence
 
 
-def safe_exec(
-    code: str,
-    allowed_imports: Optional[list[str]] = None,
-    timeout_seconds: int = 5
-) -> dict[str, Any]:
+def safe_exec(code: str, allowed_imports: list[str] | None = None, timeout_seconds: int = 5) -> dict[str, Any]:
     """
     Execute LLM-generated code in restricted sandbox.
 
@@ -225,11 +219,7 @@ def safe_exec(
     allowed_imports = allowed_imports or ["math", "datetime", "itertools"]
 
     # Compile with restrictions
-    byte_code = compile_restricted(
-        code,
-        filename='<llm_generated>',
-        mode='exec'
-    )
+    byte_code = compile_restricted(code, filename="<llm_generated>", mode="exec")
 
     if byte_code.errors:
         raise SyntaxError(f"Generated code has syntax errors: {byte_code.errors}")
@@ -272,14 +262,15 @@ def safe_exec(
 # ============================================================
 
 from contextlib import contextmanager
-from datetime import datetime
+from datetime import UTC, datetime
+
 import structlog
 
 cost_logger = structlog.get_logger("llm.cost")
 
 
 @contextmanager
-def track_llm_usage(model: str, user_id: Optional[str] = None):
+def track_llm_usage(model: str, user_id: str | None = None):
     """
     Context manager to track LLM token usage and cost.
 
@@ -288,19 +279,15 @@ def track_llm_usage(model: str, user_id: Optional[str] = None):
             response = openai.chat.completions.create(...)
             # Token counts logged automatically
     """
-    start_time = datetime.utcnow()
+    start_time = datetime.now(UTC)
 
     try:
         yield
     finally:
-        duration_ms = (datetime.utcnow() - start_time).total_seconds() * 1000
+        duration_ms = (datetime.now(UTC) - start_time).total_seconds() * 1000
 
         cost_logger.info(
-            "llm_call",
-            model=model,
-            user_id=user_id,
-            duration_ms=duration_ms,
-            timestamp=start_time.isoformat()
+            "llm_call", model=model, user_id=user_id, duration_ms=duration_ms, timestamp=start_time.isoformat()
         )
 
         # TODO: Extract token counts from response and calculate cost

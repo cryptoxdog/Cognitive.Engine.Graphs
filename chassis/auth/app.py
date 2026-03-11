@@ -85,6 +85,62 @@ async def lifespan(app: FastAPI):
     logger.info("L9 Graph Cognitive Engine shutdown complete")
 
 
+# ---------------------------------------------------------------------------
+# Route handler helpers (module-level to reduce create_app cognitive complexity)
+# ---------------------------------------------------------------------------
+
+
+def _raise_for_failed_status(result: dict[str, Any]) -> None:
+    """Map engine 'failed' status dict to the appropriate HTTPException."""
+    error_detail = result.get("data", {}).get("error", "Handler execution failed")
+    exc_obj = result.get("data", {}).get("_exc")
+    status = getattr(exc_obj, "status_code", None) or (422 if isinstance(exc_obj, (ValueError, TypeError)) else 500)
+    raise HTTPException(status_code=status, detail=error_detail)
+
+
+async def _execute_handler(request: ExecuteRequest) -> ExecuteResponse:
+    """Core execute logic — called by the /v1/execute route."""
+    trace_id = request.trace_id or f"trace_{uuid.uuid4().hex[:12]}"
+    try:
+        result = await execute_action(
+            action=request.action,
+            payload=request.payload,
+            tenant=request.tenant,
+            trace_id=trace_id,
+        )
+        if result.get("status") == "failed":
+            _raise_for_failed_status(result)
+        return ExecuteResponse(**result)
+    except HTTPException:
+        raise
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    except Exception as e:
+        logger.exception("Execute failed: %s", e)
+        raise HTTPException(status_code=500, detail="Internal server error") from e
+
+
+async def _health_handler(request: Request) -> JSONResponse:
+    """Core health logic — called by the /v1/health route."""
+    tenant = request.query_params.get("tenant", "default")
+    trace_id = f"health_{uuid.uuid4().hex[:8]}"
+    try:
+        result = await execute_action(
+            action="health",
+            payload={},
+            tenant=tenant,
+            trace_id=trace_id,
+        )
+        status_code = 200 if result.get("data", {}).get("status") == "healthy" else 503
+        return JSONResponse(content=result, status_code=status_code)
+    except Exception as e:
+        logger.error("Health check failed: %s", e)
+        return JSONResponse(
+            content={"status": "unhealthy", "error": "health_check_failed"},
+            status_code=503,
+        )
+
+
 def create_app() -> FastAPI:
     """Factory function for creating the FastAPI application."""
     application = FastAPI(
@@ -115,7 +171,14 @@ def create_app() -> FastAPI:
             allow_headers=["Content-Type", "Authorization", "X-Trace-ID"],
         )
 
-    @application.post("/v1/execute", response_model=ExecuteResponse)
+    @application.post(
+        "/v1/execute",
+        responses={
+            400: {"description": "Unknown or invalid action"},
+            422: {"description": "Payload validation failure"},
+            500: {"description": "Internal server error"},
+        },
+    )
     async def execute(request: ExecuteRequest) -> ExecuteResponse:
         """
         Universal action endpoint.
@@ -130,50 +193,12 @@ def create_app() -> FastAPI:
         - healthcheck: Health check alias
         - enrich: Add computed properties
         """
-        trace_id = request.trace_id or f"trace_{uuid.uuid4().hex[:12]}"
-
-        try:
-            result = await execute_action(
-                action=request.action,
-                payload=request.payload,
-                tenant=request.tenant,
-                trace_id=trace_id,
-            )
-            if result.get("status") == "failed":
-                error_detail = result.get("data", {}).get("error", "Handler execution failed")
-                if "validation" in error_detail.lower() or "invalid" in error_detail.lower():
-                    raise HTTPException(status_code=422, detail=error_detail)
-                raise HTTPException(status_code=500, detail=error_detail)
-            return ExecuteResponse(**result)
-        except HTTPException:
-            raise
-        except ValueError as e:
-            raise HTTPException(status_code=400, detail=str(e)) from e
-        except Exception as e:
-            logger.exception("Execute failed: %s", e)
-            raise HTTPException(status_code=500, detail="Internal server error") from e
+        return await _execute_handler(request)
 
     @application.get("/v1/health")
     async def health(request: Request) -> JSONResponse:
         """Health check endpoint. Public — no auth required."""
-        tenant = request.query_params.get("tenant", "default")
-        trace_id = f"health_{uuid.uuid4().hex[:8]}"
-
-        try:
-            result = await execute_action(
-                action="health",
-                payload={},
-                tenant=tenant,
-                trace_id=trace_id,
-            )
-            status_code = 200 if result.get("data", {}).get("status") == "healthy" else 503
-            return JSONResponse(content=result, status_code=status_code)
-        except Exception as e:
-            logger.error("Health check failed: %s", e)
-            return JSONResponse(
-                content={"status": "unhealthy", "error": "health_check_failed"},
-                status_code=503,
-            )
+        return await _health_handler(request)
 
     return application
 

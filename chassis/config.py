@@ -33,6 +33,7 @@ import yaml
 logger = logging.getLogger(__name__)
 
 MAX_SPEC_BYTES = 5 * 1024 * 1024  # 5MB safety cap
+SPEC_YAML = "spec.yaml"
 
 
 class DomainNotFoundError(Exception):
@@ -82,11 +83,7 @@ class YAMLDomainLoader(BaseDomainLoader):
     def list_domains(self) -> list[str]:
         if not self._base_path.is_dir():
             return []
-        return [
-            d.name
-            for d in sorted(self._base_path.iterdir())
-            if d.is_dir() and (d / "spec.yaml").exists()
-        ]
+        return [d.name for d in sorted(self._base_path.iterdir()) if d.is_dir() and (d / SPEC_YAML).exists()]
 
     def load_raw(self, domain_id: str) -> dict[str, Any]:
         spec_path = self._resolve_path(domain_id)
@@ -113,13 +110,15 @@ class YAMLDomainLoader(BaseDomainLoader):
         if "\x00" in domain_id:
             raise DomainNotFoundError(f"Invalid domain ID: {domain_id!r}")
 
-        candidate = (self._base_path / domain_id / "spec.yaml").resolve()
-        raw_path = self._base_path / domain_id / "spec.yaml"
+        candidate = (self._base_path / domain_id / SPEC_YAML).resolve()
+        raw_path = self._base_path / domain_id / SPEC_YAML
 
         if raw_path.is_symlink():
             raise DomainNotFoundError(f"Symlinked spec rejected: {domain_id!r}")
-        if not str(candidate).startswith(str(self._base_path)):
-            raise DomainNotFoundError(f"Path traversal rejected: {domain_id!r}")
+        try:
+            candidate.resolve().relative_to(self._base_path.resolve())
+        except ValueError as exc:
+            raise DomainNotFoundError(f"Domain path escapes base: {domain_id!r}") from exc
         if not candidate.exists():
             raise DomainNotFoundError(f"Domain spec not found: {candidate}")
         return candidate

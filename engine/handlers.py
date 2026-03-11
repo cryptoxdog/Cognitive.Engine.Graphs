@@ -111,37 +111,108 @@ _SAFE_CYPHER_FUNCTIONS = frozenset(
 )
 
 # Dangerous Cypher keywords that must be blocked
-_DANGEROUS_PATTERNS = frozenset(
-    [
-        "call",
-        "create",
-        "merge",
-        "delete",
-        "remove",
-        "set",
-        "match",
-        "return",
-        "with",
-        "unwind",
-        "foreach",
-        "load",
-        "using",
-        "detach",
-        "optional",
-        "union",
-        "apoc",
-        "gds",
-        "dbms",
-        "db.",
-        "//",
-        "/*",
-        "$$",
-        "${",
-    ]
+_DANGEROUS_PATTERNS = (
+    "detach",  # must be before "delete" — DETACH DELETE reports detach
+    "call",
+    "create",
+    "merge",
+    "delete",
+    "remove",
+    "set",
+    "match",
+    "return",
+    "with",
+    "unwind",
+    "foreach",
+    "load",
+    "using",
+    "optional",
+    "union",
+    "apoc",
+    "gds",
+    "dbms",
+    "db.",
+    "//",
+    "/*",
+    "$$",
+    "${",
 )
 
 # Valid property name pattern (alphanumeric + underscore, must start with letter/underscore)
 _PROPERTY_NAME_RE = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_]*$")
+
+# Direct property access: n.<identifier> preceded by start-of-string or an operator/whitespace.
+# Intentionally does NOT match n.<identifier> preceded by '(' to block substring(n.prop,...) bypass.
+_DIRECT_PROPERTY_RE = re.compile(r"(?:^|[\s+\-*/])n\.[a-zA-Z_][a-zA-Z0-9_]*")
+
+
+def _check_dangerous_patterns(expr_stripped: str, expr_lower: str) -> None:
+    """Raise ValidationError if expression contains any dangerous pattern."""
+    for pattern in _DANGEROUS_PATTERNS:
+        if pattern in ("//", "/*", "$$", "${", "db."):
+            if pattern in expr_lower:
+                raise ValidationError(
+                    f"Forbidden pattern '{pattern}' in expression",
+                    action="enrich",
+                    tenant="unknown",
+                )
+        else:
+            keyword_re = re.compile(rf"\b{re.escape(pattern)}\b", re.IGNORECASE)
+            if keyword_re.search(expr_stripped):
+                raise ValidationError(
+                    f"Forbidden keyword '{pattern}' in expression",
+                    action="enrich",
+                    tenant="unknown",
+                )
+
+
+def _try_safe_literal(expr_stripped: str, expr_lower: str) -> str | None:
+    """
+    Return expr_stripped if it is a safe literal (bool, null, number, quoted string).
+    Return None if it is not a simple literal.
+    Raise ValidationError if it looks like a quoted string but contains injections.
+    """
+    if expr_lower in ("true", "false", "null"):
+        return expr_stripped
+    try:
+        float(expr_stripped)
+        return expr_stripped
+    except ValueError:
+        pass
+    # Single or double quoted string literal
+    for quote in ("'", '"'):
+        if expr_stripped.startswith(quote) and expr_stripped.endswith(quote) and expr_stripped.count(quote) == 2:
+            inner = expr_stripped[1:-1]
+            if "'" in inner or '"' in inner or "\\" in inner:
+                raise ValidationError(
+                    "String literals cannot contain quotes or escapes",
+                    action="enrich",
+                    tenant="unknown",
+                )
+            return expr_stripped
+    return None
+
+
+def _validate_property_refs_and_chars(expr_stripped: str) -> None:
+    """Validate property names and allowed characters in the expression."""
+    property_refs = re.findall(r"n\.([a-zA-Z_][a-zA-Z0-9_]*)", expr_stripped)
+    for prop in property_refs:
+        if not _PROPERTY_NAME_RE.match(prop):
+            raise ValidationError(
+                f"Invalid property name '{prop}' in expression",
+                action="enrich",
+                tenant="unknown",
+            )
+    allowed_operators = {"+", "-", "*", "/", "%", "(", ")", ",", ".", " "}
+    allowed_chars = set("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_")
+    allowed_chars.update(allowed_operators)
+    for char in expr_stripped:
+        if char not in allowed_chars:
+            raise ValidationError(
+                f"Disallowed character '{char}' in expression",
+                action="enrich",
+                tenant="unknown",
+            )
 
 
 def _sanitize_expression(expr: str) -> str:
@@ -153,72 +224,28 @@ def _sanitize_expression(expr: str) -> str:
     expr_stripped = expr.strip()
     expr_lower = expr_stripped.lower()
 
-    # Block dangerous patterns (check as word boundaries where appropriate)
-    for pattern in _DANGEROUS_PATTERNS:
-        # For keywords, check word boundaries to avoid false positives
-        if pattern in ("//", "/*", "$$", "${", "db."):
-            if pattern in expr_lower:
-                msg = f"Forbidden pattern '{pattern}' in expression"
-                raise ValidationError(msg, action="enrich", tenant="unknown")
-        else:
-            # Check for keyword as word (not part of property name)
-            keyword_re = re.compile(rf"\b{re.escape(pattern)}\b", re.IGNORECASE)
-            if keyword_re.search(expr_stripped):
-                msg = f"Forbidden keyword '{pattern}' in expression"
-                raise ValidationError(msg, action="enrich", tenant="unknown")
+    # Fast-path: safe literals bypass the dangerous-pattern check entirely.
+    safe_literal = _try_safe_literal(expr_stripped, expr_lower)
+    if safe_literal is not None:
+        return safe_literal
 
-    # Allow literals (numbers, strings, booleans, null)
-    if expr_lower in ("true", "false", "null"):
-        return expr_stripped
+    _check_dangerous_patterns(expr_stripped, expr_lower)
 
-    # Allow numeric literals
-    try:
-        float(expr_stripped)
-    except ValueError:
-        pass
-    else:
-        return expr_stripped
-
-    # Allow string literals (single or double quoted)
-    if (expr_stripped.startswith("'") and expr_stripped.endswith("'") and expr_stripped.count("'") == 2) or (
-        expr_stripped.startswith('"') and expr_stripped.endswith('"') and expr_stripped.count('"') == 2
-    ):
-        # Check for injection attempts within string
-        inner = expr_stripped[1:-1]
-        if "'" in inner or '"' in inner or "\\" in inner:
-            msg = "String literals cannot contain quotes or escapes"
-            raise ValidationError(msg, action="enrich", tenant="unknown")
-        return expr_stripped
-
-    # Check for safe function calls
     has_safe_function = any(
-        expr_lower.startswith(f) or f" {f}" in expr_lower or f"({f}" in expr_lower for f in _SAFE_CYPHER_FUNCTIONS
+        expr_lower.startswith(f.lower()) or f" {f.lower()}" in expr_lower or f"({f.lower()}" in expr_lower for f in _SAFE_CYPHER_FUNCTIONS
     )
-
-    # Check for property access pattern: n.property_name
-    has_property_access = "n." in expr_lower
+    # Only allow direct property references (n.<identifier>), not function calls that wrap
+    # property access (e.g. substring(n.name, 0, 3) is rejected here).
+    has_property_access = bool(_DIRECT_PROPERTY_RE.search(expr_stripped))
 
     if not has_safe_function and not has_property_access:
-        msg = f"Expression '{expr_stripped}' does not match allowed patterns"
-        raise ValidationError(msg, action="enrich", tenant="unknown")
+        raise ValidationError(
+            f"Expression '{expr_stripped}' does not match allowed patterns",
+            action="enrich",
+            tenant="unknown",
+        )
 
-    # Validate property names in n.property patterns
-    property_refs = re.findall(r"n\.([a-zA-Z_][a-zA-Z0-9_]*)", expr_stripped)
-    for prop in property_refs:
-        if not _PROPERTY_NAME_RE.match(prop):
-            msg = f"Invalid property name '{prop}' in expression"
-            raise ValidationError(msg, action="enrich", tenant="unknown")
-
-    # Only allow safe arithmetic operators
-    allowed_operators = {"+", "-", "*", "/", "%", "(", ")", ",", ".", " "}
-    allowed_chars = set("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_")
-    allowed_chars.update(allowed_operators)
-
-    for char in expr_stripped:
-        if char not in allowed_chars:
-            msg = f"Disallowed character '{char}' in expression"
-            raise ValidationError(msg, action="enrich", tenant="unknown")
-
+    _validate_property_refs_and_chars(expr_stripped)
     return expr_stripped
 
 

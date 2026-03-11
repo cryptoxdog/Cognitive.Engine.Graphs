@@ -43,10 +43,10 @@ VALIDATION_ERRORS=0
 # UTILITY FUNCTIONS
 ################################################################################
 
-log()     { echo -e "${BLUE}[INFO]${NC} $1"; }
-success() { echo -e "${GREEN}[✓]${NC} $1"; }
-error()   { echo -e "${RED}[✗]${NC} $1"; ((VALIDATION_ERRORS++)); }
-warning() { echo -e "${YELLOW}[!]${NC} $1"; }
+log()     { local msg="$1"; echo -e "${BLUE}[INFO]${NC} $msg"; return 0; }
+success() { local msg="$1"; echo -e "${GREEN}[✓]${NC} $msg"; return 0; }
+error()   { local msg="$1"; echo -e "${RED}[✗]${NC} $msg" >&2; VALIDATION_ERRORS=$((VALIDATION_ERRORS + 1)); return 0; }
+warning() { local msg="$1"; echo -e "${YELLOW}[!]${NC} $msg"; return 0; }
 
 ################################################################################
 # PHASE 1: DISCOVER ALL DOCKERFILES & COMPOSE FILES
@@ -67,6 +67,7 @@ discover_docker_files() {
     [[ ${#DOCKERFILES[@]} -eq 0 ]] && { error "No Dockerfiles found!"; return 1; }
 
     success "Discovered ${#COMPOSE_FILES[@]} compose file(s) and ${#DOCKERFILES[@]} Dockerfile(s)"
+    return 0
 }
 
 ################################################################################
@@ -85,6 +86,7 @@ validate_compose_files() {
         fi
         success "Valid: $compose"
     done
+    return 0
 }
 
 ################################################################################
@@ -108,6 +110,7 @@ validate_dockerfile_references() {
             fi
         done < <(grep -i "dockerfile:" "$compose" || true)
     done
+    return 0
 }
 
 ################################################################################
@@ -142,6 +145,7 @@ validate_build_contexts() {
             fi
         done
     done
+    return 0
 }
 
 ################################################################################
@@ -159,6 +163,7 @@ validate_dockerfiles() {
         fi
         success "Valid: $dockerfile (has FROM)"
     done
+    return 0
 }
 
 ################################################################################
@@ -177,6 +182,7 @@ build_dockerfiles() {
         fi
         success "Build successful: $compose"
     done
+    return 0
 }
 
 ################################################################################
@@ -198,6 +204,7 @@ verify_built_images() {
             fi
         done < <(echo "$images")
     done
+    return 0
 }
 
 ################################################################################
@@ -230,6 +237,7 @@ main() {
         case "$mode" in
             check-only|validate-only) exit 1 ;;
             build) warning "Continuing to build despite validation warnings..." ;;
+            *) ;;
         esac
     fi
 
@@ -292,6 +300,7 @@ WHAT IT DOES:
 This ensures deployment won't fail with Docker errors.
 
 EOF
+    return 0
 }
 
 if [[ "${1:-}" == "--help" ]] || [[ "${1:-}" == "-h" ]]; then

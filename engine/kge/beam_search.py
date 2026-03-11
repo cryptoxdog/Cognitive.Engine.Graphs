@@ -199,6 +199,8 @@ class BeamSearchEngine:
         """
         import warnings
 
+        rng = np.random.default_rng()
+
         # Check if model has trained embeddings
         if not self.model._entity_embeddings:
             warnings.warn(
@@ -207,12 +209,12 @@ class BeamSearchEngine:
                 RuntimeWarning,
                 stacklevel=2,
             )
-            return float(np.random.uniform(0.0, 0.3))
+            return float(rng.uniform(0.0, 0.3))
 
         # Sample entities for evaluation
         sample_ids = entity_ids or list(self.model._entity_embeddings.keys())[:100]
         if not sample_ids:
-            return float(np.random.uniform(0.0, 0.3))
+            return float(rng.uniform(0.0, 0.3))
 
         # Compute quality score based on transformation consistency
         quality_scores = []

@@ -26,7 +26,7 @@ from __future__ import annotations
 import logging
 import time
 import uuid
-from typing import Callable
+from collections.abc import Callable
 
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
@@ -36,6 +36,7 @@ logger = logging.getLogger(__name__)
 
 
 # ── Request ID / Trace Propagation ────────────────────────────────────
+
 
 class RequestIDMiddleware(BaseHTTPMiddleware):
     """
@@ -63,6 +64,7 @@ class RequestIDMiddleware(BaseHTTPMiddleware):
 
 
 # ── Request Timing ────────────────────────────────────────────────────
+
 
 class TimingMiddleware(BaseHTTPMiddleware):
     """
@@ -95,6 +97,7 @@ class TimingMiddleware(BaseHTTPMiddleware):
 
 # ── Security Headers ──────────────────────────────────────────────────
 
+
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
     """
     Adds standard security headers to every response.
@@ -112,6 +115,7 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
 
 
 # ── Structured Request Logger ─────────────────────────────────────────
+
 
 class StructuredLogMiddleware(BaseHTTPMiddleware):
     """
@@ -143,6 +147,7 @@ class StructuredLogMiddleware(BaseHTTPMiddleware):
 
 
 # ── Convenience: Apply All ────────────────────────────────────────────
+
 
 def apply_chassis_middleware(
     app,

@@ -24,28 +24,26 @@ from engine.utils.security import sanitize_label
 logger = logging.getLogger(__name__)
 
 # Dangerous Cypher keywords that must be blocked in CUSTOMCYPHER expressions
-_DANGEROUS_CYPHER_KEYWORDS = frozenset(
-    [
-        "call",
-        "create",
-        "merge",
-        "delete",
-        "remove",
-        "set",
-        "match",
-        "return",
-        "with",
-        "unwind",
-        "foreach",
-        "load",
-        "using",
-        "detach",
-        "optional",
-        "union",
-        "apoc",
-        "gds",
-        "dbms",
-    ]
+_DANGEROUS_CYPHER_KEYWORDS = (
+    "detach",  # must be before "delete" so DETACH DELETE reports detach
+    "call",
+    "create",
+    "merge",
+    "delete",
+    "remove",
+    "set",
+    "match",
+    "return",
+    "with",
+    "unwind",
+    "foreach",
+    "load",
+    "using",
+    "optional",
+    "union",
+    "apoc",
+    "gds",
+    "dbms",
 )
 
 
