@@ -30,40 +30,43 @@ from engine.gates.types.all_gates import (
 
 
 def make_mock_gate_spec(**kwargs) -> MagicMock:
-    """Create a mock GateSpec with given attributes."""
+    """Create a mock GateSpec with given attributes.
+
+    Uses camelCase field names to match GateSpec's actual Pydantic field names.
+    """
     spec = MagicMock(spec=GateSpec)
     spec.name = kwargs.get("name", "test_gate")
-    spec.gate_type = kwargs.get("gate_type", GateType.THRESHOLD)
-    spec.candidate_prop = kwargs.get("candidate_prop")
-    spec.candidateprop = kwargs.get("candidateprop", kwargs.get("candidate_prop"))
-    spec.query_param = kwargs.get("query_param")
-    spec.queryparam = kwargs.get("queryparam", kwargs.get("query_param"))
-    spec.null_behavior = kwargs.get("null_behavior", NullBehavior.PASS)
-    spec.match_directions = kwargs.get("match_directions")
-    spec.exempt_roles = kwargs.get("exempt_roles")
-    spec.required = kwargs.get("required", True)
-    spec.relaxed_penalty = kwargs.get("relaxed_penalty")
-    spec.candidate_prop_min = kwargs.get("candidate_prop_min")
-    spec.candidate_prop_max = kwargs.get("candidate_prop_max")
-    spec.inverse = kwargs.get("inverse", False)
-    spec.edge_type = kwargs.get("edge_type")
-    spec.sub_gates = kwargs.get("sub_gates")
-    spec.combinator = kwargs.get("combinator")
-    spec.duration_field = kwargs.get("duration_field")
-    spec.duration_value = kwargs.get("duration_value")
-    spec.query_param_start = kwargs.get("query_param_start")
-    spec.query_param_end = kwargs.get("query_param_end")
-    spec.target_label = kwargs.get("target_label")
-    spec.target_prop = kwargs.get("target_prop")
-    spec.query_entity_ref = kwargs.get("query_entity_ref")
+    # .type is what GateCompiler reads; gate_type kwarg is the caller-facing alias
+    spec.type = kwargs.get("gate_type", kwargs.get("type", GateType.THRESHOLD))
+    # camelCase fields matching GateSpec.model_fields
+    spec.candidateprop = kwargs.get("candidate_prop") or kwargs.get("candidateprop")
+    spec.queryparam = kwargs.get("query_param") or kwargs.get("queryparam")
+    spec.nullbehavior = kwargs.get("null_behavior", kwargs.get("nullbehavior", NullBehavior.PASS))
+    spec.matchdirections = kwargs.get("match_directions") or kwargs.get("matchdirections")
+    spec.roleexempt = kwargs.get("exempt_roles") or kwargs.get("roleexempt")
+    spec.relaxedpenalty = kwargs.get("relaxed_penalty") or kwargs.get("relaxedpenalty")
+    spec.candidateprop_min = kwargs.get("candidate_prop_min") or kwargs.get("candidateprop_min")
+    spec.candidateprop_max = kwargs.get("candidate_prop_max") or kwargs.get("candidateprop_max")
+    spec.invertible = kwargs.get("inverse", kwargs.get("invertible", False))
+    spec.edgetype = kwargs.get("edge_type") or kwargs.get("edgetype")
+    spec.fromnode = kwargs.get("from_node") or kwargs.get("fromnode")
+    spec.tonode = kwargs.get("to_node") or kwargs.get("tonode")
+    spec.subgates = kwargs.get("sub_gates") or kwargs.get("subgates")
+    spec.logic = kwargs.get("combinator") or kwargs.get("logic", "AND")
+    spec.maxagedays = kwargs.get("max_age_days") or kwargs.get("maxagedays")
+    spec.operator = kwargs.get("operator")
+    spec.queryparam_start = kwargs.get("query_param_start") or kwargs.get("queryparam_start")
+    spec.queryparam_end = kwargs.get("query_param_end") or kwargs.get("queryparam_end")
+    spec.cypheroverride = kwargs.get("cypher_override") or kwargs.get("cypheroverride")
+    spec.pattern = kwargs.get("pattern")
+    spec.condition = kwargs.get("condition")
     return spec
 
 
 def make_mock_domain_spec(gates: list | None = None) -> MagicMock:
     """Create a mock DomainSpec."""
     spec = MagicMock(spec=DomainSpec)
-    spec.gates = MagicMock()
-    spec.gates.gates = gates or []
+    spec.gates = gates or []  # compiler iterates domain_spec.gates directly
     spec.compliance = None
     return spec
 

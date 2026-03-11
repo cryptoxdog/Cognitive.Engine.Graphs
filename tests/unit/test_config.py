@@ -25,7 +25,7 @@ class TestConfigValidation:
 
     def test_minimal_spec_validates(self, minimal_domain_spec):
         """Minimal valid spec passes validation."""
-        spec = minimal_domain_spec
+        spec = minimal_domain_spec  # fixture already constructs DomainSpec
         assert spec.domain.id == "test"
 
     def test_missing_required_field_fails(self):

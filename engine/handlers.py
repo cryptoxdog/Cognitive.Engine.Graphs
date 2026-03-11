@@ -143,7 +143,10 @@ _PROPERTY_NAME_RE = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_]*$")
 
 # Direct property access: n.<identifier> preceded by start-of-string or an operator/whitespace.
 # Intentionally does NOT match n.<identifier> preceded by '(' to block substring(n.prop,...) bypass.
-_DIRECT_PROPERTY_RE = re.compile(r"(?:^|[\s+\-*/])n\.[a-zA-Z_][a-zA-Z0-9_]*")
+# Also matches Cypher parameter references ($param_name).
+_DIRECT_PROPERTY_RE = re.compile(
+    r"(?:^|[\s+\-*/])n\.[a-zA-Z_][a-zA-Z0-9_]*|\$[a-zA-Z_][a-zA-Z0-9_]*"
+)
 
 
 def _check_dangerous_patterns(expr_stripped: str, expr_lower: str) -> None:
@@ -203,7 +206,7 @@ def _validate_property_refs_and_chars(expr_stripped: str) -> None:
                 action="enrich",
                 tenant="unknown",
             )
-    allowed_operators = {"+", "-", "*", "/", "%", "(", ")", ",", ".", " "}
+    allowed_operators = {"+", "-", "*", "/", "%", "(", ")", ",", ".", " ", "$"}
     allowed_chars = set("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_")
     allowed_chars.update(allowed_operators)
     for char in expr_stripped:

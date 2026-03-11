@@ -46,6 +46,12 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+# Engine ValidationError maps to 422 — import lazily to avoid circular dep
+try:
+    from engine.handlers import ValidationError as _EngineValidationError
+except ImportError:  # pragma: no cover
+    _EngineValidationError = None  # type: ignore[assignment,misc]
+
 logger = logging.getLogger(__name__)
 
 
@@ -232,11 +238,10 @@ def _raise_for_failed_result(result: dict[str, Any]) -> None:
 
     if exc_obj is not None:
         status = getattr(exc_obj, "status_code", None) or (422 if isinstance(exc_obj, (ValueError, TypeError)) else 500)
-    elif any(kw in error_detail.lower() for kw in ("validation", "invalid")):
-        status = 422
     else:
-        status = 500
-
+        # No exception object — infer from error message keywords
+        _msg_lower = error_detail.lower() if isinstance(error_detail, str) else ""
+        status = 422 if any(k in _msg_lower for k in ("validation", "invalid", "missing", "required")) else 500
     raise HTTPException(status_code=status, detail=error_detail)
 
 

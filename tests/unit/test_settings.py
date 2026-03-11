@@ -37,8 +37,11 @@ class TestSettingsDefaults:
         assert s.is_development is True
         assert s.is_production is False
 
-    def test_default_neo4j_config(self) -> None:
-        """Default Neo4j config uses localhost."""
+    def test_default_neo4j_config(self, monkeypatch) -> None:
+        """Default Neo4j config uses localhost when no env vars are set."""
+        monkeypatch.delenv("NEO4J_URI", raising=False)
+        monkeypatch.delenv("NEO4J_USERNAME", raising=False)
+        monkeypatch.delenv("NEO4J_POOL_SIZE", raising=False)
         s = Settings()
         assert s.neo4j_uri == "bolt://localhost:7687"
         assert s.neo4j_username == "neo4j"

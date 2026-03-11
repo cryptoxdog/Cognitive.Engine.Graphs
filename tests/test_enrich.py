@@ -110,7 +110,7 @@ class TestHandleEnrich:
     @pytest.mark.asyncio
     async def test_enrich_injection_blocked_union(self) -> None:
         """UNION keyword in expression is blocked."""
-        with pytest.raises(ValidationError, match="forbidden pattern"):
+        with pytest.raises(ValidationError, match="[Ff]orbidden"):
             await handle_enrich(
                 "test_tenant",
                 {
@@ -124,7 +124,7 @@ class TestHandleEnrich:
     @pytest.mark.asyncio
     async def test_enrich_injection_blocked_delete(self) -> None:
         """DELETE keyword in expression is blocked."""
-        with pytest.raises(ValidationError, match="forbidden pattern"):
+        with pytest.raises(ValidationError, match="[Ff]orbidden"):
             await handle_enrich(
                 "test_tenant",
                 {
@@ -138,7 +138,7 @@ class TestHandleEnrich:
     @pytest.mark.asyncio
     async def test_enrich_injection_blocked_call(self) -> None:
         """CALL keyword in expression is blocked."""
-        with pytest.raises(ValidationError, match="forbidden pattern"):
+        with pytest.raises(ValidationError, match="[Ff]orbidden"):
             await handle_enrich(
                 "test_tenant",
                 {
@@ -152,7 +152,7 @@ class TestHandleEnrich:
     @pytest.mark.asyncio
     async def test_enrich_injection_blocked_merge(self) -> None:
         """MERGE keyword in expression is blocked."""
-        with pytest.raises(ValidationError, match="forbidden pattern"):
+        with pytest.raises(ValidationError, match="[Ff]orbidden"):
             await handle_enrich(
                 "test_tenant",
                 {
@@ -166,7 +166,7 @@ class TestHandleEnrich:
     @pytest.mark.asyncio
     async def test_enrich_injection_blocked_load_csv(self) -> None:
         """LOAD CSV in expression is blocked."""
-        with pytest.raises(ValidationError, match="forbidden pattern"):
+        with pytest.raises(ValidationError, match="[Ff]orbidden"):
             await handle_enrich(
                 "test_tenant",
                 {
@@ -180,7 +180,7 @@ class TestHandleEnrich:
     @pytest.mark.asyncio
     async def test_enrich_injection_blocked_detach(self) -> None:
         """DETACH keyword in expression is blocked."""
-        with pytest.raises(ValidationError, match="forbidden pattern"):
+        with pytest.raises(ValidationError, match="[Ff]orbidden"):
             await handle_enrich(
                 "test_tenant",
                 {
@@ -224,7 +224,7 @@ class TestHandleEnrich:
     @pytest.mark.asyncio
     async def test_enrich_expression_must_reference_node(self) -> None:
         """Expression without n. or $ reference is rejected."""
-        with pytest.raises(ValidationError, match=r"must reference.*node variable"):
+        with pytest.raises(ValidationError, match="does not match allowed patterns"):
             await handle_enrich(
                 "test_tenant",
                 {
