@@ -24,6 +24,7 @@ import json
 import logging
 from collections import deque
 from datetime import datetime
+from typing import Any
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
@@ -54,7 +55,7 @@ class GDSScheduler:
         self.domain_spec = domain_spec
         self.graph_driver = graph_driver
         self.scheduler = AsyncIOScheduler()
-        self._job_history: deque[dict] = deque(maxlen=_MAX_HISTORY_SIZE)
+        self._job_history: deque[dict[str, Any]] = deque(maxlen=_MAX_HISTORY_SIZE)
         self._history_lock = asyncio.Lock()
 
     @staticmethod
@@ -117,7 +118,7 @@ class GDSScheduler:
         )
         logger.info(f"Scheduled job {job_spec.name} with cron {job_spec.schedule.cron}")
 
-    async def execute_job(self, job_spec: GDSJobSpec) -> dict:
+    async def execute_job(self, job_spec: GDSJobSpec) -> dict[str, Any]:
         """Execute GDS job and record result."""
         logger.info(f"Starting GDS job {job_spec.name} — algorithm={job_spec.algorithm}")
         start = datetime.now()
@@ -163,7 +164,7 @@ class GDSScheduler:
 
     # ── Algorithm Implementations ──────────────────────────────
 
-    async def _run_louvain(self, job_spec: GDSJobSpec) -> dict:
+    async def _run_louvain(self, job_spec: GDSJobSpec) -> dict[str, Any]:
         """Run Louvain community detection via GDS."""
         db = self.domain_spec.domain.id
         # Sanitize job name for use in graph projection name
@@ -212,7 +213,7 @@ class GDSScheduler:
             except Exception as drop_err:
                 logger.error(f"Failed to drop projected graph '{graph_name}': {drop_err}")
 
-    async def _run_cooccurrence(self, job_spec: GDSJobSpec) -> dict:
+    async def _run_cooccurrence(self, job_spec: GDSJobSpec) -> dict[str, Any]:
         """Build co-occurrence edges from bipartite projection."""
         if not job_spec.sourceedge or not job_spec.writeedge:
             raise ValueError(f"Job {job_spec.name}: sourceedge and writeedge required")
@@ -232,7 +233,7 @@ class GDSScheduler:
         logger.info(f"Co-occurrence: {edges} edges created/updated")
         return {"edges_created": edges}
 
-    async def _run_reinforcement(self, job_spec: GDSJobSpec) -> dict:
+    async def _run_reinforcement(self, job_spec: GDSJobSpec) -> dict[str, Any]:
         """
         Weight edges by transaction outcome feedback.
 
@@ -329,7 +330,7 @@ class GDSScheduler:
             "rejected_edges": rejected_count,
         }
 
-    async def _run_temporal_recency(self, job_spec: GDSJobSpec) -> dict:
+    async def _run_temporal_recency(self, job_spec: GDSJobSpec) -> dict[str, Any]:
         """
         Create/update RECENTLY_TRANSACTED_WITH edges with recency decay.
 
@@ -376,7 +377,7 @@ class GDSScheduler:
         logger.info(f"Temporal recency: {created} edges created, {pruned} pruned")
         return {"edges_created": created, "edges_pruned": pruned}
 
-    async def _run_geoproximity(self, job_spec: GDSJobSpec) -> dict:
+    async def _run_geoproximity(self, job_spec: GDSJobSpec) -> dict[str, Any]:
         """Build COLOCATED_WITH edges based on haversine distance."""
         db = self.domain_spec.domain.id
 
@@ -412,7 +413,7 @@ class GDSScheduler:
         logger.info(f"Geo-proximity: {edges} COLOCATED_WITH edges for {node_label}")
         return {"edges_created": edges}
 
-    async def _run_equipment_sync(self, job_spec: GDSJobSpec) -> dict:
+    async def _run_equipment_sync(self, job_spec: GDSJobSpec) -> dict[str, Any]:
         """Materialize boolean entity props as HAS_EQUIPMENT edges."""
         db = self.domain_spec.domain.id
         node_label = self._get_candidate_label(job_spec)
@@ -465,7 +466,7 @@ class GDSScheduler:
 
     # ── Lifecycle ──────────────────────────────────────────
 
-    async def trigger_job(self, job_name: str) -> dict:
+    async def trigger_job(self, job_name: str) -> dict[str, Any]:
         """Manually trigger a registered job by name."""
         for job_spec in self.domain_spec.gdsjobs:
             if job_spec.name == job_name:
@@ -480,12 +481,12 @@ class GDSScheduler:
         self.scheduler.shutdown()
         logger.info("GDS scheduler shut down")
 
-    async def get_job_history(self) -> list[dict]:
+    async def get_job_history(self) -> list[dict[str, Any]]:
         """Get copy of job history (thread-safe)."""
         async with self._history_lock:
             return list(self._job_history)
 
     @property
-    def job_history(self) -> list[dict]:
+    def job_history(self) -> list[dict[str, Any]]:
         """Synchronous access to job history. Use get_job_history() in async contexts."""
         return list(self._job_history)

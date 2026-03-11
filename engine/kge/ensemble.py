@@ -36,8 +36,10 @@ import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from enum import StrEnum
+from typing import Any
 
 import numpy as np
+import numpy.typing as npt
 
 from engine.config.schema import KGEEnsembleSpec
 from engine.config.settings import settings
@@ -75,9 +77,9 @@ class VariantScore:
     variant_type: str
     score: float  # [0, 1]
     confidence: float = 1.0
-    metadata: dict | None = None
+    metadata: dict[str, Any] | None = None
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if self.metadata is None:
             self.metadata = {}
         if not 0.0 <= self.score <= 1.0:
@@ -293,7 +295,7 @@ class MixtureOfExpertsEnsemble(VariantEnsemble):
         self.num_experts = num_experts
         self.learnable_gates = learnable_gates
 
-    def compute_entropy_confidence(self, gate_weights: np.ndarray) -> float:
+    def compute_entropy_confidence(self, gate_weights: npt.NDArray[np.float64]) -> float:
         """Ensemble confidence from gating entropy (Eq. 21 in KGE briefing).
 
         confidence = 1 - H(g(x)) / log(k)
@@ -372,7 +374,7 @@ class EnsembleController:
             FusionStrategy.RANK_AGGREGATION: RankAggregationEnsemble(),
             FusionStrategy.MIXTURE_EXPERTS: MixtureOfExpertsEnsemble(),
         }
-        self.audit_log: list[dict] = []
+        self.audit_log: list[dict[str, Any]] = []
         self._spec = spec
 
     @classmethod
@@ -470,6 +472,6 @@ class EnsembleController:
 
         return result
 
-    def get_audit_log(self) -> list[dict]:
+    def get_audit_log(self) -> list[dict[str, Any]]:
         """Return audit log of all ensemble predictions."""
         return self.audit_log

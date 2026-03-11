@@ -31,13 +31,14 @@ from dataclasses import dataclass
 from typing import Any
 
 import numpy as np
+import numpy.typing as npt
 
 
 class Transformation3D(ABC):
     """Abstract base for 3D embedding transformations."""
 
     @abstractmethod
-    def apply(self, embedding: np.ndarray) -> np.ndarray:
+    def apply(self, embedding: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
         """Apply transformation to an embedding vector."""
 
     @abstractmethod
@@ -48,7 +49,7 @@ class Transformation3D(ABC):
     def to_dict(self) -> dict[str, Any]:
         """Serialize for PacketEnvelope / audit trail."""
 
-    def __call__(self, embedding: np.ndarray) -> np.ndarray:
+    def __call__(self, embedding: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
         return self.apply(embedding)
 
 
@@ -64,7 +65,7 @@ class Rotation(Transformation3D):
     angle: float
     axis: tuple[float, float, float] = (0.0, 0.0, 1.0)
 
-    def apply(self, embedding: np.ndarray) -> np.ndarray:
+    def apply(self, embedding: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
         rad = math.radians(self.angle)
         ax = np.array(self.axis, dtype=np.float64)
         norm = np.linalg.norm(ax)
@@ -97,11 +98,11 @@ class Scale(Transformation3D):
 
     factor: float = 1.0
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if self.factor <= 0:
             raise ValueError(f"Scale factor must be > 0, got {self.factor}")
 
-    def apply(self, embedding: np.ndarray) -> np.ndarray:
+    def apply(self, embedding: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
         return embedding * self.factor
 
     def inverse(self) -> Scale:
@@ -121,9 +122,9 @@ class Translation(Transformation3D):
 
     offset: tuple[float, float, float] = (0.0, 0.0, 0.0)
 
-    def apply(self, embedding: np.ndarray) -> np.ndarray:
+    def apply(self, embedding: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
         shift = np.tile(np.array(self.offset, dtype=np.float64), int(np.ceil(len(embedding) / 3)))[: len(embedding)]
-        result: np.ndarray = embedding + shift
+        result: npt.NDArray[np.float64] = embedding + shift
         return result
 
     def inverse(self) -> Translation:
@@ -144,7 +145,7 @@ class Flip(Transformation3D):
 
     axis: int = 0
 
-    def apply(self, embedding: np.ndarray) -> np.ndarray:
+    def apply(self, embedding: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
         out = np.copy(embedding)
         out[self.axis :: 3] *= -1
         return out
@@ -168,7 +169,7 @@ class Hyperplane(Transformation3D):
     normal: tuple[float, float, float] = (0.0, 0.0, 1.0)
     d: float = 0.0
 
-    def apply(self, embedding: np.ndarray) -> np.ndarray:
+    def apply(self, embedding: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
         n = np.array(self.normal, dtype=np.float64)
         norm = np.linalg.norm(n)
         if norm < 1e-9:
@@ -206,7 +207,7 @@ class Shear(Transformation3D):
     shzx: float = 0.0
     shzy: float = 0.0
 
-    def _matrix(self) -> np.ndarray:
+    def _matrix(self) -> npt.NDArray[np.float64]:
         return np.array(
             [
                 [1.0, self.shxy, self.shxz],
@@ -216,7 +217,7 @@ class Shear(Transformation3D):
             dtype=np.float64,
         )
 
-    def apply(self, embedding: np.ndarray) -> np.ndarray:
+    def apply(self, embedding: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
         mat = self._matrix()
         out = np.copy(embedding)
         for i in range(0, len(embedding) - 2, 3):

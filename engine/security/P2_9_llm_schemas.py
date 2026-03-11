@@ -60,7 +60,7 @@ class CypherQueryOutput(BaseModel):
 
     @field_validator("parameters")
     @classmethod
-    def json_safe_params(cls, v: dict) -> dict:
+    def json_safe_params(cls, v: dict[str, Any]) -> dict[str, Any]:
         for key, val in v.items():
             if not isinstance(val, (str, int, float, bool, list, dict, type(None))):
                 raise ValueError(f"Non-serialisable param '{key}': {type(val)}")
@@ -148,7 +148,7 @@ class ValidatedLLMClient:
 
         return validate_llm_json(raw, CypherQueryOutput)
 
-    def analyse_graph(self, results: list[dict]) -> GraphAnalysisOutput:
+    def analyse_graph(self, results: list[dict[str, Any]]) -> GraphAnalysisOutput:
         system = (
             "You are a graph analytics expert. "
             "Return JSON with: node_count, edge_count, key_insights, "

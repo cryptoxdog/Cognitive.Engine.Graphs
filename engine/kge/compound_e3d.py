@@ -31,6 +31,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 import numpy as np
+import numpy.typing as npt
 
 from engine.config.schema import KGESpec
 from engine.config.settings import settings
@@ -89,16 +90,16 @@ class CompoundE3D:
     def __init__(self, config: CompoundE3DConfig) -> None:
         self.config = config
         self.dim = config.embedding_dim
-        self._entity_embeddings: dict[str, np.ndarray] = {}
-        self._relation_embeddings: dict[str, np.ndarray] = {}
+        self._entity_embeddings: dict[str, npt.NDArray[np.float64]] = {}
+        self._relation_embeddings: dict[str, npt.NDArray[np.float64]] = {}
         self._trained = False
 
         # --- CompoundE3D operator stores (Ge et al. 2023 §3.2) ---
         # Keyed by relation name → list of instantiated transformation
         # objects (Translation, Rotation, Scaling, Flip, Hyperplane, Shear).
         # Populated by _build_relation_operators() at train/load time.
-        self._head_ops: dict[str, list] = {}
-        self._tail_ops: dict[str, list] = {}
+        self._head_ops: dict[str, list[Any]] = {}
+        self._tail_ops: dict[str, list[Any]] = {}
 
         # Platt scaling calibration parameters (learned post-training).
         # Maps raw distance d → probability via sigmoid(-(alpha*d - beta)).
@@ -150,7 +151,7 @@ class CompoundE3D:
         losses: list[float] = []
         for epoch in range(epochs):
             epoch_loss = 0.0
-            np.random.shuffle(triples)  # type: ignore[arg-type]
+            np.random.shuffle(triples)
             for h, r, t in triples:
                 pos_score = self._distance(h, r, t)
                 # Negative sampling
@@ -189,7 +190,7 @@ class CompoundE3D:
         # Convert distance to similarity score via sigmoid
         return float(1.0 / (1.0 + np.exp(dist - self.config.margin)))  # nosemgrep: float-requires-try-except
 
-    def embed(self, entity_id: str) -> np.ndarray | None:
+    def embed(self, entity_id: str) -> npt.NDArray[np.float64] | None:
         """Return embedding vector for entity (or None if unknown)."""
         return self._entity_embeddings.get(entity_id)
 
@@ -271,7 +272,7 @@ class CompoundE3D:
 
         mode = getattr(self.config, "scoring_mode", "complete")
 
-        def _apply_ops(x: np.ndarray, ops: list) -> np.ndarray:
+        def _apply_ops(x: npt.NDArray[np.float64], ops: list[Any]) -> npt.NDArray[np.float64]:
             """Sequentially apply a cascade of transformation objects."""
             for op in ops:
                 x = op.apply(x)
@@ -315,7 +316,7 @@ class CompoundE3D:
         d = np.array(val_distances, dtype=np.float64)
         y = np.array(val_labels, dtype=np.float64)
 
-        def nll(params: np.ndarray) -> float:
+        def nll(params: npt.NDArray[np.float64]) -> float:
             alpha, beta = params
             logit = -(alpha * d - beta)
             prob = 1.0 / (1.0 + np.exp(-logit))
@@ -332,7 +333,7 @@ class CompoundE3D:
     def build_icp_centroid(
         self,
         account_ids: list[str],
-    ) -> np.ndarray:
+    ) -> npt.NDArray[np.float64]:
         """Construct a synthetic ICP (Ideal Customer Profile) entity.
 
         The ICP is the centroid of known high-value account embeddings.
@@ -358,7 +359,7 @@ class CompoundE3D:
                 msg = f"build_icp_centroid: entity '{aid}' not found in embedding table. Run train() first."
                 raise ValueError(msg)
             embeddings.append(emb)
-        centroid: np.ndarray = np.mean(np.stack(embeddings, axis=0), axis=0)
+        centroid: npt.NDArray[np.float64] = np.mean(np.stack(embeddings, axis=0), axis=0)
         self._icp_centroid = centroid
         return centroid
 

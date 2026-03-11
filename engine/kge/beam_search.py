@@ -37,6 +37,7 @@ import logging
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from enum import StrEnum
+from typing import Any
 
 import numpy as np
 
@@ -107,7 +108,7 @@ class BeamCandidate:
             other.transformation_id,
         )
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> dict[str, Any]:
         """Serialize candidate for PacketEnvelope / audit trail."""
         return {
             "id": self.transformation_id,
@@ -168,7 +169,7 @@ class BeamSearchEngine:
     ) -> None:
         self.model = model
         self.config = config
-        self.search_history: list[dict] = []
+        self.search_history: list[dict[str, Any]] = []
         self.pruned_candidates: list[BeamCandidate] = []
         self._next_id = 0
 
@@ -461,7 +462,7 @@ class BeamSearchEngine:
     # Main search
     # ------------------------------------------------------------------
 
-    def search(self) -> dict:
+    def search(self) -> dict[str, Any]:
         """Execute beam search for variant discovery.
 
         Returns::

@@ -55,7 +55,7 @@ class PIISensitivity(StrEnum):
 
 # ── Patterns ──────────────────────────────────────────────
 
-_PII_PATTERNS: dict[PIICategory, re.Pattern] = {
+_PII_PATTERNS: dict[PIICategory, re.Pattern[str]] = {
     PIICategory.EMAIL: re.compile(
         r"[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}",
     ),

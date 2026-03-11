@@ -28,6 +28,8 @@ Usage:
 import json
 import logging
 import re
+import types
+from collections.abc import Generator
 from typing import Any, TypeVar
 
 from pydantic import BaseModel, ValidationError
@@ -241,7 +243,7 @@ def safe_exec(code: str, allowed_imports: list[str] | None = None, timeout_secon
     # Execute with timeout
     import signal
 
-    def timeout_handler(signum, frame):
+    def timeout_handler(signum: int, frame: types.FrameType | None) -> None:
         raise TimeoutError(f"Code execution exceeded {timeout_seconds}s timeout")
 
     signal.signal(signal.SIGALRM, timeout_handler)
@@ -270,7 +272,7 @@ cost_logger = structlog.get_logger("llm.cost")
 
 
 @contextmanager
-def track_llm_usage(model: str, user_id: str | None = None):
+def track_llm_usage(model: str, user_id: str | None = None) -> Generator[None, None, None]:
     """
     Context manager to track LLM token usage and cost.
 

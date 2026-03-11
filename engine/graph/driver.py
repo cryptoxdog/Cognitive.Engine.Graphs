@@ -84,9 +84,9 @@ class GraphDriver:
     async def execute_query(
         self,
         cypher: str,
-        parameters: dict | None = None,
+        parameters: dict[str, Any] | None = None,
         database: str = "neo4j",
-    ) -> list:
+    ) -> list[Any]:
         """
         Execute Cypher query.
 

@@ -19,6 +19,7 @@ Exports: GateCompiler
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
 
 from engine.config.schema import (
     DomainSpec,
@@ -138,7 +139,7 @@ class GateCompiler:
 
     # ── Gate Type Handlers ─────────────────────────────────
 
-    def _get_handler(self, gate_type: GateType):
+    def _get_handler(self, gate_type: GateType) -> Callable[[GateSpec], str]:
         """Route to the correct handler for each gate type."""
         handlers = {
             GateType.BOOLEAN: self._compile_boolean,
