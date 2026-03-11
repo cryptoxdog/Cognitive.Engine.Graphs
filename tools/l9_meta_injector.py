@@ -164,7 +164,7 @@ FILE_REGISTRY: list[FileMeta] = [
     FileMeta("Dockerfile.prod", "l9-template", ["docker"], ["L9_TEMPLATE", "docker", "prod"], "platform"),
     FileMeta("docker-compose.yml", "l9-template", ["docker"], ["L9_TEMPLATE", "docker", "dev"], "platform"),
     FileMeta("docker-compose.prod.yml", "l9-template", ["docker"], ["L9_TEMPLATE", "docker", "prod"], "platform"),
-    FileMeta("entrypoint.sh", "l9-template", ["docker"], ["L9_TEMPLATE", "docker", "entrypoint"], "platform"),
+    # entrypoint.sh at root doesn't exist - use scripts/entrypoint.sh or chassis/entrypoint.sh
     FileMeta("Makefile", "l9-template", ["build"], ["L9_TEMPLATE", "build", "commands"], "platform"),
     # --- Telemetry ---
     FileMeta(
@@ -233,8 +233,115 @@ FILE_REGISTRY: list[FileMeta] = [
     FileMeta("scripts/entrypoint.sh", "l9-template", ["scripts"], ["L9_TEMPLATE", "scripts", "entrypoint"], "platform"),
     FileMeta("scripts/audit.sh", "l9-template", ["scripts", "audit"], ["L9_TEMPLATE", "scripts", "audit"], "platform"),
     FileMeta("scripts/README.md", "l9-template", ["scripts"], ["L9_TEMPLATE", "scripts", "docs"], "platform"),
+    FileMeta(
+        "scripts/domain_extractor.py",
+        "l9-template",
+        ["scripts"],
+        ["L9_TEMPLATE", "scripts", "domain-extractor"],
+        "platform",
+    ),
     # --- Test Harness ---
     FileMeta("tests/conftest.py", "l9-template", ["test"], ["L9_TEMPLATE", "test", "fixtures"], "platform"),
+    FileMeta("tests/README.md", "l9-template", ["test"], ["L9_TEMPLATE", "test", "docs"], "platform"),
+    # --- Tests: Compliance ---
+    FileMeta(
+        "tests/compliance/test_audit.py", "engine-specific", ["test"], ["test", "compliance", "audit"], "engine-team"
+    ),
+    FileMeta(
+        "tests/compliance/test_hipaa.py", "engine-specific", ["test"], ["test", "compliance", "hipaa"], "engine-team"
+    ),
+    FileMeta(
+        "tests/compliance/test_prohibited_factors.py",
+        "engine-specific",
+        ["test"],
+        ["test", "compliance", "prohibited-factors"],
+        "engine-team",
+    ),
+    # --- Tests: Integration ---
+    FileMeta(
+        "tests/integration/test_multi_tenant.py",
+        "engine-specific",
+        ["test"],
+        ["test", "integration", "multi-tenant"],
+        "engine-team",
+    ),
+    FileMeta(
+        "tests/integration/test_null_semantics.py",
+        "engine-specific",
+        ["test"],
+        ["test", "integration", "null-semantics"],
+        "engine-team",
+    ),
+    # --- Tests: Performance ---
+    FileMeta(
+        "tests/performance/test_query_latency.py",
+        "engine-specific",
+        ["test"],
+        ["test", "performance", "latency"],
+        "engine-team",
+    ),
+    FileMeta(
+        "tests/performance/test_sync_throughput.py",
+        "engine-specific",
+        ["test"],
+        ["test", "performance", "throughput"],
+        "engine-team",
+    ),
+    # --- Tests: Root Level ---
+    FileMeta("tests/test_compliance_engine.py", "engine-specific", ["test"], ["test", "compliance"], "engine-team"),
+    FileMeta("tests/test_config_loader.py", "engine-specific", ["test"], ["test", "config"], "engine-team"),
+    FileMeta("tests/test_enrich.py", "engine-specific", ["test"], ["test", "enrich"], "engine-team"),
+    FileMeta("tests/test_handlers.py", "engine-specific", ["test"], ["test", "handlers"], "engine-team"),
+    FileMeta("tests/test_scoring_extended.py", "engine-specific", ["test"], ["test", "scoring"], "engine-team"),
+    # --- Tests: Unit ---
+    FileMeta(
+        "tests/unit/test_api_error_handling.py", "engine-specific", ["test"], ["test", "unit", "api"], "engine-team"
+    ),
+    FileMeta("tests/unit/test_chassis_app.py", "engine-specific", ["test"], ["test", "unit", "chassis"], "engine-team"),
+    FileMeta(
+        "tests/unit/test_chassis_contract.py", "engine-specific", ["test"], ["test", "unit", "chassis"], "engine-team"
+    ),
+    FileMeta("tests/unit/test_config.py", "engine-specific", ["test"], ["test", "unit", "config"], "engine-team"),
+    FileMeta(
+        "tests/unit/test_config_schema.py", "engine-specific", ["test"], ["test", "unit", "config"], "engine-team"
+    ),
+    FileMeta(
+        "tests/unit/test_domain_pack_loader.py", "engine-specific", ["test"], ["test", "unit", "config"], "engine-team"
+    ),
+    FileMeta(
+        "tests/unit/test_gates_all_types.py", "engine-specific", ["test"], ["test", "unit", "gates"], "engine-team"
+    ),
+    FileMeta("tests/unit/test_gds_scheduler.py", "engine-specific", ["test"], ["test", "unit", "gds"], "engine-team"),
+    FileMeta(
+        "tests/unit/test_handlers_enrich_health.py",
+        "engine-specific",
+        ["test"],
+        ["test", "unit", "handlers"],
+        "engine-team",
+    ),
+    FileMeta(
+        "tests/unit/test_handlers_extended.py", "engine-specific", ["test"], ["test", "unit", "handlers"], "engine-team"
+    ),
+    FileMeta("tests/unit/test_kge_beam_search.py", "engine-specific", ["test"], ["test", "unit", "kge"], "engine-team"),
+    FileMeta(
+        "tests/unit/test_kge_compound_e3d.py", "engine-specific", ["test"], ["test", "unit", "kge"], "engine-team"
+    ),
+    FileMeta("tests/unit/test_kge_ensemble.py", "engine-specific", ["test"], ["test", "unit", "kge"], "engine-team"),
+    FileMeta(
+        "tests/unit/test_kge_transformations.py", "engine-specific", ["test"], ["test", "unit", "kge"], "engine-team"
+    ),
+    FileMeta(
+        "tests/unit/test_packet_envelope.py", "engine-specific", ["test"], ["test", "unit", "packet"], "engine-team"
+    ),
+    FileMeta("tests/unit/test_safe_eval.py", "engine-specific", ["test"], ["test", "unit", "utils"], "engine-team"),
+    FileMeta("tests/unit/test_scoring.py", "engine-specific", ["test"], ["test", "unit", "scoring"], "engine-team"),
+    FileMeta(
+        "tests/unit/test_scoring_security.py", "engine-specific", ["test"], ["test", "unit", "scoring"], "engine-team"
+    ),
+    FileMeta("tests/unit/test_settings.py", "engine-specific", ["test"], ["test", "unit", "config"], "engine-team"),
+    FileMeta("tests/unit/test_sync.py", "engine-specific", ["test"], ["test", "unit", "sync"], "engine-team"),
+    FileMeta("tests/unit/test_traversal.py", "engine-specific", ["test"], ["test", "unit", "traversal"], "engine-team"),
+    FileMeta("tests/unit/test_units.py", "engine-specific", ["test"], ["test", "unit", "units"], "engine-team"),
     # =========================================================================
     # ENGINE-SPECIFIC FILES  (origin: engine-specific, owner: engine-team)
     # =========================================================================
@@ -306,8 +413,417 @@ FILE_REGISTRY: list[FileMeta] = [
     FileMeta(
         "engine/utils/security.py", "engine-specific", ["config"], ["utils", "security", "sanitize"], "engine-team"
     ),
-    FileMeta("chassis/__init__.py", "engine-specific", ["config"], ["chassis"], "engine-team"),
-    FileMeta("chassis/actions.py", "engine-specific", ["config"], ["chassis", "actions"], "engine-team"),
+    FileMeta("engine/boot.py", "engine-specific", ["config"], ["engine", "boot", "lifecycle"], "engine-team"),
+    # --- Engine KGE (Knowledge Graph Embeddings) ---
+    FileMeta("engine/kge/__init__.py", "engine-specific", ["kge"], ["kge", "embeddings"], "engine-team"),
+    FileMeta(
+        "engine/kge/beam_search.py",
+        "engine-specific",
+        ["kge"],
+        ["kge", "beam-search", "link-prediction"],
+        "engine-team",
+    ),
+    FileMeta("engine/kge/compound_e3d.py", "engine-specific", ["kge"], ["kge", "compound-e3d", "model"], "engine-team"),
+    FileMeta("engine/kge/ensemble.py", "engine-specific", ["kge"], ["kge", "ensemble", "aggregation"], "engine-team"),
+    FileMeta("engine/kge/transformations.py", "engine-specific", ["kge"], ["kge", "transformations"], "engine-team"),
+    # --- Engine Compliance (additional) ---
+    FileMeta("engine/compliance/engine.py", "engine-specific", ["compliance"], ["compliance", "engine"], "engine-team"),
+    # --- Engine Security ---
+    FileMeta("engine/security/5_llm_security.py", "engine-specific", ["security"], ["security", "llm"], "engine-team"),
+    FileMeta(
+        "engine/security/P2_9_llm_schemas.py",
+        "engine-specific",
+        ["security"],
+        ["security", "llm", "schemas"],
+        "engine-team",
+    ),
+    FileMeta(
+        "engine/security/5_prompt_injection_semgrep.yaml",
+        "engine-specific",
+        ["security"],
+        ["security", "semgrep", "prompt-injection"],
+        "engine-team",
+    ),
+    # --- Tools (additional) ---
+    FileMeta("tools/audit_dispatch.py", "l9-template", ["audit"], ["L9_TEMPLATE", "audit", "dispatch"], "platform"),
+    FileMeta("tools/contract_scanner.py", "l9-template", ["audit"], ["L9_TEMPLATE", "audit", "contracts"], "platform"),
+    FileMeta("tools/verify_contracts.py", "l9-template", ["audit"], ["L9_TEMPLATE", "audit", "verify"], "platform"),
+    FileMeta("tools/auditors/__init__.py", "l9-template", ["audit"], ["L9_TEMPLATE", "auditors"], "platform"),
+    FileMeta("tools/auditors/base.py", "l9-template", ["audit"], ["L9_TEMPLATE", "auditors", "base"], "platform"),
+    FileMeta(
+        "tools/auditors/api_regression.py", "l9-template", ["audit"], ["L9_TEMPLATE", "auditors", "api"], "platform"
+    ),
+    FileMeta(
+        "tools/auditors/log_safety.py", "l9-template", ["audit"], ["L9_TEMPLATE", "auditors", "logging"], "platform"
+    ),
+    FileMeta(
+        "tools/auditors/query_performance.py",
+        "l9-template",
+        ["audit"],
+        ["L9_TEMPLATE", "auditors", "performance"],
+        "platform",
+    ),
+    FileMeta(
+        "tools/auditors/test_quality.py",
+        "l9-template",
+        ["audit"],
+        ["L9_TEMPLATE", "auditors", "test-quality"],
+        "platform",
+    ),
+    # --- Chassis Entrypoint ---
+    FileMeta("chassis/entrypoint.sh", "chassis", ["docker"], ["chassis", "entrypoint"], "platform-team"),
+    # --- Tools Shell Scripts ---
+    FileMeta("tools/deploy/deploy.sh", "l9-template", ["scripts", "deploy"], ["L9_TEMPLATE", "deploy"], "platform"),
+    FileMeta("tools/dev/dev_up.sh", "l9-template", ["scripts", "dev"], ["L9_TEMPLATE", "dev"], "platform"),
+    FileMeta(
+        "tools/hooks/install_hooks.sh", "l9-template", ["scripts", "hooks"], ["L9_TEMPLATE", "git-hooks"], "platform"
+    ),
+    FileMeta(
+        "tools/infra/check_env.sh",
+        "l9-template",
+        ["scripts", "infra"],
+        ["L9_TEMPLATE", "infra", "env-check"],
+        "platform",
+    ),
+    FileMeta(
+        "tools/infra/deep_mri.sh",
+        "l9-template",
+        ["scripts", "infra"],
+        ["L9_TEMPLATE", "infra", "diagnostics"],
+        "platform",
+    ),
+    FileMeta(
+        "tools/infra/docker_validate.sh",
+        "l9-template",
+        ["scripts", "infra"],
+        ["L9_TEMPLATE", "infra", "docker"],
+        "platform",
+    ),
+    FileMeta(
+        "tools/infra/precommit_smoke.sh",
+        "l9-template",
+        ["scripts", "infra"],
+        ["L9_TEMPLATE", "infra", "precommit"],
+        "platform",
+    ),
+    FileMeta(
+        "tools/infra/test_everything.sh",
+        "l9-template",
+        ["scripts", "infra"],
+        ["L9_TEMPLATE", "infra", "test"],
+        "platform",
+    ),
+    # --- Core Markdown Docs (root) ---
+    FileMeta("README.md", "engine-specific", ["docs"], ["readme", "overview"], "engine-team"),
+    FileMeta("CHANGELOG.md", "engine-specific", ["docs"], ["changelog"], "engine-team"),
+    FileMeta("ROADMAP.md", "engine-specific", ["docs"], ["roadmap", "planning"], "engine-team"),
+    FileMeta("TODO.md", "engine-specific", ["docs"], ["todo", "planning"], "engine-team"),
+    FileMeta("Readme-Requirements.md", "engine-specific", ["docs"], ["requirements"], "engine-team"),
+    FileMeta("workflow_state.md", "engine-specific", ["docs"], ["workflow", "state"], "engine-team"),
+    FileMeta(".gitleaks.toml", "l9-template", ["security"], ["L9_TEMPLATE", "gitleaks", "secrets"], "platform"),
+    # --- docs/ folder ---
+    FileMeta("docs/ARCHITECTURE.md", "engine-specific", ["docs"], ["architecture", "design"], "engine-team"),
+    FileMeta("docs/ACTION ITEMS.MD", "engine-specific", ["docs"], ["action-items"], "engine-team"),
+    FileMeta("docs/Audit Harness-Explained.md", "engine-specific", ["docs"], ["audit", "harness"], "engine-team"),
+    FileMeta("docs/What the Audit Harness Does.md", "engine-specific", ["docs"], ["audit", "harness"], "engine-team"),
+    FileMeta("docs/GRAPH-architecture.md", "engine-specific", ["docs"], ["architecture", "graph"], "engine-team"),
+    FileMeta(
+        "docs/L9_Contract_Enforcement_System.md",
+        "engine-specific",
+        ["docs"],
+        ["contracts", "enforcement"],
+        "engine-team",
+    ),
+    FileMeta(
+        "docs/PlasticOS Graph Cognitive Engine.yaml", "engine-specific", ["docs"], ["plasticos", "spec"], "engine-team"
+    ),
+    FileMeta(
+        "docs/plasticos_domain_spec_v0.3.0.yaml",
+        "domain-specific",
+        ["docs"],
+        ["plasticos", "spec", "v0.3"],
+        "domain-team",
+    ),
+    FileMeta(
+        "docs/plasticos_domain_spec_v0.4.yaml",
+        "domain-specific",
+        ["docs"],
+        ["plasticos", "spec", "v0.4"],
+        "domain-team",
+    ),
+    # L9_Platform_Architecture.md and L9_AI_Constellation_Infrastructure_Reference.md
+    # are referenced in CLAUDE.md but live in the L9 platform repo, not here
+    # --- docs/Dev-Docs ---
+    FileMeta(
+        "docs/Dev-Docs/cognitive-engine-revenue-patterns.md",
+        "engine-specific",
+        ["docs"],
+        ["dev-docs", "revenue"],
+        "engine-team",
+    ),
+    FileMeta(
+        "docs/Dev-Docs/top3_graph_pattern_analysis.json",
+        "engine-specific",
+        ["docs"],
+        ["dev-docs", "analysis"],
+        "engine-team",
+    ),
+    FileMeta(
+        "docs/Dev-Docs/top5_leverage_patterns_detailed.json",
+        "engine-specific",
+        ["docs"],
+        ["dev-docs", "analysis"],
+        "engine-team",
+    ),
+    FileMeta(
+        "docs/Dev-Docs/universal_graph_schema.json", "engine-specific", ["docs"], ["dev-docs", "schema"], "engine-team"
+    ),
+    # --- docs/agent-tasks ---
+    FileMeta(
+        "docs/agent-tasks/add-domain-spec.md",
+        "engine-specific",
+        ["docs"],
+        ["agent-tasks", "domain-spec"],
+        "engine-team",
+    ),
+    FileMeta("docs/agent-tasks/add-gate-type.md", "engine-specific", ["docs"], ["agent-tasks", "gates"], "engine-team"),
+    FileMeta(
+        "docs/agent-tasks/add-action-handler.md",
+        "engine-specific",
+        ["docs"],
+        ["agent-tasks", "handlers"],
+        "engine-team",
+    ),
+    FileMeta(
+        "docs/agent-tasks/extend-contract.md", "engine-specific", ["docs"], ["agent-tasks", "contracts"], "engine-team"
+    ),
+    FileMeta(
+        "docs/agent-tasks/fix-api-regression.md", "engine-specific", ["docs"], ["agent-tasks", "api"], "engine-team"
+    ),
+    FileMeta(
+        "docs/agent-tasks/fix-audit-finding.md", "engine-specific", ["docs"], ["agent-tasks", "audit"], "engine-team"
+    ),
+    FileMeta(
+        "docs/agent-tasks/fix-log-safety.md", "engine-specific", ["docs"], ["agent-tasks", "logging"], "engine-team"
+    ),
+    FileMeta(
+        "docs/agent-tasks/fix-test-quality.md", "engine-specific", ["docs"], ["agent-tasks", "testing"], "engine-team"
+    ),
+    # --- docs/misc ---
+    FileMeta(
+        "docs/plasticos_domain_spec_changes.md", "domain-specific", ["docs"], ["plasticos", "changelog"], "domain-team"
+    ),
+    # --- docs/contracts ---
+    FileMeta(
+        "docs/contracts/FIELD_NAMES.md", "l9-template", ["docs", "contracts"], ["L9_TEMPLATE", "contracts"], "platform"
+    ),
+    FileMeta(
+        "docs/contracts/METHOD_SIGNATURES.md",
+        "l9-template",
+        ["docs", "contracts"],
+        ["L9_TEMPLATE", "contracts"],
+        "platform",
+    ),
+    FileMeta(
+        "docs/contracts/CYPHER_SAFETY.md",
+        "l9-template",
+        ["docs", "contracts"],
+        ["L9_TEMPLATE", "contracts", "cypher"],
+        "platform",
+    ),
+    FileMeta(
+        "docs/contracts/BANNED_PATTERNS.md",
+        "l9-template",
+        ["docs", "contracts"],
+        ["L9_TEMPLATE", "contracts"],
+        "platform",
+    ),
+    FileMeta(
+        "docs/contracts/ERROR_HANDLING.md",
+        "l9-template",
+        ["docs", "contracts"],
+        ["L9_TEMPLATE", "contracts"],
+        "platform",
+    ),
+    FileMeta(
+        "docs/contracts/HANDLER_PAYLOADS.md",
+        "l9-template",
+        ["docs", "contracts"],
+        ["L9_TEMPLATE", "contracts"],
+        "platform",
+    ),
+    FileMeta(
+        "docs/contracts/PYDANTIC_YAML_MAPPING.md",
+        "l9-template",
+        ["docs", "contracts"],
+        ["L9_TEMPLATE", "contracts"],
+        "platform",
+    ),
+    FileMeta(
+        "docs/contracts/DEPENDENCY_INJECTION.md",
+        "l9-template",
+        ["docs", "contracts"],
+        ["L9_TEMPLATE", "contracts"],
+        "platform",
+    ),
+    FileMeta(
+        "docs/contracts/TEST_PATTERNS.md",
+        "l9-template",
+        ["docs", "contracts"],
+        ["L9_TEMPLATE", "contracts"],
+        "platform",
+    ),
+    FileMeta(
+        "docs/contracts/RETURN_VALUES.md",
+        "l9-template",
+        ["docs", "contracts"],
+        ["L9_TEMPLATE", "contracts"],
+        "platform",
+    ),
+    FileMeta(
+        "docs/contracts/PACKET_ENVELOPE_FIELDS.md",
+        "l9-template",
+        ["docs", "contracts"],
+        ["L9_TEMPLATE", "contracts", "packet"],
+        "platform",
+    ),
+    FileMeta(
+        "docs/contracts/DELEGATION_PROTOCOL.md",
+        "l9-template",
+        ["docs", "contracts"],
+        ["L9_TEMPLATE", "contracts"],
+        "platform",
+    ),
+    FileMeta(
+        "docs/contracts/PACKET_TYPE_REGISTRY.md",
+        "l9-template",
+        ["docs", "contracts"],
+        ["L9_TEMPLATE", "contracts", "packet"],
+        "platform",
+    ),
+    FileMeta(
+        "docs/contracts/DOMAIN_SPEC_VERSIONING.md",
+        "l9-template",
+        ["docs", "contracts"],
+        ["L9_TEMPLATE", "contracts"],
+        "platform",
+    ),
+    FileMeta(
+        "docs/contracts/FEEDBACK_LOOPS.md",
+        "l9-template",
+        ["docs", "contracts"],
+        ["L9_TEMPLATE", "contracts"],
+        "platform",
+    ),
+    FileMeta(
+        "docs/contracts/NODE_REGISTRATION.md",
+        "l9-template",
+        ["docs", "contracts"],
+        ["L9_TEMPLATE", "contracts"],
+        "platform",
+    ),
+    FileMeta(
+        "docs/contracts/ENV_VARS.md", "l9-template", ["docs", "contracts"], ["L9_TEMPLATE", "contracts"], "platform"
+    ),
+    FileMeta(
+        "docs/contracts/OBSERVABILITY.md",
+        "l9-template",
+        ["docs", "contracts"],
+        ["L9_TEMPLATE", "contracts"],
+        "platform",
+    ),
+    FileMeta(
+        "docs/contracts/MEMORY_SUBSTRATE_ACCESS.md",
+        "l9-template",
+        ["docs", "contracts"],
+        ["L9_TEMPLATE", "contracts"],
+        "platform",
+    ),
+    FileMeta(
+        "docs/contracts/SHARED_MODELS.md",
+        "l9-template",
+        ["docs", "contracts"],
+        ["L9_TEMPLATE", "contracts"],
+        "platform",
+    ),
+    # --- engine/packet ---
+    FileMeta(
+        "engine/packet/README-Packet Envelope.md", "engine-specific", ["docs"], ["packet", "envelope"], "engine-team"
+    ),
+    # --- artifacts ---
+    FileMeta("artifacts/audit_report.md", "engine-specific", ["artifacts"], ["audit", "report"], "engine-team"),
+    FileMeta("artifacts/coverage_report.md", "engine-specific", ["artifacts"], ["coverage", "report"], "engine-team"),
+    FileMeta("artifacts/coverage_matrix.json", "engine-specific", ["artifacts"], ["coverage", "matrix"], "engine-team"),
+    FileMeta("artifacts/spec_checklist.json", "engine-specific", ["artifacts"], ["spec", "checklist"], "engine-team"),
+    # --- reports ---
+    FileMeta(
+        "reports/GAP-ANALYSIS-Audit-Harness-and-Spec-Coverage.md",
+        "engine-specific",
+        ["reports"],
+        ["gap-analysis"],
+        "engine-team",
+    ),
+    FileMeta(
+        "reports/GMP-Report-130-Contract-Enforcement-System.md",
+        "engine-specific",
+        ["reports"],
+        ["gmp-report"],
+        "engine-team",
+    ),
+    # --- templates ---
+    FileMeta(
+        "templates/styleguide.template.md", "l9-template", ["templates"], ["L9_TEMPLATE", "styleguide"], "platform"
+    ),
+    # --- Additional YAML configs ---
+    FileMeta(".github/workflows/ci-quality.yml", "l9-template", ["ci"], ["L9_TEMPLATE", "ci", "quality"], "platform"),
+    FileMeta(".github/workflows/contracts.yml", "l9-template", ["ci"], ["L9_TEMPLATE", "ci", "contracts"], "platform"),
+    FileMeta(
+        ".semgrep/semgrep-rules.yaml", "l9-template", ["security"], ["L9_TEMPLATE", "semgrep", "rules"], "platform"
+    ),
+    FileMeta("domains/_template.yaml", "domain-specific", ["config"], ["domains", "template"], "domain-team"),
+    FileMeta(
+        "domains/plasticos_domain_spec.yaml", "domain-specific", ["config"], ["domains", "plasticos"], "domain-team"
+    ),
+    FileMeta("domains/plasticos/spec.yaml", "domain-specific", ["config"], ["domains", "plasticos"], "domain-team"),
+    FileMeta("chassis/__init__.py", "chassis", ["api"], ["chassis"], "platform-team"),
+    FileMeta("chassis/actions.py", "chassis", ["api"], ["chassis", "actions"], "platform-team"),
+    FileMeta("chassis/action_registry.py", "chassis", ["api"], ["chassis", "registry"], "platform-team"),
+    FileMeta("chassis/app.py", "chassis", ["api"], ["chassis", "fastapi", "legacy"], "platform-team"),
+    FileMeta("chassis/audit.py", "chassis", ["api"], ["chassis", "audit"], "platform-team"),
+    FileMeta("chassis/chassis_app.py", "chassis", ["api"], ["chassis", "fastapi", "single-ingress"], "platform-team"),
+    FileMeta("chassis/config.py", "chassis", ["api", "config"], ["chassis", "settings"], "platform-team"),
+    FileMeta("chassis/engine_boot.py", "chassis", ["api"], ["chassis", "lifecycle", "boot"], "platform-team"),
+    FileMeta("chassis/errors.py", "chassis", ["api"], ["chassis", "errors", "exceptions"], "platform-team"),
+    FileMeta("chassis/health.py", "chassis", ["api"], ["chassis", "health", "readiness"], "platform-team"),
+    FileMeta("chassis/middleware.py", "chassis", ["api"], ["chassis", "middleware", "tenant"], "platform-team"),
+    FileMeta("chassis/orchestrator.py", "chassis", ["api"], ["chassis", "orchestrator"], "platform-team"),
+    FileMeta("chassis/pii.py", "chassis", ["api", "compliance"], ["chassis", "pii", "redaction"], "platform-team"),
+    FileMeta("chassis/router.py", "chassis", ["api"], ["chassis", "router", "action-dispatch"], "platform-team"),
+    FileMeta("chassis/types.py", "chassis", ["api"], ["chassis", "types", "pydantic"], "platform-team"),
+    # --- Chassis Auth Submodule ---
+    FileMeta("chassis/auth/app.py", "chassis", ["api", "auth"], ["chassis", "auth", "fastapi"], "platform-team"),
+    FileMeta("chassis/auth/auth.py", "chassis", ["api", "auth"], ["chassis", "auth", "middleware"], "platform-team"),
+    FileMeta(
+        "chassis/auth/generate_l9_api_key.py",
+        "chassis",
+        ["api", "auth"],
+        ["chassis", "auth", "keygen"],
+        "platform-team",
+    ),
+    FileMeta(
+        "chassis/auth/settings.py",
+        "chassis",
+        ["api", "auth", "config"],
+        ["chassis", "auth", "settings"],
+        "platform-team",
+    ),
+    FileMeta(
+        "chassis/auth/test_auth_middleware.py",
+        "chassis",
+        ["api", "auth", "test"],
+        ["chassis", "auth", "test"],
+        "platform-team",
+    ),
     FileMeta(
         "pyproject.toml", "engine-specific", ["build", "config"], ["build", "dependencies", "poetry"], "engine-team"
     ),
@@ -322,7 +838,7 @@ FILE_REGISTRY: list[FileMeta] = [
     ),
     FileMeta("domains/README.md", "domain-specific", ["config"], ["domains", "docs"], "domain-team"),
     FileMeta("domains/TESTING_GUIDE.md", "domain-specific", ["test"], ["domains", "testing", "guide"], "domain-team"),
-    FileMeta("domains/domain_extractor.py", "domain-specific", ["config"], ["domains", "extractor"], "domain-team"),
+    # domains/domain_extractor.py doesn't exist (removed or renamed)
     FileMeta(
         "domains/mortgage_brokerage_domain_spec.yaml",
         "domain-specific",
@@ -387,13 +903,23 @@ def _yaml_list(items: list[str]) -> str:
 
 
 def format_comment_block(meta: FileMeta, engine: str, prefix: str = "# ") -> str:
+    """Format L9_META as comment block for YAML, shell, Makefile, Dockerfile, etc."""
     lines = [
-        f"{prefix}",
+        f"{prefix}--- L9_META ---",
+        f"{prefix}l9_schema: {L9_SCHEMA_VERSION}",
+        f"{prefix}origin: {meta.origin}",
+        f"{prefix}engine: {engine}",
+        f"{prefix}layer: {_yaml_list(meta.layer)}",
+        f"{prefix}tags: {_yaml_list(meta.tags)}",
+        f"{prefix}owner: {meta.owner}",
+        f"{prefix}status: {meta.status}",
+        f"{prefix}--- /L9_META ---",
     ]
     return "\n".join(lines)
 
 
 def format_html_comment(meta: FileMeta, engine: str) -> str:
+    """Format L9_META as HTML comment for Markdown files."""
     lines = [
         "<!-- L9_META",
         f"l9_schema: {L9_SCHEMA_VERSION}",
@@ -409,8 +935,17 @@ def format_html_comment(meta: FileMeta, engine: str) -> str:
 
 
 def format_python_docstring_block(meta: FileMeta, engine: str) -> str:
+    """Format L9_META for Python docstring insertion."""
     lines = [
-        "",
+        "--- L9_META ---",
+        f"l9_schema: {L9_SCHEMA_VERSION}",
+        f"origin: {meta.origin}",
+        f"engine: {engine}",
+        f"layer: {_yaml_list(meta.layer)}",
+        f"tags: {_yaml_list(meta.tags)}",
+        f"owner: {meta.owner}",
+        f"status: {meta.status}",
+        "--- /L9_META ---",
     ]
     return "\n".join(lines)
 
@@ -448,16 +983,37 @@ def format_toml_block(meta: FileMeta, engine: str) -> str:
 # STRIP EXISTING — Regex patterns for idempotent re-injection
 # =============================================================================
 
+# Matches comment-style L9_META blocks (YAML, shell, Makefile, Dockerfile, Python without docstring)
+# Example:
+#   # --- L9_META ---
+#   # l9_schema: 1
+#   # ...
+#   # --- /L9_META ---
 RE_COMMENT_META = re.compile(
-    r"[ \t]*#[ \t]*[ \t]*\n?",
-    re.DOTALL,
+    r"^[ \t]*#[ \t]*---[ \t]*L9_META[ \t]*---.*?#[ \t]*---[ \t]*/L9_META[ \t]*---[ \t]*\n?",
+    re.MULTILINE | re.DOTALL,
 )
+
+# Matches HTML comment L9_META blocks (Markdown)
+# Example:
+#   <!-- L9_META
+#   l9_schema: 1
+#   ...
+#   /L9_META -->
 RE_HTML_META = re.compile(
     r"<!-- L9_META.*?/L9_META -->[ \t]*\n?",
     re.DOTALL,
 )
+
+# Matches L9_META inside Python docstrings
+# Example:
+#   """
+#   --- L9_META ---
+#   l9_schema: 1
+#   ...
+#   --- /L9_META ---
 RE_PY_DOCSTRING_META = re.compile(
-    r"\n?",
+    r"---[ \t]*L9_META[ \t]*---.*?---[ \t]*/L9_META[ \t]*---[ \t]*\n?",
     re.DOTALL,
 )
 
@@ -500,7 +1056,64 @@ def _detect_filetype(path: str) -> str:
 # =============================================================================
 
 
+def _inject_python_meta(content: str, meta: FileMeta, engine: str) -> str:
+    """Inject L9_META into Python files using docstring style."""
+    # Strip existing meta from docstring if present
+    content = RE_PY_DOCSTRING_META.sub("", content)
+    # Also strip comment-style meta if someone added it wrong
+    content = RE_COMMENT_META.sub("", content)
+
+    meta_block = format_python_docstring_block(meta, engine)
+
+    # Check for existing docstring at start of file (after optional shebang)
+    shebang = ""
+    working_content = content.lstrip("\n")
+    if working_content.startswith("#!"):
+        nl = working_content.index("\n")
+        shebang = working_content[: nl + 1]
+        working_content = working_content[nl + 1 :]
+
+    # Strip leading whitespace/newlines and any orphaned comments before docstring
+    working_content = working_content.lstrip("\n")
+
+    # Match existing docstring (may be preceded by comments we should skip)
+    ds_match = re.search(r'^(""")(.*?)(""")', working_content, re.MULTILINE | re.DOTALL)
+    if ds_match:
+        # Skip any content before the docstring (orphaned comments, stale paths)
+        opening = ds_match.group(1)
+        body = ds_match.group(2)
+        closing = ds_match.group(3)
+        post_docstring = working_content[ds_match.end() :]
+
+        # Strip any existing L9_META from body
+        body = RE_PY_DOCSTRING_META.sub("", body)
+        body_stripped = body.lstrip("\n")
+
+        # Build new docstring with meta at top
+        if body_stripped:
+            new_ds = f"{opening}\n{meta_block}\n\n{body_stripped}{closing}"
+        else:
+            new_ds = f"{opening}\n{meta_block}\n{closing}"
+
+        # Don't preserve orphaned comments before docstring (they're usually stale paths)
+        return shebang + new_ds + post_docstring
+
+    # No existing docstring — create one with just the meta block
+    return shebang + f'"""\n{meta_block}\n"""\n' + working_content
+
+
+def _inject_comment_meta(content: str, meta: FileMeta, engine: str) -> str:
+    """Inject L9_META using comment-style for shell, YAML, etc."""
+    content = RE_COMMENT_META.sub("", content)
+    block = format_comment_block(meta, engine)
+    if content.startswith("#!"):
+        nl = content.index("\n")
+        return content[: nl + 1] + block + "\n" + content[nl + 1 :]
+    return block + "\n" + content
+
+
 def inject_meta(content: str, meta: FileMeta, engine: str) -> str:
+    """Inject L9_META header into file content based on filetype."""
     ftype = _detect_filetype(meta.path)
 
     # --- JSON ---
@@ -509,6 +1122,9 @@ def inject_meta(content: str, meta: FileMeta, engine: str) -> str:
             data = json.loads(content)
         except json.JSONDecodeError:
             return content
+        # Only inject _l9_meta into objects, not arrays (arrays would break structure)
+        if not isinstance(data, dict):
+            return content  # Skip arrays - can't inject meta without breaking structure
         data["_l9_meta"] = format_json_meta(meta, engine)
         ordered = {"_l9_meta": data.pop("_l9_meta")}
         ordered.update(data)
@@ -528,22 +1144,7 @@ def inject_meta(content: str, meta: FileMeta, engine: str) -> str:
 
     # --- Python ---
     if ftype == "python":
-        content = RE_PY_DOCSTRING_META.sub("", content)
-        ds_match = re.match(r'^(""")(.*?)(""")', content, re.DOTALL)
-        if ds_match:
-            opening = ds_match.group(1)
-            body = ds_match.group(2)
-            closing = ds_match.group(3)
-            meta_block = format_python_docstring_block(meta, engine)
-            body_stripped = body.lstrip("\n")
-            new_ds = f"{opening}\n{meta_block}\n\n{body_stripped}{closing}"
-            return new_ds + content[ds_match.end() :]
-        content = RE_COMMENT_META.sub("", content)
-        block = format_comment_block(meta, engine)
-        if content.startswith("#!"):
-            nl = content.index("\n")
-            return content[: nl + 1] + block + "\n" + content[nl + 1 :]
-        return block + "\n" + content
+        return _inject_python_meta(content, meta, engine)
 
     # --- Shell ---
     if ftype == "shell":
