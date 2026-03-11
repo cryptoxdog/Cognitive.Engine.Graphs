@@ -126,7 +126,7 @@ jobs:
       - name: Install Linting Tools
         run: |
           python -m pip install --upgrade pip
-          pip install ruff mypy
+          pip install "ruff==0.15.5" mypy
 
       - name: Run Ruff Linter
         run: |
