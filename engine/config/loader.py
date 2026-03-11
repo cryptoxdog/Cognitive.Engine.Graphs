@@ -94,6 +94,10 @@ class DomainPackLoader:
         if "\x00" in domain_id:
             raise DomainNotFoundError(f"Invalid domain ID: {domain_id!r} contains null byte")
 
+        # Reject absolute domain IDs — only relative IDs are valid
+        if Path(domain_id).is_absolute():
+            raise DomainNotFoundError(f"Invalid domain ID: {domain_id!r} must be a relative path")
+
         candidate = (self._base_path / domain_id / "spec.yaml").resolve()
 
         # Check for symlinks before resolving - reject symlinked spec files
@@ -101,9 +105,13 @@ class DomainPackLoader:
         if raw_path.is_symlink():
             raise DomainNotFoundError(f"Invalid domain path: {domain_id!r} spec.yaml is a symlink")
 
-        # Verify resolved path is within base directory
-        if not str(candidate).startswith(str(self._base_path)):
-            raise DomainNotFoundError(f"Invalid domain path: {domain_id!r} resolves outside base directory")
+        # Verify resolved path is within base directory using proper path ancestry check
+        try:
+            candidate.relative_to(self._base_path.resolve())
+        except ValueError as exc:
+            raise DomainNotFoundError(
+                f"Invalid domain path: {domain_id!r} resolves outside base directory"
+            ) from exc
 
         if not candidate.exists():
             raise DomainNotFoundError(f"Domain spec not found: {candidate}")

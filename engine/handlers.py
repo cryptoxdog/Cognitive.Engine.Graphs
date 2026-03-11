@@ -111,33 +111,31 @@ _SAFE_CYPHER_FUNCTIONS = frozenset(
 )
 
 # Dangerous Cypher keywords that must be blocked
-_DANGEROUS_PATTERNS = frozenset(
-    [
-        "call",
-        "create",
-        "merge",
-        "delete",
-        "remove",
-        "set",
-        "match",
-        "return",
-        "with",
-        "unwind",
-        "foreach",
-        "load",
-        "using",
-        "detach",
-        "optional",
-        "union",
-        "apoc",
-        "gds",
-        "dbms",
-        "db.",
-        "//",
-        "/*",
-        "$$",
-        "${",
-    ]
+_DANGEROUS_PATTERNS = (
+    "detach",  # must be before "delete" — DETACH DELETE reports detach
+    "call",
+    "create",
+    "merge",
+    "delete",
+    "remove",
+    "set",
+    "match",
+    "return",
+    "with",
+    "unwind",
+    "foreach",
+    "load",
+    "using",
+    "optional",
+    "union",
+    "apoc",
+    "gds",
+    "dbms",
+    "db.",
+    "//",
+    "/*",
+    "$$",
+    "${",
 )
 
 # Valid property name pattern (alphanumeric + underscore, must start with letter/underscore)
@@ -234,7 +232,7 @@ def _sanitize_expression(expr: str) -> str:
     _check_dangerous_patterns(expr_stripped, expr_lower)
 
     has_safe_function = any(
-        expr_lower.startswith(f) or f" {f}" in expr_lower or f"({f}" in expr_lower for f in _SAFE_CYPHER_FUNCTIONS
+        expr_lower.startswith(f.lower()) or f" {f.lower()}" in expr_lower or f"({f.lower()}" in expr_lower for f in _SAFE_CYPHER_FUNCTIONS
     )
     # Only allow direct property references (n.<identifier>), not function calls that wrap
     # property access (e.g. substring(n.name, 0, 3) is rejected here).
