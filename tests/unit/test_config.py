@@ -25,8 +25,8 @@ class TestConfigValidation:
 
     def test_minimal_spec_validates(self, minimal_domain_spec):
         """Minimal valid spec passes validation."""
-        spec = DomainSpec(**minimal_domain_spec)
-        assert spec.domain.id == "test-domain"
+        spec = minimal_domain_spec
+        assert spec.domain.id == "test"
 
     def test_missing_required_field_fails(self):
         """Missing required field raises ValidationError."""

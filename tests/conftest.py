@@ -129,9 +129,9 @@ def minimal_domain_spec() -> DomainSpec:
             "nodes": [
                 {
                     "label": "Facility",
-                    "managed_by": "sync",
+                    "managedby": "sync",
                     "candidate": True,
-                    "match_direction": "intake_to_buyer",
+                    "matchdirection": "intake_to_buyer",
                     "properties": [
                         {"name": "facility_id", "type": "int", "required": True},
                         {"name": "name", "type": "string"},
@@ -144,9 +144,9 @@ def minimal_domain_spec() -> DomainSpec:
                 },
                 {
                     "label": "MaterialIntake",
-                    "managed_by": "api",
-                    "query_entity": True,
-                    "match_direction": "intake_to_buyer",
+                    "managedby": "api",
+                    "queryentity": True,
+                    "matchdirection": "intake_to_buyer",
                     "properties": [
                         {"name": "intake_id", "type": "int", "required": True},
                     ],
@@ -155,19 +155,19 @@ def minimal_domain_spec() -> DomainSpec:
             "edges": [
                 {
                     "type": "EXCLUDED_FROM",
-                    "from": "Facility",
+                    "from_": "Facility",
                     "to": "Facility",
                     "direction": "DIRECTED",
                     "category": "exclusion",
-                    "managed_by": "sync",
+                    "managedby": "sync",
                 },
             ],
         },
-        "match_entities": {
-            "candidate": [{"label": "Facility", "match_direction": "intake_to_buyer"}],
-            "query_entity": [{"label": "MaterialIntake", "match_direction": "intake_to_buyer"}],
+        "matchentities": {
+            "candidate": [{"label": "Facility", "matchdirection": "intake_to_buyer"}],
+            "queryentity": [{"label": "MaterialIntake", "matchdirection": "intake_to_buyer"}],
         },
-        "query_schema": {"match_directions": ["intake_to_buyer"], "fields": []},
+        "queryschema": {"matchdirections": ["intake_to_buyer"], "fields": []},
         "traversal": {"steps": []},
         "gates": [],
         "scoring": {"dimensions": []},
