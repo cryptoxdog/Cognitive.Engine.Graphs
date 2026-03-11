@@ -1,0 +1,32 @@
+name: CodeRabbit Review Notify
+
+on:
+  pull_request_review:
+    types: [submitted]
+
+jobs:
+  notify-l:
+    if: github.event.review.user.login == 'coderabbitai[bot]' && github.event.review.state == 'changes_requested'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping L on Telegram
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ vars.TELEGRAM_CHAT_ID }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          REPO: ${{ github.repository }}
+          PR_NUM: ${{ github.event.pull_request.number }}
+        run: |
+          MESSAGE="🐰 CodeRabbit review ready
+
+Repo: ${REPO}
+PR #${PR_NUM}: ${PR_TITLE}
+${PR_URL}
+
+Implement fixes, verify CI, merge."
+
+          curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+            --data-urlencode "chat_id=${TELEGRAM_CHAT_ID}" \
+            --data-urlencode "text=${MESSAGE}" \
+            --fail
