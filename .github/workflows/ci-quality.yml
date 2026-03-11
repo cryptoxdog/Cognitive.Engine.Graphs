@@ -14,14 +14,11 @@
 # All project-specific values come from repository variables/secrets.
 #
 # Required GitHub Secrets:
-#   SONAR_TOKEN          — SonarCloud token
 #   GITGUARDIAN_API_KEY  — GitGuardian API key
 #   CODECOV_TOKEN        — Codecov upload token
 #
 # Required GitHub Variables (Settings → Variables):
 #   PYTHON_VERSION       — Python version (e.g. "3.12")
-#   SONAR_PROJECT_KEY    — SonarCloud project key
-#   SONAR_ORG            — SonarCloud organization
 #
 # Optional GitHub Variables:
 #   TEST_DB_IMAGE        — Postgres image (default: postgres:16)
@@ -105,47 +102,6 @@ jobs:
           config: ${{ vars.SEMGREP_RULES_PATH || '.semgrep/' }}
         env:
           SEMGREP_APP_TOKEN: ${{ secrets.SEMGREP_APP_TOKEN || '' }}
-
-  # ===========================================================================
-  # SONARCLOUD — Code Quality & Security Analysis
-  # ===========================================================================
-  sonarcloud:
-    name: SonarCloud Analysis
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: ${{ env.PYTHON_VERSION }}
-          cache: "pip"
-
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -e . 2>/dev/null || pip install -r requirements.txt 2>/dev/null || true
-          pip install pytest==8.3.5 pytest-cov==6.0.0
-
-      - name: Run tests with coverage
-        run: pytest tests/ --cov=. --cov-report=xml --cov-report=term --ignore=tests/e2e || true
-        continue-on-error: true
-
-      - name: SonarCloud Scan
-        uses: SonarSource/sonarqube-scan-action@v6
-        env:
-          GITGUARDIAN_API_KEY: ${{ secrets.GITGUARDIAN_API_KEY }}
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-        with:
-          args: >
-            -Dsonar.projectKey=${{ vars.SONAR_PROJECT_KEY }}
-            -Dsonar.organization=${{ vars.SONAR_ORG }}
-            -Dsonar.python.coverage.reportPaths=coverage.xml
 
   # ===========================================================================
   # SECRETS-SCAN — GitGuardian Secrets Detection
@@ -266,7 +222,6 @@ jobs:
     needs:
       - lint-format
       - semgrep
-      - sonarcloud
       - secrets-scan
       - coverage
       - yaml-validate
@@ -281,7 +236,6 @@ jobs:
           echo ""
           echo "  ├─ Lint & Format:  ${{ needs.lint-format.result }}"
           echo "  ├─ Semgrep:        ${{ needs.semgrep.result }}"
-          echo "  ├─ SonarCloud:     ${{ needs.sonarcloud.result }}"
           echo "  ├─ Secrets Scan:   ${{ needs.secrets-scan.result }}"
           echo "  ├─ Coverage:       ${{ needs.coverage.result }}"
           echo "  └─ YAML Validate:  ${{ needs.yaml-validate.result }}"
