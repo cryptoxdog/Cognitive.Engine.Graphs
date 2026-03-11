@@ -232,7 +232,8 @@ def _sanitize_expression(expr: str) -> str:
     _check_dangerous_patterns(expr_stripped, expr_lower)
 
     has_safe_function = any(
-        expr_lower.startswith(f.lower()) or f" {f.lower()}" in expr_lower or f"({f.lower()}" in expr_lower for f in _SAFE_CYPHER_FUNCTIONS
+        expr_lower.startswith(f.lower()) or f" {f.lower()}" in expr_lower or f"({f.lower()}" in expr_lower
+        for f in _SAFE_CYPHER_FUNCTIONS
     )
     # Only allow direct property references (n.<identifier>), not function calls that wrap
     # property access (e.g. substring(n.name, 0, 3) is rejected here).

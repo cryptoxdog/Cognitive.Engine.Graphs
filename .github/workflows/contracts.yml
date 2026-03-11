@@ -45,7 +45,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - run: pip install ruff mypy pydantic pydantic-settings
+      - run: pip install ruff==0.15.5 mypy==1.14.0 pydantic pydantic-settings
       - run: ruff check . && ruff format --check .
       - run: mypy engine/ --strict --ignore-missing-imports 2>/dev/null || true
 
@@ -58,5 +58,5 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - run: pip install -e ".[dev]" 2>/dev/null || pip install pytest
+      - run: pip install -e ".[dev]" 2>/dev/null || pip install pytest==8.3.5
       - run: pytest tests/ -v --tb=short 2>/dev/null || echo "No tests or pytest skipped"

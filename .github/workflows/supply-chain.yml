@@ -59,7 +59,7 @@ jobs:
 
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11v4.1.1
+        uses: actions/checkout@v4
         with:
           persist-credentials: false
 
@@ -71,7 +71,7 @@ jobs:
           publish_results: true
 
       - name: Upload Scorecard Results to Security Tab
-        uses: github/codeql-action/upload-sarif@a57c67b89589d2d13d5ac85a9fc4679e7539e94cv3.27.9
+        uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: scorecard.sarif
 
@@ -96,7 +96,7 @@ jobs:
 
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11v4.1.1
+        uses: actions/checkout@v4
 
       - name: Review Dependencies
         uses: actions/dependency-review-action@5aa4f05ee5e9f4f33e5c31e13d7d77c6a07a86e2v4.5.0
@@ -120,7 +120,7 @@ jobs:
 
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11v4.1.1
+        uses: actions/checkout@v4
 
       - name: Generate SBOM with Syft
         uses: anchore/sbom-action@fc46e51fb0e4e3ecf1ea2be3b2e00ee50f1c4e44v0.17.7
@@ -149,10 +149,10 @@ jobs:
 
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11v4.1.1
+        uses: actions/checkout@v4
 
       - name: Set up Python
-        uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2bv5.3.0
+        uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: 'pip'
