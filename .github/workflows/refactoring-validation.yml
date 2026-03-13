@@ -76,7 +76,7 @@ jobs:
 
       - name: Run Full Test Suite (BLOCKING)
         run: |
-          pytest -n auto \
+          PYTHONPATH=. pytest -n auto \
             --cov=. \
             --cov-report=term-missing \
             --cov-fail-under=60 \

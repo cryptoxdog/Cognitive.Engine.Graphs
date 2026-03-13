@@ -59,4 +59,4 @@ jobs:
         with:
           python-version: "3.12"
       - run: pip install -r requirements-ci.txt && pip install -r requirements.txt
-      - run: pytest tests/ -v --tb=short
+      - run: PYTHONPATH=. pytest tests/ -v --tb=short

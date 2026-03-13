@@ -30,6 +30,7 @@ jobs:
       - name: Install dependencies
         run: |
           pip install -r requirements-ci.txt
+          pip install -r requirements.txt
 
       - name: Check for banned files
         run: |
