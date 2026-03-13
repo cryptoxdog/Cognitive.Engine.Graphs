@@ -26,8 +26,8 @@ The Graph Cognitive Engine is feature-complete for MVP with:
 
 ### Phase 1: Memory Substrate Integration
 
-**Priority:** HIGH  
-**Source:** Codebase Audit — Noted Gap #1  
+**Priority:** HIGH
+**Source:** Codebase Audit — Noted Gap #1
 **Tracking:** `chassis/actions.py` DEFERRED comment
 
 #### Packet Persistence to PostgreSQL
@@ -49,8 +49,8 @@ Currently, PacketEnvelope request/response pairs are created but not persisted. 
 
 ### Phase 2: Vector Embeddings (pgvector)
 
-**Priority:** MEDIUM  
-**Source:** Codebase Audit — Noted Gap #4  
+**Priority:** MEDIUM
+**Source:** Codebase Audit — Noted Gap #4
 **Tracking:** Architecture docs reference, not implemented
 
 #### pgvector Integration for Semantic Search
