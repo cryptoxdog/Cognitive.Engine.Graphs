@@ -176,7 +176,7 @@ def _try_safe_literal(expr_stripped: str, expr_lower: str) -> str | None:
     if expr_lower in ("true", "false", "null"):
         return expr_stripped
     try:
-        float(expr_stripped)
+        float(expr_stripped)  # nosemgrep: float-requires-try-except
     except ValueError:
         pass
     else:
@@ -297,10 +297,8 @@ async def handle_match(tenant: str, payload: dict[str, Any]) -> dict[str, Any]:
             action="match",
             tenant=tenant,
         )
-    candidate_label = sanitize_label(candidate_labels[0])
-
     cypher = (
-        f"MATCH (candidate:{candidate_label})\n"
+        f"MATCH (candidate:{sanitize_label(candidate_labels[0])})\n"
         + "\n".join(traversal_clauses)
         + "\n"
         + f"WHERE {where_clause}\n"

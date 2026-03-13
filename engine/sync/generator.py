@@ -58,14 +58,11 @@ class SyncGenerator:
 
         if spec.taxonomyedges:
             for tax_edge in spec.taxonomyedges:
-                sanitized_tax_label = sanitize_label(tax_edge.targetlabel)
                 sanitized_edge_type = sanitize_label(tax_edge.edgetype)
-                sanitized_target_id = sanitize_label(tax_edge.targetid)
-                sanitized_field = sanitize_label(tax_edge.field)
                 cypher_parts.extend(
                     [
                         "WITH n, row",
-                        f"OPTIONAL MATCH (tax:{sanitized_tax_label} {{{sanitized_target_id}: row.{sanitized_field}}})",
+                        f"OPTIONAL MATCH (tax:{sanitize_label(tax_edge.targetlabel)} {{{sanitize_label(tax_edge.targetid)}: row.{sanitize_label(tax_edge.field)}}})",
                         "FOREACH (_ IN CASE WHEN tax IS NOT NULL THEN [1] ELSE [] END |",
                         f"  MERGE (n)-[:{sanitized_edge_type}]->(tax)",
                         ")",
@@ -97,11 +94,9 @@ class SyncGenerator:
         if not spec.idproperty:
             raise ValueError(f"Endpoint '{spec.path}': idproperty required")
 
-        sanitized_target = sanitize_label(spec.targetnode)
-        sanitized_id = sanitize_label(spec.idproperty)
         cypher_parts = [
             "UNWIND $batch AS row",
-            f"MATCH (n:{sanitized_target} {{{sanitized_id}: row.{sanitized_id}}})",
+            f"MATCH (n:{sanitize_label(spec.targetnode)} {{{sanitize_label(spec.idproperty)}: row.{sanitize_label(spec.idproperty)}}})",
         ]
 
         if spec.fieldsupdated:

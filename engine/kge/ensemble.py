@@ -36,8 +36,10 @@ import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from enum import StrEnum
+from typing import Any
 
 import numpy as np
+import numpy.typing as npt
 
 from engine.config.schema import KGEEnsembleSpec
 from engine.config.settings import settings
@@ -75,9 +77,9 @@ class VariantScore:
     variant_type: str
     score: float  # [0, 1]
     confidence: float = 1.0
-    metadata: dict | None = None
+    metadata: dict[str, Any] | None = None
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if self.metadata is None:
             self.metadata = {}
         if not 0.0 <= self.score <= 1.0:
@@ -150,8 +152,8 @@ class WeightedDistributionScore(VariantEnsemble):
             VariantScore(
                 variant_id=s.variant_id,
                 variant_type=s.variant_type,
-                score=float(np.clip(s.score, 0.0, 1.0)),  # nosemgrep: float-requires-try-except
-                confidence=float(np.clip(s.confidence, 0.0, 1.0)),  # nosemgrep: float-requires-try-except
+                score=float(np.clip(s.score, 0.0, 1.0)),  # nosemgrep: semgrep.float-requires-try-except
+                confidence=float(np.clip(s.confidence, 0.0, 1.0)),  # nosemgrep: semgrep.float-requires-try-except
                 metadata=s.metadata,
             )
             for s in scores
@@ -173,8 +175,10 @@ class WeightedDistributionScore(VariantEnsemble):
             conf_sum += wi * ci
 
         final = (
-            weighted_sum / conf_sum if conf_sum > 0 else float(np.mean([s.score for s in normalized]))
-        )  # nosemgrep: float-requires-try-except
+            weighted_sum / conf_sum
+            if conf_sum > 0
+            else float(np.mean([s.score for s in normalized]))  # nosemgrep: semgrep.float-requires-try-except
+        )  # nosemgrep: semgrep.float-requires-try-except
 
         result = EnsembleResult(
             final_score=final,
@@ -293,7 +297,7 @@ class MixtureOfExpertsEnsemble(VariantEnsemble):
         self.num_experts = num_experts
         self.learnable_gates = learnable_gates
 
-    def compute_entropy_confidence(self, gate_weights: np.ndarray) -> float:
+    def compute_entropy_confidence(self, gate_weights: npt.NDArray[np.float64]) -> float:
         """Ensemble confidence from gating entropy (Eq. 21 in KGE briefing).
 
         confidence = 1 - H(g(x)) / log(k)
@@ -317,7 +321,7 @@ class MixtureOfExpertsEnsemble(VariantEnsemble):
         entropy = -np.sum(p * np.log(p))
         max_entropy = math.log(k)
         confidence = 1.0 - (entropy / max_entropy)
-        return float(max(0.0, min(1.0, confidence)))  # nosemgrep: float-requires-try-except
+        return float(max(0.0, min(1.0, confidence)))  # nosemgrep: semgrep.float-requires-try-except
 
     def fuse(self, scores: list[VariantScore]) -> EnsembleResult:
         if not scores:
@@ -327,11 +331,12 @@ class MixtureOfExpertsEnsemble(VariantEnsemble):
         gate_logits = competencies / (1.0 + 1e-8)
         gate_weights = np.exp(gate_logits) / np.sum(np.exp(gate_logits))
 
-        final = float(np.clip(np.dot(gate_weights, competencies), 0.0, 1.0))  # nosemgrep: float-requires-try-except
+        final = float(np.clip(np.dot(gate_weights, competencies), 0.0, 1.0))  # nosemgrep: float-requires-try-except  # fmt: skip
 
         weights = {
-            s.variant_id: float(w) for s, w in zip(scores, gate_weights, strict=False)
-        }  # nosemgrep: float-requires-try-except
+            s.variant_id: float(w)  # nosemgrep: semgrep.float-requires-try-except
+            for s, w in zip(scores, gate_weights, strict=False)
+        }
 
         top_3 = sorted(zip(scores, gate_weights, strict=False), key=lambda x: -x[0].score)[:3]
         lines = [f"MoE Ensemble: final_score={final:.4f}"]
@@ -372,7 +377,7 @@ class EnsembleController:
             FusionStrategy.RANK_AGGREGATION: RankAggregationEnsemble(),
             FusionStrategy.MIXTURE_EXPERTS: MixtureOfExpertsEnsemble(),
         }
-        self.audit_log: list[dict] = []
+        self.audit_log: list[dict[str, Any]] = []
         self._spec = spec
 
     @classmethod
@@ -447,7 +452,7 @@ class EnsembleController:
             result = impl.fuse(valid_scores)
         except Exception as e:
             logger.exception("Ensemble fusion failed, falling back to mean")
-            mean_score = float(np.mean([s.score for s in valid_scores]))  # nosemgrep: float-requires-try-except
+            mean_score = float(np.mean([s.score for s in valid_scores]))  # nosemgrep: semgrep.float-requires-try-except
             weights = {s.variant_id: 1.0 / len(valid_scores) for s in valid_scores}
             return EnsembleResult(
                 final_score=mean_score,
@@ -470,6 +475,6 @@ class EnsembleController:
 
         return result
 
-    def get_audit_log(self) -> list[dict]:
+    def get_audit_log(self) -> list[dict[str, Any]]:
         """Return audit log of all ensemble predictions."""
         return self.audit_log

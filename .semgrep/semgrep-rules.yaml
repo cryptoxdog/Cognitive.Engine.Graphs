@@ -1,244 +1,129 @@
-# --- L9_META ---
-# l9_schema: 1
-# origin: l9-template
-# engine: graph
-# layer: [security]
-# tags: [L9_TEMPLATE, semgrep, rules]
-# owner: platform
-# status: active
-# --- /L9_META ---
-# =============================================================================
-# Python CI Policy Rules — Regression Prevention (Repo-Agnostic)
-#
-# Semgrep rules that enforce Python best practices. Drop this file into any
-# Python project's .semgrep/ directory and run:
-#
-#   semgrep --config .semgrep/semgrep-rules.yaml .
-#
-# Customize paths.include/exclude to match YOUR project structure.
-# All rules are universal Python — nothing project-specific.
-#
-# To customize:
-#   1. Change paths.include to match your source directories
-#   2. Add project-specific rules at the bottom
-#   3. Change severity levels as needed (ERROR = blocks CI, WARNING = report only)
-# =============================================================================
-
 rules:
-
-# ---------------------------------------------------------------------------
-# RULE 1: No deprecated datetime.utcnow()
-# Rationale: Deprecated in Python 3.12, returns naive datetime
-# ---------------------------------------------------------------------------
 - id: no-datetime-utcnow
   pattern: datetime.utcnow()
-  message: |
-    datetime.utcnow() is deprecated in Python 3.12+. Use datetime.now(UTC) instead.
-
-    Fix:
-      from datetime import UTC, datetime
-      timestamp = datetime.now(UTC)
-  languages: [python]
+  message: "datetime.utcnow() is deprecated in Python 3.12+. Use datetime.now(UTC)\
+    \ instead.\n\nFix:\n  from datetime import UTC, datetime\n  timestamp = datetime.now(UTC)\n"
+  languages:
+  - python
   severity: ERROR
   paths:
     include:
-      - "**/*.py"
+    - '**/*.py'
     exclude:
-      - "tests/**"
-      - "scripts/**"
-      - "venv/**"
-      - ".venv/**"
-
-# ---------------------------------------------------------------------------
-# RULE 2: httpx.AsyncClient must use async context manager
-# Rationale: Without context manager, client connections are leaked
-# ---------------------------------------------------------------------------
+    - '**/tests/**'
+    - '**/scripts/**'
+    - '**/venv/**'
+    - '**/.venv/**'
 - id: httpx-async-context-required
   patterns:
-    - pattern: $CLIENT = httpx.AsyncClient(...)
-    - pattern-not-inside: |
-        async with httpx.AsyncClient(...) as $CLIENT:
-            ...
-  message: |
-    httpx.AsyncClient() must use async context manager for proper cleanup.
-
-    Bad:
-      client = httpx.AsyncClient()
-      await client.aclose()  # Easy to forget!
-
-    Good:
-      async with httpx.AsyncClient() as client:
-          ...  # Auto-closed on exit
-  languages: [python]
+  - pattern: $CLIENT = httpx.AsyncClient(...)
+  - pattern-not-inside: "async with httpx.AsyncClient(...) as $CLIENT:\n    ...\n"
+  message: "httpx.AsyncClient() must use async context manager for proper cleanup.\n\
+    \nBad:\n  client = httpx.AsyncClient()\n  await client.aclose()  # Easy to forget!\n\
+    \nGood:\n  async with httpx.AsyncClient() as client:\n      ...  # Auto-closed\
+    \ on exit\n"
+  languages:
+  - python
   severity: ERROR
   paths:
     include:
-      - "**/*.py"
+    - '**/*.py'
     exclude:
-      - "tests/**"
-      - "venv/**"
-
-# ---------------------------------------------------------------------------
-# RULE 3: Singleton pattern must use lock for thread safety
-# Rationale: Race condition when multiple threads init singleton
-# ---------------------------------------------------------------------------
+    - '**/tests/**'
+    - '**/venv/**'
 - id: singleton-requires-lock
   patterns:
-    - pattern: |
-        if $_INSTANCE is None:
-            $_INSTANCE = $FACTORY(...)
-    - pattern-not-inside: |
-        with $_LOCK:
-            ...
-  message: |
-    Singleton initialization must use a lock for thread safety.
-
-    Bad:
-      if _instance is None:
-          _instance = create_instance()
-
-    Good:
-      if _instance is None:
-          with _lock:
-              if _instance is None:  # Double-check
-                  _instance = create_instance()
-  languages: [python]
+  - pattern: "if $_INSTANCE is None:\n    $_INSTANCE = $FACTORY(...)\n"
+  - pattern-not-inside: "with $_LOCK:\n    ...\n"
+  message: "Singleton initialization must use a lock for thread safety.\n\nBad:\n\
+    \  if _instance is None:\n      _instance = create_instance()\n\nGood:\n  if _instance\
+    \ is None:\n      with _lock:\n          if _instance is None:  # Double-check\n\
+    \              _instance = create_instance()\n"
+  languages:
+  - python
   severity: WARNING
   paths:
     include:
-      - "**/*.py"
+    - '**/*.py'
     exclude:
-      - "tests/**"
-      - "venv/**"
-
-# ---------------------------------------------------------------------------
-# RULE 4: float() conversion should handle ValueError
-# Rationale: float() raises ValueError on invalid input
-# ---------------------------------------------------------------------------
+    - '**/tests/**'
+    - '**/venv/**'
 - id: float-requires-try-except
   patterns:
-    - pattern: float($VAR)
-    - pattern-not-inside: |
-        try:
-            ...
-        except ...:
-            ...
-  message: |
-    float() conversion should handle ValueError for invalid input.
-
-    Bad:
-      value = float(user_input)  # Crashes on "abc"
-
-    Good:
-      try:
-          value = float(user_input)
-      except (ValueError, TypeError):
-          value = default_value
-  languages: [python]
+  - pattern: float($VAR)
+  - pattern-not-inside: "try:\n    ...\nexcept ...:\n    ...\n"
+  message: "float() conversion should handle ValueError for invalid input.\n\nBad:\n\
+    \  value = float(user_input)  # Crashes on \"abc\"\n\nGood:\n  try:\n      value\
+    \ = float(user_input)\n  except (ValueError, TypeError):\n      value = default_value\n"
+  languages:
+  - python
   severity: WARNING
   paths:
     include:
-      - "**/*.py"
+    - '**/*.py'
     exclude:
-      - "tests/**"
-      - "venv/**"
-
-# ---------------------------------------------------------------------------
-# RULE 5: No eval() — Security vulnerability
-# Rationale: eval() allows arbitrary code execution
-# ---------------------------------------------------------------------------
+    - '**/tests/**'
+    - '**/venv/**'
 - id: no-eval
   patterns:
-    - pattern: eval(...)
-    - pattern-not: $OBJ.eval(...)  # Allow tensor.eval(), model.eval()
-  message: |
-    eval() is forbidden — security vulnerability.
-
-    Use safe alternatives:
-      - json.loads() for JSON
-      - ast.literal_eval() for Python literals
-      - Custom parser for DSL
-  languages: [python]
+  - pattern: eval(...)
+  - pattern-not: $OBJ.eval(...)
+  message: "eval() is forbidden \u2014 security vulnerability.\n\nUse safe alternatives:\n\
+    \  - json.loads() for JSON\n  - ast.literal_eval() for Python literals\n  - Custom\
+    \ parser for DSL\n"
+  languages:
+  - python
   severity: ERROR
   paths:
     include:
-      - "**/*.py"
+    - '**/*.py'
     exclude:
-      - "tests/**"
-      - "scripts/**"
-      - "venv/**"
-
-# ---------------------------------------------------------------------------
-# RULE 6: SQL queries must use parameterized queries
-# Rationale: f-string SQL is vulnerable to injection
-# ---------------------------------------------------------------------------
+    - '**/tests/**'
+    - '**/scripts/**'
+    - '**/venv/**'
 - id: no-sql-fstring
   patterns:
-    - pattern-either:
-        - pattern: f"SELECT ... {$VAR} ..."
-        - pattern: f"INSERT ... {$VAR} ..."
-        - pattern: f"UPDATE ... {$VAR} ..."
-        - pattern: f"DELETE ... {$VAR} ..."
-  message: |
-    SQL queries must use parameterized queries, not f-strings.
-
-    Bad:
-      query = f"SELECT * FROM users WHERE id = '{user_id}'"
-
-    Good:
-      query = "SELECT * FROM users WHERE id = $1"
-      await conn.fetch(query, user_id)
-  languages: [python]
+  - pattern-either:
+    - pattern: f"SELECT ... {$VAR} ..."
+    - pattern: f"INSERT ... {$VAR} ..."
+    - pattern: f"UPDATE ... {$VAR} ..."
+    - pattern: f"DELETE ... {$VAR} ..."
+  message: "SQL queries must use parameterized queries, not f-strings.\n\nBad:\n \
+    \ query = f\"SELECT * FROM users WHERE id = '{user_id}'\"\n\nGood:\n  query =\
+    \ \"SELECT * FROM users WHERE id = $1\"\n  await conn.fetch(query, user_id)\n"
+  languages:
+  - python
   severity: ERROR
   paths:
     include:
-      - "**/*.py"
+    - '**/*.py'
     exclude:
-      - "tests/**"
-      - "venv/**"
-
-# ---------------------------------------------------------------------------
-# RULE 7: No pickle for deserialization — Security
-# Rationale: pickle.loads() can execute arbitrary code
-# ---------------------------------------------------------------------------
+    - '**/tests/**'
+    - '**/venv/**'
 - id: no-pickle-loads
   pattern: pickle.loads(...)
-  message: |
-    pickle.loads() is forbidden — deserialization vulnerability.
-
-    Use safe alternatives:
-      - json.loads() for JSON data
-      - msgpack for binary data
-      - Protocol Buffers for structured data
-  languages: [python]
+  message: "pickle.loads() is forbidden \u2014 deserialization vulnerability.\n\n\
+    Use safe alternatives:\n  - json.loads() for JSON data\n  - msgpack for binary\
+    \ data\n  - Protocol Buffers for structured data\n"
+  languages:
+  - python
   severity: ERROR
   paths:
     include:
-      - "**/*.py"
+    - '**/*.py'
     exclude:
-      - "tests/**"
-      - "venv/**"
-
-# ---------------------------------------------------------------------------
-# RULE 8: No logger.getChild() with structlog
-# Rationale: structlog doesn't have getChild() — use bind() instead
-# Note: Only relevant if your project uses structlog. Remove if not.
-# ---------------------------------------------------------------------------
+    - '**/tests/**'
+    - '**/venv/**'
 - id: no-structlog-getchild
   pattern: $LOGGER.getChild(...)
-  message: |
-    structlog doesn't support getChild(). Use bind() instead.
-
-    Bad:
-      self.logger = logger.getChild(self.__class__.__name__)
-
-    Good:
-      self.logger = logger.bind(component=self.__class__.__name__)
-  languages: [python]
+  message: "structlog doesn't support getChild(). Use bind() instead.\n\nBad:\n  self.logger\
+    \ = logger.getChild(self.__class__.__name__)\n\nGood:\n  self.logger = logger.bind(component=self.__class__.__name__)\n"
+  languages:
+  - python
   severity: ERROR
   paths:
     include:
-      - "**/*.py"
+    - '**/*.py'
     exclude:
-      - "tests/**"
-      - "venv/**"
+    - '**/tests/**'
+    - '**/venv/**'

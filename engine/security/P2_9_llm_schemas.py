@@ -60,10 +60,11 @@ class CypherQueryOutput(BaseModel):
 
     @field_validator("parameters")
     @classmethod
-    def json_safe_params(cls, v: dict) -> dict:
-        for key, val in v.items():
-            if not isinstance(val, (str, int, float, bool, list, dict, type(None))):
-                raise ValueError(f"Non-serialisable param '{key}': {type(val)}")
+    def json_safe_params(cls, v: dict[str, Any]) -> dict[str, Any]:
+        try:
+            json.dumps(v)
+        except TypeError as exc:
+            raise ValueError("parameters must be JSON-serialisable") from exc
         return v
 
 
@@ -148,13 +149,13 @@ class ValidatedLLMClient:
 
         return validate_llm_json(raw, CypherQueryOutput)
 
-    def analyse_graph(self, results: list[dict]) -> GraphAnalysisOutput:
+    def analyse_graph(self, results: list[dict[str, Any]]) -> GraphAnalysisOutput:
         system = (
             "You are a graph analytics expert. "
             "Return JSON with: node_count, edge_count, key_insights, "
             "recommendations, risk_score."
         )
-        user = f"Analyse:\n{json.dumps(results)[:4000]}"
+        user = f"Analyse:\n{json.dumps(results, default=str)[:4000]}"
 
         with track_llm_usage(model=self.model):
             raw = self._call(system, user)

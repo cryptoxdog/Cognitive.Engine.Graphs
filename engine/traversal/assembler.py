@@ -120,7 +120,10 @@ class TraversalAssembler:
         Returns:
             List of Cypher MATCH clauses
         """
-        clauses = []
+        clauses: list[str] = []
+
+        if self.traversal_spec is None:
+            return clauses
 
         for step in self.traversal_spec.steps:
             # Check direction applicability

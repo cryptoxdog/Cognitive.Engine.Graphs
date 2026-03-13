@@ -71,7 +71,7 @@ jobs:
 
       - name: Run Mypy Type Checker (BLOCKING)
         run: |
-          mypy . --show-error-codes --pretty
+          mypy engine/ --show-error-codes --pretty --ignore-missing-imports --strict
 # REMOVED: continue-on-error: true
 
       - name: Run Full Test Suite (BLOCKING)

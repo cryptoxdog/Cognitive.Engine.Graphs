@@ -272,7 +272,7 @@ class TestEnsembleController:
             assert 0.0 <= result.final_score <= 1.0
 
     def test_audit_log_appended(self) -> None:
-        """predict appends to audit log."""
+        """predict appends an entry to the audit trail."""
         ctrl = EnsembleController()
         with patch("engine.kge.ensemble.settings") as mock_settings:
             mock_settings.kge_enabled = True

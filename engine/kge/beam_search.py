@@ -37,6 +37,7 @@ import logging
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from enum import StrEnum
+from typing import Any
 
 import numpy as np
 
@@ -107,7 +108,7 @@ class BeamCandidate:
             other.transformation_id,
         )
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> dict[str, Any]:
         """Serialize candidate for PacketEnvelope / audit trail."""
         return {
             "id": self.transformation_id,
@@ -168,7 +169,7 @@ class BeamSearchEngine:
     ) -> None:
         self.model = model
         self.config = config
-        self.search_history: list[dict] = []
+        self.search_history: list[dict[str, Any]] = []
         self.pruned_candidates: list[BeamCandidate] = []
         self._next_id = 0
 
@@ -228,7 +229,7 @@ class BeamSearchEngine:
             quality_scores.append(1.0 / (1.0 + diff))
 
         quality_score = (
-            float(np.mean(quality_scores)) if quality_scores else 0.5
+            float(np.mean(quality_scores)) if quality_scores else 0.5  # nosemgrep: float-requires-try-except
         )  # nosemgrep: float-requires-try-except
 
         # Constraint satisfaction
@@ -461,7 +462,7 @@ class BeamSearchEngine:
     # Main search
     # ------------------------------------------------------------------
 
-    def search(self) -> dict:
+    def search(self) -> dict[str, Any]:
         """Execute beam search for variant discovery.
 
         Returns::
@@ -474,6 +475,10 @@ class BeamSearchEngine:
                 "search_config": config snapshot,
             }
         """
+        # Reset run-scoped state to prevent mixing data from prior invocations
+        self.search_history = []
+        self.pruned_candidates = []
+
         if not settings.kge_enabled:
             logger.warning("BeamSearchEngine.search skipped — kge_enabled=False")
             return {"variants": [], "status": "skipped", "reason": "kge_enabled=False"}
