@@ -28,6 +28,8 @@ Usage:
 import json
 import logging
 import re
+import types
+from collections.abc import Generator
 from typing import Any, TypeVar
 
 from pydantic import BaseModel, ValidationError
@@ -183,38 +185,20 @@ from RestrictedPython.Guards import guarded_iter_unpack_sequence
 
 def safe_exec(code: str, allowed_imports: list[str] | None = None, timeout_seconds: int = 5) -> dict[str, Any]:
     """
-    Execute LLM-generated code in restricted sandbox.
-
-    Restrictions:
-    - No file I/O
-    - No network access
-    - No subprocess execution
-    - No import of unauthorized modules
-    - Execution timeout
-
-    Args:
-        code: Python code to execute
-        allowed_imports: Whitelist of importable modules
-        timeout_seconds: Max execution time
-
+    Execute untrusted Python code inside a RestrictedPython sandbox and return the resulting execution namespace.
+    
+    Parameters:
+        code (str): The Python source to compile and run.
+        allowed_imports (list[str] | None): Optional whitelist of module names to make available inside the sandbox; defaults to ["math", "datetime", "itertools"].
+        timeout_seconds (int): Maximum allowed execution time in seconds before raising a timeout.
+    
     Returns:
-        Namespace dict with execution results
-
+        dict[str, Any]: The sandboxed globals namespace containing available builtins, whitelisted modules, and any names defined by the executed code.
+    
     Raises:
-        SecurityError: If code violates restrictions
-        TimeoutError: If execution exceeds timeout
-
-    Example:
-        code = llm.generate(prompt="Write a function to calculate fibonacci")
-
-        result = safe_exec(
-            code,
-            allowed_imports=["math", "itertools"],
-            timeout_seconds=5
-        )
-
-        if "fibonacci" in result:
-            print(result["fibonacci"](10))
+        SyntaxError: If the provided code fails RestrictedPython compilation.
+        TimeoutError: If execution exceeds the specified timeout.
+        Exception: Any exception raised during execution is propagated after the sandbox is torn down.
     """
     allowed_imports = allowed_imports or ["math", "datetime", "itertools"]
 
@@ -241,7 +225,17 @@ def safe_exec(code: str, allowed_imports: list[str] | None = None, timeout_secon
     # Execute with timeout
     import signal
 
-    def timeout_handler(signum, frame):
+    def timeout_handler(signum: int, frame: types.FrameType | None) -> None:
+        """
+        Signal handler invoked on alarm that raises a TimeoutError indicating the sandboxed code exceeded the configured timeout.
+        
+        Parameters:
+            signum (int): The signal number delivered to the handler.
+            frame (types.FrameType | None): The current stack frame at the time of signal delivery, or `None`.
+        
+        Raises:
+            TimeoutError: Always raised when the handler is invoked; the error message includes the configured timeout value.
+        """
         raise TimeoutError(f"Code execution exceeded {timeout_seconds}s timeout")
 
     signal.signal(signal.SIGALRM, timeout_handler)
@@ -270,14 +264,18 @@ cost_logger = structlog.get_logger("llm.cost")
 
 
 @contextmanager
-def track_llm_usage(model: str, user_id: str | None = None):
+def track_llm_usage(model: str, user_id: str | None = None) -> Generator[None, None, None]:
     """
-    Context manager to track LLM token usage and cost.
-
-    Usage:
-        with track_llm_usage(model="gpt-4-turbo", user_id="user123"):
-            response = openai.chat.completions.create(...)
-            # Token counts logged automatically
+    Context manager that records LLM call metadata and logs an `llm_call` event when the block exits.
+    
+    Records the start timestamp on entry, yields control to the wrapped block, and on exit logs the model identifier, optional user ID, call duration in milliseconds, and the start timestamp. This helper does not compute token counts or cost; token-count extraction must be integrated with provider-specific responses.
+    
+    Parameters:
+        model (str): Identifier of the LLM model used (e.g., "gpt-4-turbo").
+        user_id (str | None): Optional identifier of the end user or requester.
+    
+    Returns:
+        A context manager that yields to the wrapped block and logs LLM call metadata on exit.
     """
     start_time = datetime.now(UTC)
 

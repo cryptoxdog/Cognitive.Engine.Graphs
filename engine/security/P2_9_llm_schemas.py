@@ -60,7 +60,21 @@ class CypherQueryOutput(BaseModel):
 
     @field_validator("parameters")
     @classmethod
-    def json_safe_params(cls, v: dict) -> dict:
+    def json_safe_params(cls, v: dict[str, Any]) -> dict[str, Any]:
+        """
+        Validate that all values in the parameters mapping are JSON-serializable primitive or container types.
+        
+        Acceptable value types are str, int, float, bool, list, dict, and None. This validator returns the input mapping unchanged when all values are valid.
+        
+        Parameters:
+            v (dict[str, Any]): Mapping of parameter names to values to validate.
+        
+        Returns:
+            dict[str, Any]: The original mapping if all values are serializable.
+        
+        Raises:
+            ValueError: If any value has a type outside the allowed set.
+        """
         for key, val in v.items():
             if not isinstance(val, (str, int, float, bool, list, dict, type(None))):
                 raise ValueError(f"Non-serialisable param '{key}': {type(val)}")
@@ -131,6 +145,16 @@ class ValidatedLLMClient:
         natural_language: str,
         schema_hint: str | None = None,
     ) -> CypherQueryOutput:
+        """
+        Generate a validated CypherQueryOutput from a natural language description using the configured LLM.
+        
+        Parameters:
+            natural_language (str): Natural language description or intent to convert into a Cypher query.
+            schema_hint (str | None): Optional graph schema or context to include in the prompt; will be sanitized and truncated.
+        
+        Returns:
+            CypherQueryOutput: Parsed and validated model containing `cypher_query`, `parameters`, `explanation`, and `confidence`.
+        """
         clean = sanitize_llm_input(natural_language, max_length=500)
 
         # Sanitize schema_hint to prevent prompt injection via untrusted schema content.
@@ -148,7 +172,16 @@ class ValidatedLLMClient:
 
         return validate_llm_json(raw, CypherQueryOutput)
 
-    def analyse_graph(self, results: list[dict]) -> GraphAnalysisOutput:
+    def analyse_graph(self, results: list[dict[str, Any]]) -> GraphAnalysisOutput:
+        """
+        Produce a structured analysis of graph query results.
+        
+        Parameters:
+            results (list[dict[str, Any]]): List of dictionaries representing graph data or query results to analyze. The input is serialized to JSON and truncated to the first 4000 characters when sent to the model.
+        
+        Returns:
+            GraphAnalysisOutput: Validated analysis containing `node_count`, `edge_count`, `key_insights`, `recommendations`, and optional `risk_score`.
+        """
         system = (
             "You are a graph analytics expert. "
             "Return JSON with: node_count, edge_count, key_insights, "

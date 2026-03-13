@@ -19,6 +19,7 @@ Exports: GateCompiler
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
 
 from engine.config.schema import (
     DomainSpec,
@@ -138,8 +139,16 @@ class GateCompiler:
 
     # ── Gate Type Handlers ─────────────────────────────────
 
-    def _get_handler(self, gate_type: GateType):
-        """Route to the correct handler for each gate type."""
+    def _get_handler(self, gate_type: GateType) -> Callable[[GateSpec], str]:
+        """
+        Selects the appropriate gate compilation handler for a given GateType.
+        
+        Parameters:
+            gate_type (GateType): The gate type to resolve.
+        
+        Returns:
+            Callable[[GateSpec], str]: A function that accepts a GateSpec and returns the compiled Cypher predicate string. If the gate type is unrecognized, returns a passthrough handler that yields "true" and logs a warning.
+        """
         handlers = {
             GateType.BOOLEAN: self._compile_boolean,
             GateType.THRESHOLD: self._compile_threshold,

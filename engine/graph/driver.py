@@ -84,19 +84,19 @@ class GraphDriver:
     async def execute_query(
         self,
         cypher: str,
-        parameters: dict | None = None,
+        parameters: dict[str, Any] | None = None,
         database: str = "neo4j",
-    ) -> list:
+    ) -> list[Any]:
         """
-        Execute Cypher query.
-
-        Args:
-            cypher: Cypher query
-            parameters: Query parameters
-            database: Target database name
-
+        Execute a Cypher query against the given database and return its result records.
+        
+        Parameters:
+            cypher: Cypher query string to execute.
+            parameters: Mapping of query parameter names to values; defaults to an empty mapping.
+            database: Target database name to run the query against.
+        
         Returns:
-            List of record dictionaries
+            A list of result records; each record is a mapping of field names to their values.
         """
         driver = self.get_driver()
 

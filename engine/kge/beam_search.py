@@ -37,6 +37,7 @@ import logging
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from enum import StrEnum
+from typing import Any
 
 import numpy as np
 
@@ -101,14 +102,30 @@ class BeamCandidate:
     parent_id: str | None = None
 
     def __lt__(self, other: BeamCandidate) -> bool:
-        """Enable min-heap ordering (negated for max-heap)."""
+        """
+        Provide ordering for heap comparison to prioritize higher-scoring candidates.
+        
+        @returns
+            `true` if `self` should come before `other` in heap ordering (higher score first, tie-broken by transformation_id), `false` otherwise.
+        """
         return (-self.score, self.transformation_id) < (
             -other.score,
             other.transformation_id,
         )
 
-    def to_dict(self) -> dict:
-        """Serialize candidate for PacketEnvelope / audit trail."""
+    def to_dict(self) -> dict[str, Any]:
+        """
+        Serialize the beam candidate into a dictionary suitable for audit logs and transport.
+        
+        Returns:
+            dict[str, Any]: Mapping with keys:
+                - "id": candidate transformation identifier
+                - "type": transformation type name
+                - "params": transformation parameter dictionary
+                - "score": candidate score as a float
+                - "depth": search depth (int)
+                - "parent_id": parent candidate identifier or None
+        """
         return {
             "id": self.transformation_id,
             "type": self.transformation_type,
@@ -166,9 +183,21 @@ class BeamSearchEngine:
         model: CompoundE3D,
         config: BeamSearchConfig,
     ) -> None:
+        """
+        Initialize a BeamSearchEngine with a CompoundE3D model and beam search configuration.
+        
+        Parameters:
+            model: Trained CompoundE3D instance used to score and evaluate candidate transformations.
+            config: BeamSearchConfig controlling beam width, pruning, depth limits, and validators.
+        
+        Initializes:
+            - search_history: empty list for per-depth audit entries.
+            - pruned_candidates: empty list collecting candidates removed by pruning.
+            - _next_id: integer counter starting at 0 for generating unique candidate IDs.
+        """
         self.model = model
         self.config = config
-        self.search_history: list[dict] = []
+        self.search_history: list[dict[str, Any]] = []
         self.pruned_candidates: list[BeamCandidate] = []
         self._next_id = 0
 
@@ -185,17 +214,17 @@ class BeamSearchEngine:
         transformation: Transformation3D,
         entity_ids: list[str] | None = None,
     ) -> float:
-        """Score a candidate transformation.
-
-        Score by:
-        1. Applying the transformation to sample entity embeddings.
-        2. Evaluating constraint satisfaction.
-
-        Falls back to random scoring ONLY if no model embeddings are
-        available (bootstrap phase), with a clear warning.
-
-        This replaces the previous random.uniform() stub which produced
-        non-deterministic, meaningless beam search results.
+        """
+        Score a 3D transformation candidate for use in the beam search.
+        
+        Evaluates the transformation by sampling up to 100 entity embeddings (or using the provided entity_ids), applying the transformation, and combining a magnitude-based quality metric with constraint satisfaction. If the model has no entity embeddings, emits a RuntimeWarning and returns a bootstrap random score in the range [0.0, 0.3]. Quality for each entity is computed as 1 / (1 + ||transformed - original||) and averaged; if no sampled embeddings yield a quality value, a default quality of 0.5 is used. For each constraint validator, the combined constraint score is multiplied by 0.5 when a validator returns False and by 0.7 when a validator raises an exception.
+        
+        Parameters:
+            transformation: The Transformation3D to evaluate.
+            entity_ids: Optional list of entity IDs to sample; when omitted, up to 100 entity IDs are taken from the model's embeddings.
+        
+        Returns:
+            float: A score in [0.0, 1.0] representing combined quality and constraint satisfaction (bootstrap scores when embeddings are absent are in [0.0, 0.3]).
         """
         import warnings
 
@@ -228,7 +257,7 @@ class BeamSearchEngine:
             quality_scores.append(1.0 / (1.0 + diff))
 
         quality_score = (
-            float(np.mean(quality_scores)) if quality_scores else 0.5
+            float(np.mean(quality_scores)) if quality_scores else 0.5  # nosemgrep: float-requires-try-except
         )  # nosemgrep: float-requires-try-except
 
         # Constraint satisfaction
@@ -461,18 +490,17 @@ class BeamSearchEngine:
     # Main search
     # ------------------------------------------------------------------
 
-    def search(self) -> dict:
-        """Execute beam search for variant discovery.
-
-        Returns::
-
-            {
-                "variants": [best candidates by score],
-                "depth_levels": {depth: [candidates]},
-                "pruned": [pruned candidates for audit],
-                "audit_trail": detailed search log,
-                "search_config": config snapshot,
-            }
+    def search(self) -> dict[str, Any]:
+        """
+        Execute a beam search over 3D transformation space to discover and rank candidate variants.
+        
+        Returns:
+            result (dict[str, Any]): Search outcome containing:
+                variants: list[dict[str, Any]] — top beam candidates serialized via `to_dict`.
+                depth_levels: dict[int, list[dict[str, Any]]] — serialized candidates grouped by depth.
+                pruned: list[dict[str, Any]] — serialized pruned candidates retained for audit.
+                audit_trail: list[dict[str, Any]] — recorded per-depth statistics and metadata from the search.
+                search_config: dict[str, Any] — snapshot of key configuration values (`beam_width`, `max_depth`, `prune_strategy`, `score_threshold`).
         """
         if not settings.kge_enabled:
             logger.warning("BeamSearchEngine.search skipped — kge_enabled=False")

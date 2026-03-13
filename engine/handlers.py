@@ -169,14 +169,18 @@ def _check_dangerous_patterns(expr_stripped: str, expr_lower: str) -> None:
 
 def _try_safe_literal(expr_stripped: str, expr_lower: str) -> str | None:
     """
-    Return expr_stripped if it is a safe literal (bool, null, number, quoted string).
-    Return None if it is not a simple literal.
-    Raise ValidationError if it looks like a quoted string but contains injections.
+    Determine whether a stripped expression is a safe literal and return it when so.
+    
+    Returns:
+        The original `expr_stripped` if it is a safe literal (the literals `true`, `false`, `null`, a numeric literal, or a single- or double-quoted string that contains no quotes or backslashes); `None` if it is not a simple literal.
+    
+    Raises:
+        ValidationError: If the expression is a quoted string that contains embedded quotes or backslash escapes.
     """
     if expr_lower in ("true", "false", "null"):
         return expr_stripped
     try:
-        float(expr_stripped)
+        float(expr_stripped)  # nosemgrep: float-requires-try-except
     except ValueError:
         pass
     else:

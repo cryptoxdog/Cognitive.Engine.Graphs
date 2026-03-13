@@ -31,6 +31,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 import numpy as np
+import numpy.typing as npt
 
 from engine.config.schema import KGESpec
 from engine.config.settings import settings
@@ -87,18 +88,26 @@ class CompoundE3D:
     """
 
     def __init__(self, config: CompoundE3DConfig) -> None:
+        """
+        Initialize a CompoundE3D model runtime state from the given configuration.
+        
+        Sets up embedding containers, relation operator caches, training flag, and default Platt-scaling parameters used for probability calibration.
+        
+        Parameters:
+            config (CompoundE3DConfig): Runtime configuration for the model (embedding dimension, training hyperparameters, and related options).
+        """
         self.config = config
         self.dim = config.embedding_dim
-        self._entity_embeddings: dict[str, np.ndarray] = {}
-        self._relation_embeddings: dict[str, np.ndarray] = {}
+        self._entity_embeddings: dict[str, npt.NDArray[np.float64]] = {}
+        self._relation_embeddings: dict[str, npt.NDArray[np.float64]] = {}
         self._trained = False
 
         # --- CompoundE3D operator stores (Ge et al. 2023 §3.2) ---
         # Keyed by relation name → list of instantiated transformation
         # objects (Translation, Rotation, Scaling, Flip, Hyperplane, Shear).
         # Populated by _build_relation_operators() at train/load time.
-        self._head_ops: dict[str, list] = {}
-        self._tail_ops: dict[str, list] = {}
+        self._head_ops: dict[str, list[Any]] = {}
+        self._tail_ops: dict[str, list[Any]] = {}
 
         # Platt scaling calibration parameters (learned post-training).
         # Maps raw distance d → probability via sigmoid(-(alpha*d - beta)).
@@ -114,9 +123,22 @@ class CompoundE3D:
         triples: list[tuple[str, str, str]],
         epochs: int | None = None,
     ) -> dict[str, Any]:
-        """Train on (head_id, relation_type, tail_id) triples.
-
-        Returns training metrics dict.
+        """
+        Fit embeddings from provided (head_id, relation, tail_id) triples and update the model's internal state.
+        
+        Initializes embeddings for any unseen entities or relations, runs a simplified margin-based training loop with negative sampling to adjust embeddings, and sets the model as trained. If global KGE is disabled, training is skipped and a skipped status is returned.
+        
+        Parameters:
+            triples (list[tuple[str, str, str]]): Sequence of (head_id, relation, tail_id) triples to train on.
+            epochs (int | None): Number of training epochs to run; if None, uses config.max_epochs.
+        
+        Returns:
+            dict[str, Any]: Metrics and status about the training run containing:
+                - "status": "completed" or "skipped".
+                - "epochs": number of epochs executed (int).
+                - "final_loss": final epoch average loss (float).
+                - "num_entities": number of unique entities seen (int).
+                - "num_relations": number of unique relations seen (int).
         """
         if not settings.kge_enabled:
             logger.warning("KGE training skipped — kge_enabled=False")
@@ -150,7 +172,7 @@ class CompoundE3D:
         losses: list[float] = []
         for epoch in range(epochs):
             epoch_loss = 0.0
-            np.random.shuffle(triples)  # type: ignore[arg-type]
+            np.random.shuffle(triples)
             for h, r, t in triples:
                 pos_score = self._distance(h, r, t)
                 # Negative sampling
@@ -179,9 +201,11 @@ class CompoundE3D:
     # ------------------------------------------------------------------
 
     def score_triple(self, head: str, relation: str, tail: str) -> float:
-        """Score a (head, relation, tail) triple.  Lower distance = better fit.
-
-        Returns normalized score in [0, 1] where 1 = best.
+        """
+        Compute a normalized similarity score for the (head, relation, tail) triple.
+        
+        Returns:
+            similarity (float): Score in [0, 1], where 1.0 indicates the best fit and 0.0 the worst.
         """
         if not self._trained:
             return 0.0
@@ -189,8 +213,13 @@ class CompoundE3D:
         # Convert distance to similarity score via sigmoid
         return float(1.0 / (1.0 + np.exp(dist - self.config.margin)))  # nosemgrep: float-requires-try-except
 
-    def embed(self, entity_id: str) -> np.ndarray | None:
-        """Return embedding vector for entity (or None if unknown)."""
+    def embed(self, entity_id: str) -> npt.NDArray[np.float64] | None:
+        """
+        Return the embedding vector for the given entity identifier.
+        
+        Returns:
+            The embedding as a NumPy array of shape (embedding_dim,) if the entity is known, `None` otherwise.
+        """
         return self._entity_embeddings.get(entity_id)
 
     def predict_tail(
@@ -244,17 +273,22 @@ class CompoundE3D:
     # ------------------------------------------------------------------
 
     def _distance(self, head: str, relation: str, tail: str) -> float:
-        """CompoundE3D triple scoring (Ge et al. 2023, arXiv:2304.00378).
-
-        Three scoring modes controlled by self.config.scoring_mode:
-          'head'     : ||M_r * h  -  t||          (CompoundE3D-Head)
-          'tail'     : ||h  -  M_r_hat * t||      (CompoundE3D-Tail)
-          'complete' : ||M_r * h  -  M_r_hat * t||(CompoundE3D-Complete)
-
-        Operators M_r / M_r_hat are block-diagonal 4x4 affine matrices built
-        from the ordered cascade in self._head_ops[relation] /
-        self._tail_ops[relation].  Falls back to TransE if operators have
-        not been built (cold-start / pre-training compatibility).
+        """
+        Compute the distance-based score for a (head, relation, tail) triple under CompoundE3D.
+        
+        Scoring follows the mode specified by self.config.scoring_mode:
+        - "head": distance between transformed head and tail.
+        - "tail": distance between head and transformed tail.
+        - "complete": distance between transformed head and transformed tail.
+        If operator cascades for the relation are not built, falls back to TransE-style distance using the relation embedding.
+        
+        Parameters:
+            head (str): Entity id for the head.
+            relation (str): Relation id.
+            tail (str): Entity id for the tail.
+        
+        Returns:
+            float: Euclidean distance between the (possibly transformed) embeddings. Returns `float('inf')` if required embeddings are missing.
         """
         h_emb = self._entity_embeddings.get(head)
         t_emb = self._entity_embeddings.get(tail)
@@ -271,8 +305,17 @@ class CompoundE3D:
 
         mode = getattr(self.config, "scoring_mode", "complete")
 
-        def _apply_ops(x: np.ndarray, ops: list) -> np.ndarray:
-            """Sequentially apply a cascade of transformation objects."""
+        def _apply_ops(x: npt.NDArray[np.float64], ops: list[Any]) -> npt.NDArray[np.float64]:
+            """
+            Apply a sequence of transformation operators to an embedding vector.
+            
+            Parameters:
+                x: Embedding vector to transform.
+                ops: Sequence of transformation objects; each must implement an `apply` method that takes and returns an embedding vector.
+            
+            Returns:
+                The embedding vector after all transformations have been applied.
+            """
             for op in ops:
                 x = op.apply(x)
             return x
@@ -315,7 +358,16 @@ class CompoundE3D:
         d = np.array(val_distances, dtype=np.float64)
         y = np.array(val_labels, dtype=np.float64)
 
-        def nll(params: np.ndarray) -> float:
+        def nll(params: npt.NDArray[np.float64]) -> float:
+            """
+            Compute the negative log-likelihood of the logistic (Platt) model for the given parameters.
+            
+            Parameters:
+                params (npt.NDArray[np.float64]): Array-like of two floats [alpha, beta] where `alpha` scales the input distances and `beta` is the bias/offset.
+            
+            Returns:
+                float: The negative log-likelihood evaluated on the closed-over validation distances and labels.
+            """
             alpha, beta = params
             logit = -(alpha * d - beta)
             prob = 1.0 / (1.0 + np.exp(-logit))
@@ -325,28 +377,25 @@ class CompoundE3D:
 
         result = minimize(nll, x0=[1.0, 0.0], method="L-BFGS-B")
         self._platt_alpha, self._platt_beta = (
-            float(result.x[0]),
-            float(result.x[1]),
+            float(result.x[0]),  # nosemgrep: float-requires-try-except
+            float(result.x[1]),  # nosemgrep: float-requires-try-except
         )  # nosemgrep: float-requires-try-except
 
     def build_icp_centroid(
         self,
         account_ids: list[str],
-    ) -> np.ndarray:
-        """Construct a synthetic ICP (Ideal Customer Profile) entity.
-
-        The ICP is the centroid of known high-value account embeddings.
-        Stores result in self._icp_centroid for use by score_against_icp().
-
-        Args:
-            account_ids: Entity IDs of known high-value accounts.
-                         Must all exist in the embedding table.
-
+    ) -> npt.NDArray[np.float64]:
+        """
+        Constructs the ICP centroid embedding as the mean of the given account embeddings and stores it on the instance.
+        
+        Parameters:
+            account_ids (list[str]): Entity IDs of high-value accounts; all must exist in the model's entity embeddings.
+        
         Returns:
-            Centroid embedding as np.ndarray of shape (embed_dim,).
-
+            npt.NDArray[np.float64]: Centroid embedding vector with shape (embedding_dim,).
+        
         Raises:
-            ValueError: If account_ids is empty or any ID is unknown.
+            ValueError: If `account_ids` is empty or any provided ID is not present in the entity embeddings.
         """
         if not account_ids:
             msg = "build_icp_centroid: account_ids must be non-empty."
@@ -358,7 +407,7 @@ class CompoundE3D:
                 msg = f"build_icp_centroid: entity '{aid}' not found in embedding table. Run train() first."
                 raise ValueError(msg)
             embeddings.append(emb)
-        centroid: np.ndarray = np.mean(np.stack(embeddings, axis=0), axis=0)
+        centroid: npt.NDArray[np.float64] = np.mean(np.stack(embeddings, axis=0), axis=0)
         self._icp_centroid = centroid
         return centroid
 
