@@ -239,3 +239,51 @@ async def test_health_degraded() -> None:
     _graph_driver.execute_query = AsyncMock(side_effect=ConnectionError("refused"))
     result = await handle_health("t", {})
     assert result["status"] == "degraded"
+
+
+@pytest.mark.asyncio
+async def test_health_neo4j_ok_domain_missing_tenant_but_packs_available() -> None:
+    """Health is degraded (not errored) when tenant spec is absent but other packs exist."""
+    from engine.config.loader import DomainNotFoundError
+    from engine.handlers import _domain_loader, _graph_driver
+
+    _graph_driver.execute_query = AsyncMock(return_value=None)
+    _domain_loader.load_domain = MagicMock(side_effect=DomainNotFoundError("not found"))
+    _domain_loader.list_domains = MagicMock(return_value=["plasticos"])
+
+    result = await handle_health("unknown-tenant", {})
+
+    assert result["status"] == "degraded"
+    assert "neo4j" in result["checks"]
+    assert result["checks"]["neo4j"] == "ok"
+    assert "tenant not found" in result["checks"]["domain_spec"]
+    assert "plasticos" in result["checks"]["domain_spec"]
+
+
+@pytest.mark.asyncio
+async def test_health_neo4j_ok_no_domains_at_all() -> None:
+    """Health is degraded when no domain packs are configured."""
+    from engine.config.loader import DomainNotFoundError
+    from engine.handlers import _domain_loader, _graph_driver
+
+    _graph_driver.execute_query = AsyncMock(return_value=None)
+    _domain_loader.load_domain = MagicMock(side_effect=DomainNotFoundError("not found"))
+    _domain_loader.list_domains = MagicMock(return_value=[])
+
+    result = await handle_health("plasticos", {})
+
+    assert result["status"] == "degraded"
+    assert result["checks"]["domain_spec"] == "error: no_domains_found"
+
+
+@pytest.mark.asyncio
+async def test_health_neo4j_connection_failed() -> None:
+    """Neo4j unreachable reports degraded with connection_failed check."""
+    from engine.handlers import _graph_driver
+
+    _graph_driver.execute_query = AsyncMock(side_effect=OSError("refused"))
+
+    result = await handle_health("plasticos", {})
+
+    assert result["status"] == "degraded"
+    assert result["checks"]["neo4j"] == "error: connection_failed"
