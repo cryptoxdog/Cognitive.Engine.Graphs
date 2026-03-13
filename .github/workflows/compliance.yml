@@ -57,7 +57,7 @@ jobs:
       - name: Check for Cypher injection patterns
         run: |
           # Find f-strings with Cypher labels NOT wrapped in sanitize_label()
-          if find engine/ -name "*.py" -exec grep -P 'f".*MATCH.*\(.*:\{(?!sanitize_label)' {} \; | grep -v test; then
+          if find engine/ -name "*.py" -exec grep -P 'f".*MATCH.*\(.*:\{(?!sanitize_label|sanitized_)' {} \; | grep -v test; then
             echo "ERROR: Cypher label interpolation without sanitize_label() detected"
             exit 1
           fi

@@ -297,10 +297,8 @@ async def handle_match(tenant: str, payload: dict[str, Any]) -> dict[str, Any]:
             action="match",
             tenant=tenant,
         )
-    candidate_label = sanitize_label(candidate_labels[0])
-
     cypher = (
-        f"MATCH (candidate:{candidate_label})\n"
+        f"MATCH (candidate:{sanitize_label(candidate_labels[0])})\n"
         + "\n".join(traversal_clauses)
         + "\n"
         + f"WHERE {where_clause}\n"
