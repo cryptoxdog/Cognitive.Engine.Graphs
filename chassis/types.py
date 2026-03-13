@@ -38,7 +38,7 @@ class TraceEntry:
     latency_ms: float | None = None
 
     def to_dict(self) -> dict:
-        d = {"node": self.node, "action": self.action, "status": self.status}
+        d: dict[str, str | float] = {"node": self.node, "action": self.action, "status": self.status}
         if self.timestamp is not None:
             d["timestamp"] = self.timestamp
         if self.latency_ms is not None:

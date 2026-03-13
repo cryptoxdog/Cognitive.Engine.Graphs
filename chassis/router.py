@@ -21,7 +21,8 @@ from constellation.types import ConstellationError, PacketEnvelope, TerminalResu
 def resolve_initial_node(action: str) -> str:
     if action not in ACTION_MAP:
         raise ConstellationError(f"No node registered for action: {action}", status="rejected")
-    return ACTION_MAP[action]
+    result: str = ACTION_MAP[action]
+    return result
 
 
 def append_trace(packet: PacketEnvelope, entry: TraceEntry):

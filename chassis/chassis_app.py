@@ -211,7 +211,7 @@ def _resolve_hook(hook: LifecycleHook | None) -> LifecycleHook:
             module_path, class_name = dotted.rsplit(":", 1)
             module = importlib.import_module(module_path)
             cls = getattr(module, class_name)
-            instance = cls()
+            instance: LifecycleHook = cls()
             logger.info("Resolved LifecycleHook from %s → %s", dotted, type(instance).__name__)
             return instance
         except Exception:

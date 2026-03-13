@@ -76,7 +76,7 @@ class YAMLDomainLoader(BaseDomainLoader):
     """
 
     def __init__(self, config_path: str | None = None) -> None:
-        raw = config_path or os.getenv("DOMAIN_SPECS_PATH", "domains")
+        raw = config_path or os.getenv("DOMAIN_SPECS_PATH") or "domains"
         self._base_path = Path(raw).resolve()
         self._cache: dict[str, tuple[dict[str, Any], float]] = {}
 
