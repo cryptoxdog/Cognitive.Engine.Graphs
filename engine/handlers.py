@@ -612,8 +612,7 @@ async def handle_health(tenant: str, payload: dict[str, Any]) -> dict[str, Any]:
 
     neo4j_ok = checks["neo4j"] == _HEALTH_OK
     domain_ok = checks["domain_spec"] in (_HEALTH_OK, checks["domain_spec"]) and (
-        checks["domain_spec"] == _HEALTH_OK
-        or checks["domain_spec"].startswith(_HEALTH_DOMAIN_TENANT_MISSING)
+        checks["domain_spec"] == _HEALTH_OK or checks["domain_spec"].startswith(_HEALTH_DOMAIN_TENANT_MISSING)
     )
     overall = "healthy" if (neo4j_ok and domain_ok) else "degraded"
     return {"status": overall, "checks": checks}
