@@ -331,9 +331,9 @@ class MixtureOfExpertsEnsemble(VariantEnsemble):
         gate_logits = competencies / (1.0 + 1e-8)
         gate_weights = np.exp(gate_logits) / np.sum(np.exp(gate_logits))
 
-        final = float(
+        final = float(  # nosemgrep: float-requires-try-except
             np.clip(np.dot(gate_weights, competencies), 0.0, 1.0)
-        )  # nosemgrep: semgrep.float-requires-try-except
+        )
 
         weights = {
             s.variant_id: float(w)  # nosemgrep: semgrep.float-requires-try-except
