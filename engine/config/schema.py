@@ -104,6 +104,7 @@ class ComputationType(StrEnum):
     KGE = "kge"
     VARIANTDISCOVERY = "variantdiscovery"
     ENSEMBLECONFIDENCE = "ensembleconfidence"
+    PRIMITIVE = "primitive"
 
 
 class ScoringSource(StrEnum):
@@ -346,6 +347,19 @@ class ScoringDimensionSpec(BaseModel):
     defaultweight: float
     aggregation: ScoringAggregation = ScoringAggregation.ADDITIVE
     matchdirections: list[str] | None = None
+
+    @model_validator(mode="after")
+    def validate_primitive_not_multiplicative(self) -> ScoringDimensionSpec:
+        """PRIMITIVE dimensions must never use MULTIPLICATIVE aggregation."""
+        if (
+            self.computation == ComputationType.PRIMITIVE
+            and self.aggregation == ScoringAggregation.MULTIPLICATIVE
+        ):
+            raise ValueError(
+                f"Dimension '{self.name}': PRIMITIVE computation cannot use "
+                f"MULTIPLICATIVE aggregation — learned dimensions must not have veto power"
+            )
+        return self
 
 
 class ScoringSpec(BaseModel):

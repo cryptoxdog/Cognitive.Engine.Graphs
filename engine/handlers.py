@@ -324,13 +324,18 @@ async def handle_match(tenant: str, payload: dict[str, Any]) -> dict[str, Any]:
         ) from exc
 
     execution_time_ms = (time.monotonic() - start_time) * 1000
-    response = {
+    response: dict[str, Any] = {
         "candidates": results,
         "query_id": f"q_{uuid.uuid4().hex[:12]}",
         "match_direction": match_direction,
         "total_candidates": len(results),
         "execution_time_ms": round(execution_time_ms, 2),
     }
+
+    # Attach dual-dimension audit breakdown when available
+    breakdown = scoring_assembler.last_breakdown
+    if breakdown is not None:
+        response["scoring_breakdown"] = breakdown.to_dict()
 
     if compliance.enabled:
         response = compliance.redact_response(response, tenant)

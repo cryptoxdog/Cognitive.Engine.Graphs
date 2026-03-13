@@ -82,6 +82,13 @@ class Settings(BaseSettings):
     # --- Feedback Loop ---
     outcome_ema_alpha: float = 0.1
 
+    # --- Dual Dimension Classes (Learned vs. Engineered) ---
+    engineered_weight_budget: float = 0.70
+    learned_weight_budget: float = 0.30
+    engineered_ema_alpha: float = 0.05
+    learned_ema_alpha: float = 0.20
+    primitive_confidence_threshold: float = 0.5
+
     # --- Entity Resolution ---
     resolution_density_tolerance: float = 0.05
     resolution_mfi_tolerance: float = 5.0

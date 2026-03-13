@@ -17,7 +17,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from engine.config.schema import ComputationType, DomainSpec, ScoringDimensionSpec, ScoringSpec
+from engine.config.schema import ComputationType, DomainSpec, ScoringAggregation, ScoringDimensionSpec, ScoringSpec
 from engine.scoring.assembler import ScoringAssembler
 
 
@@ -43,6 +43,7 @@ def make_mock_domain_spec(dimensions: list[dict] | None = None) -> MagicMock:
         dim.alias = dim_dict.get("alias")
         dim.decayconstant = dim_dict.get("decayconstant")
         dim.bias = dim_dict.get("bias")
+        dim.aggregation = ScoringAggregation(dim_dict.get("aggregation", "additive"))
         mock_dims.append(dim)
 
     spec.scoring.dimensions = mock_dims

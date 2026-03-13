@@ -17,11 +17,37 @@ from __future__ import annotations
 
 import logging
 import re
+from dataclasses import dataclass, field
+from typing import Any
 
-from engine.config.schema import ComputationType, DomainSpec, ScoringDimensionSpec
+from engine.config.schema import ComputationType, DomainSpec, ScoringAggregation, ScoringDimensionSpec
+from engine.config.settings import settings
 from engine.utils.security import sanitize_label
 
 logger = logging.getLogger(__name__)
+
+
+def _is_learned(dim: ScoringDimensionSpec) -> bool:
+    """Return True if dimension uses a learned (PRIMITIVE) computation type."""
+    return dim.computation == ComputationType.PRIMITIVE
+
+
+@dataclass
+class ScoringBreakdown:
+    """Per-match audit breakdown of engineered vs. learned contributions."""
+
+    engineered_contribution: float = 0.0
+    learned_contribution: float = 0.0
+    engineered_dims: dict[str, float] = field(default_factory=dict)
+    learned_dims: dict[str, float] = field(default_factory=dict)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "engineered_contribution": round(self.engineered_contribution, 4),
+            "learned_contribution": round(self.learned_contribution, 4),
+            "engineered_dims": {k: round(v, 4) for k, v in self.engineered_dims.items()},
+            "learned_dims": {k: round(v, 4) for k, v in self.learned_dims.items()},
+        }
 
 # Dangerous Cypher keywords that must be blocked in CUSTOMCYPHER expressions
 _DANGEROUS_CYPHER_KEYWORDS = (
@@ -73,28 +99,89 @@ def _validate_custom_expression(expression: str, dim_name: str) -> str:
 
 
 class ScoringAssembler:
-    """Assembles scoring dimensions into Cypher WITH clause."""
+    """Assembles scoring dimensions into Cypher WITH clause.
+
+    Supports dual dimension classes: engineered (all non-PRIMITIVE computation
+    types) and learned (PRIMITIVE). When learned_weight_budget > 0.0, weights
+    are scaled by their respective pool budgets. When learned_weight_budget
+    is 0.0, the assembler behaves identically to the original single-pool mode.
+    """
 
     def __init__(self, domain_spec: DomainSpec) -> None:
         self.domain_spec = domain_spec
         self.scoring_spec = domain_spec.scoring
+        self._last_breakdown: ScoringBreakdown | None = None
+
+    @property
+    def last_breakdown(self) -> ScoringBreakdown | None:
+        """Return the scoring breakdown from the most recent assembly call."""
+        return self._last_breakdown
 
     def assemble_scoring_clause(
         self,
         match_direction: str,
         weights: dict[str, float],
+        *,
+        engineered_budget: float | None = None,
+        learned_budget: float | None = None,
     ) -> str:
-        """Assemble WITH clause for scoring."""
+        """Assemble WITH clause for scoring with pool-aware weight scaling.
+
+        When learned_budget is 0.0 (or no PRIMITIVE dims exist), the output
+        is identical to the original flat-weight behaviour — zero overhead.
+        """
+        eng_budget = engineered_budget if engineered_budget is not None else settings.engineered_weight_budget
+        lrn_budget = learned_budget if learned_budget is not None else settings.learned_weight_budget
+
         dimension_exprs: list[str] = []
         weight_exprs: list[str] = []
+        breakdown = ScoringBreakdown()
 
+        # Partition applicable dims into engineered vs learned
+        applicable: list[ScoringDimensionSpec] = []
         for dim in self.scoring_spec.dimensions:
             if dim.matchdirections and match_direction not in dim.matchdirections:
                 continue
+            applicable.append(dim)
+
+        engineered_dims = [d for d in applicable if not _is_learned(d)]
+        learned_dims = [d for d in applicable if _is_learned(d)]
+
+        has_learned = bool(learned_dims) and lrn_budget > 0.0
+
+        for dim in applicable:
             expr = self._compile_dimension(dim)
             dimension_exprs.append(f"{expr} AS {dim.name}")
-            weight = weights.get(dim.weightkey, dim.defaultweight)
-            weight_exprs.append(f"({weight} * {dim.name})")
+            raw_weight = weights.get(dim.weightkey, dim.defaultweight)
+
+            if has_learned:
+                # Scale by pool budget
+                if _is_learned(dim):
+                    pool_total = sum(
+                        weights.get(d.weightkey, d.defaultweight) for d in learned_dims
+                    )
+                    scaled = (raw_weight / pool_total * lrn_budget) if pool_total > 0.0 else 0.0
+                    breakdown.learned_dims[dim.name] = scaled
+                    breakdown.learned_contribution += scaled
+                else:
+                    pool_total = sum(
+                        weights.get(d.weightkey, d.defaultweight) for d in engineered_dims
+                    )
+                    scaled = (raw_weight / pool_total * eng_budget) if pool_total > 0.0 else 0.0
+                    breakdown.engineered_dims[dim.name] = scaled
+                    breakdown.engineered_contribution += scaled
+            else:
+                # Feature gate: no learned dims → original behaviour
+                scaled = raw_weight
+                breakdown.engineered_dims[dim.name] = scaled
+                breakdown.engineered_contribution += scaled
+
+            if dim.aggregation == ScoringAggregation.MULTIPLICATIVE:
+                weight_exprs.append(f"(CASE WHEN {dim.name} = 0 THEN 0 ELSE {scaled} * {dim.name} END)")
+            else:
+                weight_exprs.append(f"({scaled} * {dim.name})")
+
+        self._last_breakdown = breakdown
 
         all_exprs = ", ".join(dimension_exprs)
         score_expr = self._build_score_expression(weight_exprs)
@@ -117,6 +204,7 @@ class ScoringAssembler:
             ComputationType.KGE: self._compile_kge,
             ComputationType.VARIANTDISCOVERY: self._compile_variantdiscovery,
             ComputationType.ENSEMBLECONFIDENCE: self._compile_ensembleconfidence,
+            ComputationType.PRIMITIVE: self._compile_primitive,
         }
 
         if dim.computation == ComputationType.CANDIDATEPROPERTY:
@@ -280,6 +368,20 @@ class ScoringAssembler:
         """
         default = float(dim.defaultwhennull)  # nosemgrep: float-requires-try-except
         prop = sanitize_label(dim.candidateprop or "ensemble_confidence")
+        if dim.alias:
+            alias = sanitize_label(dim.alias)
+            return f"coalesce({alias}.{prop}, {default})"
+        return f"coalesce(candidate.{prop}, {default})"
+
+    def _compile_primitive(self, dim: ScoringDimensionSpec) -> str:
+        """Learned primitive score from pre-computed embedding or model output.
+
+        Reads a pre-computed score from candidate node. Learned primitives
+        participate additively only — MULTIPLICATIVE aggregation is blocked
+        at config validation time.
+        """
+        default = float(dim.defaultwhennull)  # nosemgrep: float-requires-try-except
+        prop = sanitize_label(dim.candidateprop or "primitive_score")
         if dim.alias:
             alias = sanitize_label(dim.alias)
             return f"coalesce({alias}.{prop}, {default})"
