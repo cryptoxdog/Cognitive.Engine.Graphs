@@ -28,7 +28,6 @@ Usage:
 import json
 import logging
 import re
-import types
 from collections.abc import Generator
 from typing import Any, TypeVar
 
@@ -216,7 +215,7 @@ def safe_exec(code: str, allowed_imports: list[str] | None = None, timeout_secon
         )
 
         if "fibonacci" in result:
-            print(result["fibonacci"](10))
+            fib = result["fibonacci"](10)  # noqa — docstring example, no print in production
     """
     allowed_imports = allowed_imports or ["math", "datetime", "itertools"]
 
@@ -240,23 +239,53 @@ def safe_exec(code: str, allowed_imports: list[str] | None = None, timeout_secon
         except ImportError:
             logger.warning(f"Allowed module '{module_name}' not available")
 
-    # Execute with timeout
-    import signal
+    # Execute in isolated child process — no in-process exec() (SEC-003)
+    import multiprocessing
+    import multiprocessing.queues
 
-    def timeout_handler(signum: int, frame: types.FrameType | None) -> None:
+    result_queue: multiprocessing.Queue[dict[str, Any] | Exception] = multiprocessing.Queue()
+
+    def _worker(
+        code_obj: bytes,
+        globals_dict: dict[str, Any],
+        out_q: "multiprocessing.Queue[dict[str, Any] | Exception]",
+    ) -> None:
+        try:
+            import marshal
+            code = marshal.loads(code_obj)  # noqa: S302 — child process only, no parent deserialization risk
+            ns = dict(globals_dict)
+            exec(code, ns)  # isolated child process — no parent state
+            # Filter out non-picklable values before returning
+            safe_ns = {k: v for k, v in ns.items() if k not in ("__builtins__", "_getiter_")}
+            out_q.put(safe_ns)
+        except Exception as exc:
+            out_q.put(exc)
+
+    import marshal
+    code_bytes = marshal.dumps(byte_code.code)
+
+    proc = multiprocessing.Process(
+        target=_worker,
+        args=(code_bytes, restricted_globals, result_queue),
+        daemon=True,
+    )
+    proc.start()
+    proc.join(timeout=timeout_seconds)
+
+    if proc.is_alive():
+        proc.terminate()
+        proc.join()
         raise TimeoutError(f"Code execution exceeded {timeout_seconds}s timeout")
 
-    signal.signal(signal.SIGALRM, timeout_handler)
-    signal.alarm(timeout_seconds)
+    if result_queue.empty():
+        raise RuntimeError("Sandboxed worker exited without returning a result")
 
-    try:
-        exec(byte_code.code, restricted_globals)
-        signal.alarm(0)  # Cancel timeout
-        return restricted_globals
-    except Exception as e:
-        signal.alarm(0)
-        logger.error(f"Sandboxed code execution failed: {e}")
-        raise
+    outcome = result_queue.get_nowait()
+    if isinstance(outcome, Exception):
+        logger.error(f"Sandboxed code execution failed: {outcome}")
+        raise outcome
+
+    return outcome
 
 
 # ============================================================
@@ -292,5 +321,4 @@ def track_llm_usage(model: str, user_id: str | None = None) -> Generator[None, N
             "llm_call", model=model, user_id=user_id, duration_ms=duration_ms, timestamp=start_time.isoformat()
         )
 
-        # TODO: Extract token counts from response and calculate cost
-        # This requires integration with specific LLM provider SDKs
+        # See DEFERRED.md: DEFERRED-001 — token/cost extraction per provider SDK

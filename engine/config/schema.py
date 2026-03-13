@@ -148,7 +148,7 @@ class NodeSpec(BaseModel):
 
     label: str
     description: str | None = None
-    managedby: ManagedByType
+    managedby: ManagedByType | None = None
     candidate: bool = False
     queryentity: bool = False
     taxonomy: bool = False
@@ -178,6 +178,19 @@ class OntologySpec(BaseModel):
     nodes: list[NodeSpec]
     edges: list[EdgeSpec]
 
+    @field_validator("nodes", mode="before")
+    @classmethod
+    def coerce_nodes_dict_to_list(cls, v: object) -> object:
+        """Accept dict-grouped nodes (e.g. {candidates: [...], query_entities: [...]})
+        in addition to the canonical flat list format."""
+        if isinstance(v, dict):
+            merged: list[object] = []
+            for group in v.values():
+                if isinstance(group, list):
+                    merged.extend(group)
+            return merged
+        return v
+
     @field_validator("nodes")
     @classmethod
     def validate_unique_labels(cls, nodes: list[NodeSpec]) -> list[NodeSpec]:
@@ -186,6 +199,18 @@ class OntologySpec(BaseModel):
         if len(labels) != len(set(labels)):
             raise ValueError("Duplicate node labels detected in ontology")
         return nodes
+
+    @field_validator("edges", mode="before")
+    @classmethod
+    def coerce_edges_dict_to_list(cls, v: object) -> object:
+        """Accept dict-grouped edges in addition to canonical flat list format."""
+        if isinstance(v, dict):
+            merged: list[object] = []
+            for group in v.values():
+                if isinstance(group, list):
+                    merged.extend(group)
+            return merged
+        return v
 
     @field_validator("edges")
     @classmethod
@@ -263,6 +288,14 @@ class GateSpec(BaseModel):
     type: GateType
     candidateprop: str | None = None
     queryparam: str | None = None
+
+    @field_validator("queryparam", mode="before")
+    @classmethod
+    def coerce_queryparam_to_str(cls, v: object) -> object:
+        """YAML parses unquoted booleans/numbers as native types; coerce to str."""
+        if v is not None and not isinstance(v, str):
+            return str(v)
+        return v
     operator: str | None = None
     logic: str | None = None  # For composite gates: "AND" / "OR"
     nullbehavior: NullBehavior = NullBehavior.PASS
@@ -533,7 +566,7 @@ class DomainSpec(BaseModel):
     ontology: OntologySpec
     matchentities: MatchEntitiesSpec
     queryschema: QuerySchemaSpec
-    traversal: TraversalSpec
+    traversal: TraversalSpec | None = None
     gates: list[GateSpec]
     scoring: ScoringSpec
     derivedparameters: list[DerivedParameterSpec] = Field(default_factory=list)

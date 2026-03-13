@@ -475,6 +475,10 @@ class BeamSearchEngine:
                 "search_config": config snapshot,
             }
         """
+        # Reset run-scoped state to prevent mixing data from prior invocations
+        self.search_history = []
+        self.pruned_candidates = []
+
         if not settings.kge_enabled:
             logger.warning("BeamSearchEngine.search skipped — kge_enabled=False")
             return {"variants": [], "status": "skipped", "reason": "kge_enabled=False"}

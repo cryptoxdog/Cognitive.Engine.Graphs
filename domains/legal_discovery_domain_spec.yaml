@@ -122,4 +122,4 @@ compliance:
     enabled: true
     logmatchrequests: true
     logmatchresults: true
-    retentiondays: 25557 years
+    retentiondays: 25557
