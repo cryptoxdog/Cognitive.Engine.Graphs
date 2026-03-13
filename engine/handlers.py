@@ -572,24 +572,49 @@ async def handle_resolve(tenant: str, payload: dict[str, Any]) -> dict[str, Any]
     }
 
 
+# Named status constants — never use string literals for health evaluation
+_HEALTH_OK = "ok"
+_HEALTH_NEO4J_CONN_FAILED = "error: connection_failed"
+_HEALTH_DOMAIN_TENANT_MISSING = "ok: tenant not found; fallback available"
+_HEALTH_DOMAIN_NO_PACKS = "error: no_domains_found"
+_HEALTH_DOMAIN_CONFIG_INVALID = "error: config_invalid"
+
+
 async def handle_health(tenant: str, payload: dict[str, Any]) -> dict[str, Any]:
     """Health check: Neo4j connectivity and domain spec validity."""
+    from engine.config.loader import DomainNotFoundError
+
     graph_driver, domain_loader = _require_deps()
     checks: dict[str, str] = {"neo4j": "unknown", "domain_spec": "unknown"}
 
     try:
-        await graph_driver.execute_query("RETURN 1 AS ping", database="system")
-        checks["neo4j"] = "ok"
+        # Query the 'neo4j' default database — 'system' only accepts DDL (SHOW/CREATE DATABASE)
+        await graph_driver.execute_query("RETURN 1 AS ping", database="neo4j")
+        checks["neo4j"] = _HEALTH_OK
     except Exception:
-        checks["neo4j"] = "error: connection_failed"
+        checks["neo4j"] = _HEALTH_NEO4J_CONN_FAILED
 
     try:
         domain_loader.load_domain(tenant)
-        checks["domain_spec"] = "ok"
+        checks["domain_spec"] = _HEALTH_OK
+    except DomainNotFoundError:
+        # Tenant spec absent — check whether any domain packs are loaded at all.
+        # A generic /v1/health probe (tenant="default") should not fail when the
+        # deployment is healthy but the "default" tenant hasn't been seeded.
+        available = domain_loader.list_domains()
+        if available:
+            checks["domain_spec"] = f"{_HEALTH_DOMAIN_TENANT_MISSING}: {available}"
+        else:
+            checks["domain_spec"] = _HEALTH_DOMAIN_NO_PACKS
     except Exception:
-        checks["domain_spec"] = "error: config_invalid"
+        # Unexpected loader error — real configuration problem, not just missing tenant
+        checks["domain_spec"] = _HEALTH_DOMAIN_CONFIG_INVALID
 
-    overall = "healthy" if all(v == "ok" for v in checks.values()) else "degraded"
+    neo4j_ok = checks["neo4j"] == _HEALTH_OK
+    domain_ok = checks["domain_spec"] in (_HEALTH_OK, checks["domain_spec"]) and (
+        checks["domain_spec"] == _HEALTH_OK or checks["domain_spec"].startswith(_HEALTH_DOMAIN_TENANT_MISSING)
+    )
+    overall = "healthy" if (neo4j_ok and domain_ok) else "degraded"
     return {"status": overall, "checks": checks}
 
 
