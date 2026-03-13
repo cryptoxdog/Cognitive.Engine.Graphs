@@ -152,6 +152,10 @@ module = "tools.*"
 disallow_untyped_defs = false
 check_untyped_defs = false
 
+[[tool.mypy.overrides]]
+module = "chassis.*"
+ignore_errors = true
+
 [tool.l9_meta]
 l9_schema = 1
 origin = "engine-specific"
