@@ -81,7 +81,14 @@ class GraphLifecycle(LifecycleHook):
             username=settings.neo4j_username,
             password=settings.neo4j_password,
         )
-        await self._graph_driver.connect()
+        try:
+            await self._graph_driver.connect()
+            logger.info("GraphLifecycle.startup → Neo4j connected")
+        except Exception as exc:
+            # Neo4j unreachable at startup — container comes up anyway.
+            # Health endpoint will report neo4j=error:connection_failed.
+            # The driver retries on first query; no need to crash here.
+            logger.warning("GraphLifecycle.startup → Neo4j unavailable: %s", exc)
 
         self._domain_loader = DomainPackLoader(
             config_path=str(settings.domains_root),
