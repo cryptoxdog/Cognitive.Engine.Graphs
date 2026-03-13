@@ -20,7 +20,7 @@ RUN pip install --no-cache-dir poetry && \
 
 COPY pyproject.toml poetry.lock* ./
 RUN poetry install --no-dev --no-interaction --no-ansi 2>/dev/null || \
-    pip install --no-cache-dir fastapi uvicorn neo4j pydantic pyyaml apscheduler redis
+    pip install --no-cache-dir fastapi uvicorn neo4j pydantic pydantic-settings pyyaml apscheduler redis structlog numpy scipy RestrictedPython
 
 COPY . .
 
