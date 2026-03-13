@@ -123,13 +123,17 @@ ignore = [
 
 [tool.mypy]
 python_version = "3.12"
-warn_return_any = true              # catch untyped returns (harvested from L9 Kernel)
+warn_return_any = true
 warn_unused_configs = true
-warn_unreachable = true             # catch dead code paths (harvested from L9 Kernel)
-disallow_untyped_defs = false
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_unreachable = true
 check_untyped_defs = true
+strict_equality = true
+no_implicit_optional = true
+disallow_untyped_defs = false
 ignore_missing_imports = true
-plugins = ["pydantic.mypy"]         # Pydantic model type awareness (harvested from L9 Kernel)
+plugins = ["pydantic.mypy"]
 exclude = [
     "^current work/",
     "^harvest_staging/",
@@ -151,6 +155,27 @@ check_untyped_defs = false
 module = "tools.*"
 disallow_untyped_defs = false
 check_untyped_defs = false
+
+# Gradual migration — legacy modules do not require full type coverage
+[[tool.mypy.overrides]]
+module = ["engine.legacy.*", "scripts.*", "tests.legacy.*"]
+disallow_untyped_defs = false
+disallow_incomplete_defs = false
+
+# New engine modules — strict type hints required
+[[tool.mypy.overrides]]
+module = [
+    "engine.api.*",
+    "engine.security.*",
+    "engine.llm.*",
+    "engine.observability.*",
+    "engine.features.*",
+]
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+disallow_untyped_calls = true
+disallow_any_generics = true
+warn_return_any = true
 
 [tool.l9_meta]
 l9_schema = 1
