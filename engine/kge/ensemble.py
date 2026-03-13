@@ -334,9 +334,9 @@ class MixtureOfExpertsEnsemble(VariantEnsemble):
         final = float(np.clip(np.dot(gate_weights, competencies), 0.0, 1.0))  # nosemgrep: float-requires-try-except
 
         weights = {
-            s.variant_id: float(w)
-            for s, w in zip(scores, gate_weights, strict=False)  # nosemgrep: float-requires-try-except
-        }  # nosemgrep: float-requires-try-except
+            s.variant_id: float(w)  # nosemgrep: float-requires-try-except
+            for s, w in zip(scores, gate_weights, strict=False)
+        }
 
         top_3 = sorted(zip(scores, gate_weights, strict=False), key=lambda x: -x[0].score)[:3]
         lines = [f"MoE Ensemble: final_score={final:.4f}"]

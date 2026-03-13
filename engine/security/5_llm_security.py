@@ -252,6 +252,7 @@ def safe_exec(code: str, allowed_imports: list[str] | None = None, timeout_secon
     ) -> None:
         try:
             import marshal
+
             code = marshal.loads(code_obj)  # noqa: S302 — child process only, no parent deserialization risk
             ns = dict(globals_dict)
             exec(code, ns)  # isolated child process — no parent state
@@ -262,6 +263,7 @@ def safe_exec(code: str, allowed_imports: list[str] | None = None, timeout_secon
             out_q.put(exc)
 
     import marshal
+
     code_bytes = marshal.dumps(byte_code.code)
 
     proc = multiprocessing.Process(

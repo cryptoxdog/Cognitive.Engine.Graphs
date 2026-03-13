@@ -296,6 +296,7 @@ class GateSpec(BaseModel):
         if v is not None and not isinstance(v, str):
             return str(v)
         return v
+
     operator: str | None = None
     logic: str | None = None  # For composite gates: "AND" / "OR"
     nullbehavior: NullBehavior = NullBehavior.PASS
