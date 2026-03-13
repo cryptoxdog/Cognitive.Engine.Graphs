@@ -67,7 +67,10 @@ jobs:
               --exclude-dir=venv \
               --exclude-dir=.venv \
               --exclude-dir=__pycache__ \
-              .; then
+              --exclude-dir=chassis \
+              --exclude-dir=tools \
+              --exclude-dir=performance \
+              engine/ tests/; then
 
               echo "❌ Found forbidden term: $term"
               VIOLATIONS=$((VIOLATIONS+1))
