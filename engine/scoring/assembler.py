@@ -120,6 +120,7 @@ class ScoringAssembler:
 
         dimension_exprs: list[str] = []
         weight_exprs: list[str] = []
+        active_dim_names: list[str] = []
 
         for dim in self.scoring_spec.dimensions:
             if dim.matchdirections and match_direction not in dim.matchdirections:
@@ -128,12 +129,14 @@ class ScoringAssembler:
             dimension_exprs.append(f"{expr} AS {dim.name}")
             weight = weights.get(dim.weightkey, dim.defaultweight)
             weight_exprs.append(f"({weight} * {dim.name})")
+            active_dim_names.append(dim.name)
 
         all_exprs = ", ".join(dimension_exprs)
         score_expr = self._build_score_expression(weight_exprs)
 
         if all_exprs:
-            clause = f"WITH candidate, {all_exprs}, {score_expr} AS score"
+            dim_names_passthrough = ", ".join(active_dim_names)
+            clause = f"WITH candidate, {all_exprs}\nWITH candidate, {dim_names_passthrough}, {score_expr} AS score"
         else:
             clause = f"WITH candidate, {score_expr} AS score"
 
