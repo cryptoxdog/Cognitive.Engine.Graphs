@@ -84,16 +84,25 @@ class ScoringAssembler:
         match_direction: str,
         weights: dict[str, float],
         pareto_candidates: list | None = None,
-    ) -> str:
+    ) -> tuple[str, dict | None]:
         """Assemble WITH clause for scoring.
 
         Args:
             match_direction: Direction for dimension filtering.
             weights: Weight overrides keyed by weightkey.
             pareto_candidates: Optional list of ParetoCandidate for pre-filtering.
+
+        Returns:
+            Tuple of (cypher_clause, pareto_metadata).
+            pareto_metadata is None if Pareto disabled or not applicable,
+            otherwise contains front_size, total_candidates, non_dominated_ids.
         """
+        from engine.config.settings import settings
+
+        pareto_metadata: dict | None = None
+
         # Pareto pre-filter (lazy import to avoid circular deps)
-        if pareto_candidates is not None and len(pareto_candidates) > 1:
+        if settings.pareto_enabled and pareto_candidates is not None and len(pareto_candidates) > 1:
             from engine.scoring.pareto import compute_pareto_front
 
             front = compute_pareto_front(pareto_candidates)
@@ -102,6 +111,12 @@ class ScoringAssembler:
                 front.front_size,
                 len(pareto_candidates),
             )
+            pareto_metadata = {
+                "front_size": front.front_size,
+                "total_candidates": len(pareto_candidates),
+                "non_dominated_ids": [c.candidate_id for c in front.non_dominated],
+                "dimension_names": front.dimension_names,
+            }
 
         dimension_exprs: list[str] = []
         weight_exprs: list[str] = []
@@ -118,8 +133,11 @@ class ScoringAssembler:
         score_expr = self._build_score_expression(weight_exprs)
 
         if all_exprs:
-            return f"WITH candidate, {all_exprs}, {score_expr} AS score"
-        return f"WITH candidate, {score_expr} AS score"
+            clause = f"WITH candidate, {all_exprs}, {score_expr} AS score"
+        else:
+            clause = f"WITH candidate, {score_expr} AS score"
+
+        return clause, pareto_metadata
 
     def _compile_dimension(self, dim: ScoringDimensionSpec) -> str:
         """Dispatch to computation-specific compiler."""

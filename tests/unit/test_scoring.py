@@ -67,7 +67,7 @@ class TestScoringAssembler:
         )
         assembler = ScoringAssembler(domain_spec)
 
-        cypher = assembler.assemble_scoring_clause(match_direction="buyertosupplier", weights={})
+        cypher, _ = assembler.assemble_scoring_clause(match_direction="buyertosupplier", weights={})
 
         assert "distance" in cypher.lower()
 
@@ -88,7 +88,7 @@ class TestScoringAssembler:
         )
         assembler = ScoringAssembler(domain_spec)
 
-        cypher = assembler.assemble_scoring_clause(match_direction="buyertosupplier", weights={})
+        cypher, _ = assembler.assemble_scoring_clause(match_direction="buyertosupplier", weights={})
 
         assert "priceperlb" in cypher
 
@@ -114,7 +114,9 @@ class TestScoringAssembler:
         )
         assembler = ScoringAssembler(domain_spec)
 
-        cypher = assembler.assemble_scoring_clause(match_direction="querytocandidate", weights={"w1": 0.6, "w2": 0.4})
+        cypher, _ = assembler.assemble_scoring_clause(
+            match_direction="querytocandidate", weights={"w1": 0.6, "w2": 0.4}
+        )
 
         assert "score1" in cypher
         assert "score2" in cypher
@@ -138,11 +140,11 @@ class TestScoringAssembler:
         assembler = ScoringAssembler(domain_spec)
 
         # Should include in buyertosupplier
-        cypher1 = assembler.assemble_scoring_clause(match_direction="buyertosupplier", weights={})
+        cypher1, _ = assembler.assemble_scoring_clause(match_direction="buyertosupplier", weights={})
         assert "directional_score" in cypher1
 
         # Should exclude in other direction
-        cypher2 = assembler.assemble_scoring_clause(match_direction="suppliertobuyer", weights={})
+        cypher2, _ = assembler.assemble_scoring_clause(match_direction="suppliertobuyer", weights={})
         assert "directional_score" not in cypher2
 
     def test_empty_dimensions_returns_zero_score(self) -> None:
@@ -150,7 +152,7 @@ class TestScoringAssembler:
         domain_spec = make_mock_domain_spec([])
         assembler = ScoringAssembler(domain_spec)
 
-        cypher = assembler.assemble_scoring_clause(match_direction="any", weights={})
+        cypher, _ = assembler.assemble_scoring_clause(match_direction="any", weights={})
 
         assert "0.0" in cypher
 
@@ -170,7 +172,7 @@ class TestScoringAssembler:
         )
         assembler = ScoringAssembler(domain_spec)
 
-        cypher = assembler.assemble_scoring_clause(match_direction="any", weights={})
+        cypher, _ = assembler.assemble_scoring_clause(match_direction="any", weights={})
 
         assert "coalesce" in cypher
         assert "rating" in cypher
@@ -191,7 +193,7 @@ class TestScoringAssembler:
         )
         assembler = ScoringAssembler(domain_spec)
 
-        cypher = assembler.assemble_scoring_clause(match_direction="any", weights={})
+        cypher, _ = assembler.assemble_scoring_clause(match_direction="any", weights={})
 
         assert "variant_discovery_score" in cypher
         assert "coalesce" in cypher
@@ -212,7 +214,7 @@ class TestScoringAssembler:
         )
         assembler = ScoringAssembler(domain_spec)
 
-        cypher = assembler.assemble_scoring_clause(match_direction="any", weights={})
+        cypher, _ = assembler.assemble_scoring_clause(match_direction="any", weights={})
 
         assert "variant_discovery_score" in cypher
         assert "0.5" in cypher
@@ -233,7 +235,7 @@ class TestScoringAssembler:
         )
         assembler = ScoringAssembler(domain_spec)
 
-        cypher = assembler.assemble_scoring_clause(match_direction="any", weights={})
+        cypher, _ = assembler.assemble_scoring_clause(match_direction="any", weights={})
 
         assert "ensemble_confidence" in cypher
         assert "coalesce" in cypher
@@ -254,7 +256,7 @@ class TestScoringAssembler:
         )
         assembler = ScoringAssembler(domain_spec)
 
-        cypher = assembler.assemble_scoring_clause(match_direction="any", weights={})
+        cypher, _ = assembler.assemble_scoring_clause(match_direction="any", weights={})
 
         assert "ensemble_confidence" in cypher
         assert "0.5" in cypher
@@ -291,7 +293,7 @@ class TestScoringAssembler:
         )
         assembler = ScoringAssembler(domain_spec)
 
-        cypher = assembler.assemble_scoring_clause(
+        cypher, _ = assembler.assemble_scoring_clause(
             match_direction="any",
             weights={"wkge": 0.5, "wvariant": 0.3, "wensemble": 0.2},
         )
@@ -302,3 +304,77 @@ class TestScoringAssembler:
         assert "0.5" in cypher
         assert "0.3" in cypher
         assert "0.2" in cypher
+
+    def test_pareto_metadata_returned_when_enabled(self) -> None:
+        """Pareto metadata is returned when pareto_candidates provided and enabled."""
+        from unittest.mock import patch
+
+        from engine.scoring.pareto import ParetoCandidate
+
+        domain_spec = make_mock_domain_spec(
+            [
+                {
+                    "name": "score1",
+                    "candidateprop": "prop1",
+                    "computation": "candidateproperty",
+                    "weightkey": "w1",
+                    "defaultweight": 1.0,
+                }
+            ]
+        )
+        assembler = ScoringAssembler(domain_spec)
+
+        candidates = [
+            ParetoCandidate(candidate_id="c1", dimension_scores={"geo": 0.9, "price": 0.3}),
+            ParetoCandidate(candidate_id="c2", dimension_scores={"geo": 0.3, "price": 0.9}),
+            ParetoCandidate(candidate_id="c3", dimension_scores={"geo": 0.2, "price": 0.2}),
+        ]
+
+        with patch("engine.config.settings.settings") as mock_settings:
+            mock_settings.pareto_enabled = True
+
+            _, pareto_meta = assembler.assemble_scoring_clause(
+                match_direction="any",
+                weights={},
+                pareto_candidates=candidates,
+            )
+
+        assert pareto_meta is not None
+        assert pareto_meta["front_size"] == 2
+        assert pareto_meta["total_candidates"] == 3
+        assert set(pareto_meta["non_dominated_ids"]) == {"c1", "c2"}
+
+    def test_pareto_disabled_returns_none_metadata(self) -> None:
+        """Pareto metadata is None when pareto_enabled=False."""
+        from unittest.mock import patch
+
+        from engine.scoring.pareto import ParetoCandidate
+
+        domain_spec = make_mock_domain_spec(
+            [
+                {
+                    "name": "score1",
+                    "candidateprop": "prop1",
+                    "computation": "candidateproperty",
+                    "weightkey": "w1",
+                    "defaultweight": 1.0,
+                }
+            ]
+        )
+        assembler = ScoringAssembler(domain_spec)
+
+        candidates = [
+            ParetoCandidate(candidate_id="c1", dimension_scores={"geo": 0.9}),
+            ParetoCandidate(candidate_id="c2", dimension_scores={"geo": 0.3}),
+        ]
+
+        with patch("engine.config.settings.settings") as mock_settings:
+            mock_settings.pareto_enabled = False
+
+            _, pareto_meta = assembler.assemble_scoring_clause(
+                match_direction="any",
+                weights={},
+                pareto_candidates=candidates,
+            )
+
+        assert pareto_meta is None
