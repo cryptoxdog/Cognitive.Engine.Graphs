@@ -309,9 +309,10 @@ async def handle_match(tenant: str, payload: dict[str, Any]) -> dict[str, Any]:
     )
 
     try:
+        parameters = {**resolved_query, "query": resolved_query, "top_n": top_n}
         results = await graph_driver.execute_query(
             cypher=cypher,
-            parameters={"query": resolved_query, "top_n": top_n},
+            parameters=parameters,
             database=domain_spec.domain.id,
         )
     except Exception as exc:
