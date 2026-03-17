@@ -83,8 +83,26 @@ class ScoringAssembler:
         self,
         match_direction: str,
         weights: dict[str, float],
+        pareto_candidates: list | None = None,
     ) -> str:
-        """Assemble WITH clause for scoring."""
+        """Assemble WITH clause for scoring.
+
+        Args:
+            match_direction: Direction for dimension filtering.
+            weights: Weight overrides keyed by weightkey.
+            pareto_candidates: Optional list of ParetoCandidate for pre-filtering.
+        """
+        # Pareto pre-filter (lazy import to avoid circular deps)
+        if pareto_candidates is not None and len(pareto_candidates) > 1:
+            from engine.scoring.pareto import compute_pareto_front
+
+            front = compute_pareto_front(pareto_candidates)
+            logger.info(
+                "Pareto pre-filter: %d/%d candidates non-dominated",
+                front.front_size,
+                len(pareto_candidates),
+            )
+
         dimension_exprs: list[str] = []
         weight_exprs: list[str] = []
 

@@ -92,6 +92,11 @@ class Settings(BaseSettings):
     kge_embedding_dim: int = 300
     kge_confidence_threshold: float = 0.3
 
+    # --- Pareto / Multi-Objective ---
+    pareto_enabled: bool = True
+    pareto_n_samples: int = 50
+    pareto_weight_discovery_enabled: bool = False  # off until outcome data flows
+
     @model_validator(mode="after")
     def _validate_production_secrets(self) -> "Settings":
         """Raise if default secrets are used in production environment."""

@@ -20,6 +20,7 @@ All imports gated behind settings.kge_enabled.
 from engine.kge.beam_search import BeamSearchConfig, BeamSearchEngine, CascadeVariant
 from engine.kge.compound_e3d import CompoundE3D, CompoundE3DConfig
 from engine.kge.ensemble import EnsembleController, VariantScore
+from engine.kge.pareto_ensemble import ParetoEnsembleController, ParetoEnsembleResult
 from engine.kge.transformations import (
     Flip,
     Hyperplane,
@@ -39,6 +40,8 @@ __all__ = [
     "EnsembleController",
     "Flip",
     "Hyperplane",
+    "ParetoEnsembleController",
+    "ParetoEnsembleResult",
     "Rotation",
     "Scale",
     "Shear",

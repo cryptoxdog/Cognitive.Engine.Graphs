@@ -34,6 +34,10 @@ services:
       LOG_LEVEL: info
       CORS_ORIGINS: ${CORS_ORIGINS:-[]}
       DOMAINS_ROOT: domains
+      KGE_ENABLED: "true"
+      KGE_CONFIDENCE_THRESHOLD: "0.3"
+      KGE_EMBEDDING_DIM: "300"
+      PARETO_ENABLED: "true"
     depends_on:
       neo4j:
         condition: service_healthy
