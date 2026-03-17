@@ -288,7 +288,7 @@ async def handle_match(tenant: str, payload: dict[str, Any]) -> dict[str, Any]:
     traversal_clauses = traversal_assembler.assemble_traversal(match_direction)
 
     scoring_assembler = ScoringAssembler(domain_spec)
-    scoring_clause = scoring_assembler.assemble_scoring_clause(match_direction, weights)
+    scoring_clause, _pareto_metadata = scoring_assembler.assemble_scoring_clause(match_direction, weights)
 
     candidate_labels = [c.label for c in domain_spec.matchentities.candidate if c.matchdirection == match_direction]
     if not candidate_labels:
