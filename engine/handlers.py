@@ -281,6 +281,10 @@ async def handle_match(tenant: str, payload: dict[str, Any]) -> dict[str, Any]:
     resolver = ParameterResolver(domain_spec)
     resolved_query = resolver.resolve_parameters(query)
 
+    for field in domain_spec.queryschema.fields:
+        if field.name not in resolved_query:
+            resolved_query[field.name] = field.default
+
     gate_compiler = GateCompiler(domain_spec)
     where_clause = gate_compiler.compile_all_gates(match_direction)
 
