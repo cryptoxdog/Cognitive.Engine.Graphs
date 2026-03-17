@@ -187,21 +187,19 @@ class ScoringAssembler:
         return f"log(1 + coalesce(candidate.{prop}, 0)) / log(1 + {max_val})"
 
     def _compile_communitymatch(self, dim: ScoringDimensionSpec) -> str:
-        """Soft community match using lift-weighted Jaccard similarity.
+        """Community match scoring using simple equality check.
 
-        Replaces binary CASE WHEN with continuous overlap score.
-        Requires candidate nodes to carry community_ids (list) and lift property.
+        Returns bias score if communities match, reduced score otherwise.
+        Does not require APOC - uses native Cypher only.
         """
         bias = dim.bias or 1.5
-        cand_prop = sanitize_label(dim.candidateprop or "community_ids")
-        query_prop = sanitize_label(dim.queryprop or "community_ids")
+        cand_prop = sanitize_label(dim.candidateprop or "community_id")
+        query_prop = sanitize_label(dim.queryprop or "community_id")
         return (
             f"CASE "
             f"  WHEN candidate.{cand_prop} IS NULL OR $query.{query_prop} IS NULL THEN 0.5 "
-            f"  WHEN apoc.coll.intersection(candidate.{cand_prop}, $query.{query_prop}) = [] THEN 0.0 "
-            f"  ELSE toFloat(size(apoc.coll.intersection(candidate.{cand_prop}, $query.{query_prop}))) "
-            f"       / toFloat(size(apoc.coll.union(candidate.{cand_prop}, $query.{query_prop}))) "
-            f"       * coalesce(candidate.community_lift, {bias}) "
+            f"  WHEN candidate.{cand_prop} = $query.{query_prop} THEN {bias} "
+            f"  ELSE 0.2 "
             f"END"
         )
 
