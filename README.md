@@ -139,6 +139,20 @@ l9-engine/
 └── README.md                      # ← You are here
 ```
 
+## Infrastructure Requirements
+
+| Component | Version | Required Plugins |
+|-----------|---------|------------------|
+| Neo4j | 5.15+ Enterprise | APOC, Graph Data Science (GDS) |
+| Redis | 7.x | — |
+| Python | 3.12+ | — |
+
+**Neo4j Plugins:**
+- **APOC** — Required for `apoc.coll.intersection`, `apoc.coll.union` (community match scoring)
+- **GDS** — Required for Louvain community detection, node similarity, PageRank
+
+Both plugins are auto-installed via `NEO4J_PLUGINS` environment variable in docker-compose.
+
 ## Environment Variables
 
 Consistent across all L9 repos. Set in `.env` (local) or SSM Parameter Store (prod).
@@ -198,6 +212,23 @@ open http://localhost:3000     # Grafana (admin/admin)
 ```
 
 See [iac/README.md](iac/README.md) for full infrastructure docs.
+
+### Production Server
+
+| Property | Value |
+|----------|-------|
+| **Provider** | Hetzner Cloud |
+| **Server Name** | `l9-ceg` |
+| **Plan** | CX33 |
+| **IP (v4)** | `178.104.43.11` |
+| **IP (v6)** | `2a01:4f8:1c19:15e4::/64` |
+| **Specs** | 4 vCPU (x86), 8GB RAM, 80GB Disk |
+| **Labels** | `managed_by: l9agent`, `role: ceg` |
+
+**Endpoints:**
+- API: `http://178.104.43.11:8000/v1/health`
+- Neo4j Browser: `http://178.104.43.11:7474`
+- Neo4j Bolt: `bolt://178.104.43.11:7687`
 
 ## Adding a New Domain
 
