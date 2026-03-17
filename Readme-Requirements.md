@@ -8,14 +8,6 @@ owner: engine-team
 status: active
 /L9_META -->
 
-<img src="https://r2cdn.perplexity.ai/pplx-full-logo-primary-dark%402x.png" style="height:64px;margin-right:32px"/>
-
-# Reset, Re-align \& Lock In- No Drifting!
-
-Stay procured we’re almost finished building the graph project. Finish line in sight
-
-Please make these to complete
-•	3 real files (`requirements.txt`, `settings.py`, `dependencies.py`
 
 **4 files, 226 lines — P0 blockers cleared.**
 
@@ -51,16 +43,4 @@ Please make these to complete
 - `startup()` / `shutdown()` → called from `create_app()` lifespan
 
 **`requirements.txt`** pins every dep from `pyproject.toml` with `>=X,<Y` bounds — works for Docker builds and non-Poetry envs .
-<span style="display:none">[^5]</span>
-
-<div align="center">⁂</div>
-
-[^1]: engine-core-modules.py
-
-[^2]: engine-config-loader.py
-
-[^3]: SPEC_v1.1_COGNITIVE_ENGINE.md
-
-[^4]: engine-final-components.py
-
-[^5]: engine-config-pkg-init.py
+<span style="display:none">[^5]<

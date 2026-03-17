@@ -21,7 +21,7 @@ l9_template:
     repo-agnostic guardrails and an automated audit harness.
 
 files:
---- Agent rules ---
+  # --- Agent rules ---
   - path: ".cursorrules"
     required: false
     tags: ["L9_TEMPLATE", "agent-rules", "cursor"]
@@ -32,7 +32,7 @@ files:
     required: false
     tags: ["L9_TEMPLATE", "agent-rules", "copilot"]
 
---- Audit / meta tools ---
+  # --- Audit / meta tools ---
   - path: "tools/audit_engine.py"
     required: true
     tags: ["L9_TEMPLATE", "audit", "compliance"]
@@ -49,7 +49,7 @@ files:
     required: false
     tags: ["L9_TEMPLATE", "meta", "injector"]
 
---- CI/CD workflows ---
+  # --- CI/CD workflows ---
   - path: ".github/workflows/audit.yml"
     required: false
     tags: ["L9_TEMPLATE", "ci", "audit"]
@@ -93,7 +93,7 @@ files:
     required: false
     tags: ["L9_TEMPLATE", "ci", "adr"]
 
---- Governance ---
+  # --- Governance ---
   - path: ".github/CODEOWNERS"
     required: false
     tags: ["L9_TEMPLATE", "governance", "ownership"]
@@ -113,7 +113,7 @@ files:
     required: false
     tags: ["L9_TEMPLATE", "pr-review"]
 
---- Config / bootstrap ---
+  # --- Config / bootstrap ---
   - path: ".suite6-config.json"
     required: false
     tags: ["L9_TEMPLATE", "config", "suite6"]
@@ -130,7 +130,7 @@ files:
     required: false
     tags: ["L9_TEMPLATE", "config", "env"]
 
---- Docker / build ---
+  # --- Docker / build ---
   - path: "Dockerfile"
     required: false
     tags: ["L9_TEMPLATE", "docker", "dev"]
@@ -150,7 +150,7 @@ files:
     required: false
     tags: ["L9_TEMPLATE", "build", "commands"]
 
---- Telemetry ---
+  # --- Telemetry ---
   - path: "telemetry/dashboards/dashboards-docker-compose.monitoring.yml"
     required: false
     tags: ["L9_TEMPLATE", "telemetry", "docker"]
@@ -173,7 +173,7 @@ files:
     required: false
     tags: ["L9_TEMPLATE", "telemetry", "prometheus"]
 
---- Scripts ---
+  # --- Scripts ---
   - path: "scripts/scripts-build.sh"
     required: false
     tags: ["L9_TEMPLATE", "scripts", "build"]
@@ -211,7 +211,7 @@ files:
     required: false
     tags: ["L9_TEMPLATE", "scripts", "docs"]
 
---- Test harness ---
+  # --- Test harness ---
   - path: "tests/conftest.py"
     required: false
     tags: ["L9_TEMPLATE", "test", "fixtures"]

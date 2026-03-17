@@ -57,10 +57,6 @@ docs/_build/
 scripts/domain_extractor.py
 tests/
 
-# Original locations of moved files (no longer exist, but for safety)
-engine/packet/test_packet_envelope.py
-domains/domain_extractor.py
-
 # Local development
 *.local
 *.log

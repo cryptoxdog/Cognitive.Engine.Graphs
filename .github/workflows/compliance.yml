@@ -29,11 +29,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-<<<<<<< HEAD
-          pip install ruff==0.15.5 mypy==1.14.0 pydantic pydantic-settings pyyaml types-PyYAML
-=======
           pip install ruff==0.15.5 mypy==1.14.0 pydantic pydantic-settings pyyaml neo4j types-PyYAML structlog
->>>>>>> c5e474d (fix(ci): add missing deps to compliance + refactoring-validation workflows)
 
       - name: Check for banned files
         run: |

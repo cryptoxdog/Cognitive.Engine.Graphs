@@ -8,7 +8,7 @@
 # status: active
 # --- /L9_META ---
 #
-Prometheus scrape config for L9 Engine
+# Prometheus scrape config for L9 Engine
 global:
   scrape_interval: 15s
   evaluation_interval: 15s

@@ -10,25 +10,16 @@
 # =============================================================================
 # PlasticOS Domain Spec — Recycled Plastics Brokerage Matching
 # =============================================================================
-# spec_version: 0.4.0
-# generated: 2026-02-27
-# sources:
-#   - FASTAPI_GRAPH_ARCHITECTURE.md (v1.0)
-#   - SPEC_v1.1_COGNITIVE_ENGINE.md
-#   - graph_cognitive_engine_spec_v0.4.0.yaml
-#   - plasticos_neo4j_ddl.py (full DDL crosswalk)
-#   - edge_gap_expansion.json (topology audit)
-#   - derived_edges_graphservice.py (Odoo sync layer)
-#   - buyer-matching-2.0 upgrade spec (12 enhancements)
+# spec_version: 0.4.1
+# generated: 2026-03-17
+# note: Restructured to match DomainSpec Pydantic schema (lowercase fields)
 # =============================================================================
 
-spec_version: "0.4.0"
-
 # ---------------------------------------------------------------------------
-# DOMAIN
+# DOMAIN METADATA
 # ---------------------------------------------------------------------------
 domain:
-  id: plastics-recycling-brokerage
+  id: plasticos
   name: "PlasticOS — Material-to-Facility Buyer Matching"
   description: >
     Match inbound recycled plastic material intake profiles to optimal buyer
@@ -36,1071 +27,630 @@ domain:
     polymer compatibility, physical form, MFI range, density, contamination
     tolerance, moisture, equipment capability, certifications, lot size,
     geographic proximity, transaction history reinforcement, community
-    clustering, and temporal recency. Designed for Plastic IQ / PlasticOS
-    brokerage operations with ~200 active facility profiles, ~50 polymer
-    grades, 14 hard gates, 5+ scoring dimensions.
-  version: "0.4.0"
-  owner: igor-beylin
-
-# ---------------------------------------------------------------------------
-# ARCHITECTURE
-# ---------------------------------------------------------------------------
-architecture:
-  service: plasticos-graph-intelligence
-  framework: FastAPI
-  database: "Neo4j 5.x Enterprise + GDS plugin"
-  language: "Python 3.11+"
-  async_driver: true
-  connection_pooling: true
-  scheduler: "APScheduler (AsyncIOScheduler)"
-  containerization: "Docker Compose"
-  testing: "pytest + testcontainers-neo4j"
-  repo: plasticos-graph-intelligence
-  runtime_dependency_on_odoo: false
-  cypher_location: "app/graph/queries/*.cypher"
-  inline_cypher: forbidden
+    clustering, and temporal recency.
+  version: "0.4.1"
+  alternatedomains:
+    - plastics-recycling-brokerage
+    - plastics
 
 # ---------------------------------------------------------------------------
 # ONTOLOGY
 # ---------------------------------------------------------------------------
 ontology:
-
   # =========================================================================
-  # CANDIDATE ENTITIES (what we match intake TO)
+  # NODES (flat list with boolean flags)
   # =========================================================================
   nodes:
-    candidates:
+    # --- CANDIDATE ENTITIES ---
+    - label: Facility
+      description: "Buyer/processor/compounder/MRF/recycler/broker site"
+      managedby: sync
+      candidate: true
+      queryentity: false
+      taxonomy: false
+      auxiliary: false
+      matchdirection: material_to_facility
+      properties:
+        - name: facility_id
+          type: int
+          required: true
+        - name: name
+          type: string
+        - name: lat
+          type: float
+        - name: lon
+          type: float
+        - name: state
+          type: string
+        - name: facility_role
+          type: enum
+          values: [broker, processor, compounder, mrf, recycler]
+        - name: process_type
+          type: string
+        - name: application_class
+          type: string
+        - name: gate_mode
+          type: string
+        - name: min_lot_size_lbs
+          type: float
+          nullable: true
+        - name: max_lot_size_lbs
+          type: float
+          nullable: true
+        - name: min_density
+          type: float
+          nullable: true
+        - name: max_density
+          type: float
+          nullable: true
+        - name: min_mfi
+          type: float
+          nullable: true
+        - name: max_mfi
+          type: float
+          nullable: true
+        - name: contamination_tolerance
+          type: float
+          nullable: true
+        - name: moisture_tolerance
+          type: float
+          nullable: true
+        - name: pvc_tolerant
+          type: bool
+        - name: can_remove_metal
+          type: bool
+        - name: can_filter_fr
+          type: bool
+        - name: accepts_filled_materials
+          type: bool
+        - name: has_shredder
+          type: bool
+        - name: has_granulator
+          type: bool
+        - name: has_wash_line
+          type: bool
+        - name: has_extruder
+          type: bool
+        - name: has_sorting_line
+          type: bool
+        - name: handles_regrind
+          type: bool
+        - name: handles_flake
+          type: bool
+        - name: handles_rollstock
+          type: bool
+        - name: food_grade_certified
+          type: bool
+        - name: medical_grade_capable
+          type: bool
+        - name: louvain_community_id
+          type: int
+          managedby: gds
+          description: "Louvain community from TRANSACTED_WITH projection"
+        - name: louvain_geo_community_id
+          type: int
+          managedby: gds
+          description: "Geo-augmented Louvain from TRANSACTED_WITH + COLOCATED_WITH"
+        - name: onboarded_at
+          type: datetime
+        - name: last_transaction_at
+          type: datetime
+        - name: success_rate_90d
+          type: float
+          managedby: gds
+        - name: avg_turnaround_days
+          type: float
+          managedby: gds
+        - name: current_utilization_pct
+          type: float
+          nullable: true
+          description: "open POs / max_monthly_throughput_lbs * 100"
 
-      - label: Facility
-        id_property: facility_id
-        match_direction: material_to_facility
-        description: >
-          Buyer/processor/compounder/MRF/recycler/broker site.
-          Central candidate node for matching. All 14 gates evaluate
-          properties + edges on this node.
-        managed_by: sync
-        constraint: "CREATE CONSTRAINT facility_id IF NOT EXISTS FOR (f:Facility) REQUIRE f.facility_id IS UNIQUE"
-        indexes:
-          - "CREATE INDEX facility_role IF NOT EXISTS FOR (n:Facility) ON (n.facility_role)"
-          - "CREATE INDEX facility_process IF NOT EXISTS FOR (n:Facility) ON (n.process_type)"
-          - "CREATE INDEX facility_state IF NOT EXISTS FOR (n:Facility) ON (n.state)"
-          - "CREATE POINT INDEX facility_location IF NOT EXISTS FOR (n:Facility) ON (n.location)"
-        properties:
-          # --- identity ---
-          - name: facility_id
-            type: int
-            required: true
-          - name: name
-            type: string
-          - name: lat
-            type: float
-          - name: lon
-            type: float
-          - name: state
-            type: string
-          - name: facility_role
-            type: enum
-            values: [broker, processor, compounder, mrf, recycler]
-          # --- process ---
-          - name: process_type
-            type: string
-          - name: application_class
-            type: string
-          - name: gate_mode
-            type: string
-          # --- lot size ---
-          - name: min_lot_size_lbs
-            type: float
-            nullable: true
-          - name: max_lot_size_lbs
-            type: float
-            nullable: true
-          # --- MFI / density windows ---
-          - name: min_density
-            type: float
-            nullable: true
-          - name: max_density
-            type: float
-            nullable: true
-          - name: min_mfi
-            type: float
-            nullable: true
-          - name: max_mfi
-            type: float
-            nullable: true
-          # --- tolerances ---
-          - name: contamination_tolerance
-            type: float
-            nullable: true
-          - name: moisture_tolerance
-            type: float
-            nullable: true
-          - name: pvc_tolerant
-            type: bool
-          - name: can_remove_metal
-            type: bool
-          - name: can_filter_fr
-            type: bool
-          - name: accepts_filled_materials
-            type: bool
-          # --- equipment booleans (gate-compatible, mirrored as HAS_EQUIPMENT edges) ---
-          - name: has_shredder
-            type: bool
-          - name: has_granulator
-            type: bool
-          - name: has_wash_line
-            type: bool
-          - name: has_extruder
-            type: bool
-          - name: has_sorting_line
-            type: bool
-          - name: handles_regrind
-            type: bool
-          - name: handles_flake
-            type: bool
-          - name: handles_rollstock
-            type: bool
-          # --- certifications ---
-          - name: food_grade_certified
-            type: bool
-          - name: medical_grade_capable
-            type: bool
-          # --- GDS-managed ---
-          - name: louvain_community_id
-            type: int
-            managed_by: gds
-            description: "Louvain community from TRANSACTED_WITH projection"
-          - name: louvain_geo_community_id
-            type: int
-            managed_by: gds
-            added_in: v0.4.0
-            description: "Geo-augmented Louvain from TRANSACTED_WITH + COLOCATED_WITH"
-          # --- v1.1 temporal ---
-          - name: onboarded_at
-            type: datetime
-            added_in: v1.1
-          - name: last_transaction_at
-            type: datetime
-            added_in: v1.1
-          - name: success_rate_90d
-            type: float
-            managed_by: gds
-            added_in: v1.1
-          - name: avg_turnaround_days
-            type: float
-            managed_by: gds
-            added_in: v1.1
-          # --- capacity ---
-          - name: current_utilization_pct
-            type: float
-            nullable: true
-            description: "open POs / max_monthly_throughput_lbs * 100"
+    # --- QUERY ENTITIES ---
+    - label: MaterialProfile
+      description: "Specific material intake profile with measured physical properties"
+      managedby: sync
+      candidate: false
+      queryentity: true
+      taxonomy: false
+      auxiliary: false
+      matchdirection: material_to_facility
+      properties:
+        - name: material_id
+          type: int
+          required: true
+        - name: polymer
+          type: string
+          description: "polymer_id.code from plasticos.material.profile"
+        - name: form
+          type: string
+          description: "form_id.code"
+        - name: color
+          type: string
+        - name: source_type
+          type: string
+          description: "PCR, PIR, wide-spec"
+        - name: mfi
+          type: float
+          description: "measured melt flow index"
+        - name: mfi_min
+          type: float
+        - name: mfi_max
+          type: float
+        - name: density
+          type: float
+        - name: contamination_pct
+          type: float
+        - name: moisture_pct
+          type: float
+        - name: filler_pct
+          type: float
+        - name: filler_type
+          type: string
+        - name: has_metal
+          type: bool
+        - name: has_fr
+          type: bool
+        - name: has_pvc
+          type: bool
+        - name: quantity_lbs
+          type: float
+        - name: food_grade
+          type: bool
+        - name: medical_grade
+          type: bool
 
-    # =========================================================================
-    # QUERY ENTITIES (what triggers matching)
-    # =========================================================================
-    query_entities:
+    # --- TAXONOMY NODES ---
+    - label: Polymer
+      description: "Specific polymer grade — e.g., HDPE 5502BN"
+      managedby: sync
+      candidate: false
+      queryentity: false
+      taxonomy: true
+      auxiliary: false
+      properties:
+        - name: code
+          type: string
+          required: true
 
-      - label: MaterialProfile
-        id_property: material_id
-        match_direction: material_to_facility
-        description: >
-          Specific material intake profile. Contains measured physical
-          properties (MFI, density, contamination, moisture, filler)
-          plus taxonomy links (polymer, form, color, source type).
-        managed_by: sync
-        constraint: "CREATE CONSTRAINT material_id IF NOT EXISTS FOR (m:MaterialProfile) REQUIRE m.material_id IS UNIQUE"
-        indexes:
-          - "CREATE INDEX material_polymer IF NOT EXISTS FOR (n:MaterialProfile) ON (n.polymer)"
-          - "CREATE INDEX material_form IF NOT EXISTS FOR (n:MaterialProfile) ON (n.form)"
-        properties:
-          - name: material_id
-            type: int
-            required: true
-          - name: polymer
-            type: string
-            description: "polymer_id.code from plasticos.material.profile"
-          - name: form
-            type: string
-            description: "form_id.code"
-          - name: color
-            type: string
-          - name: source_type
-            type: string
-            description: "PCR, PIR, wide-spec"
-          - name: mfi
-            type: float
-            description: "measured melt flow index"
-          - name: mfi_min
-            type: float
-          - name: mfi_max
-            type: float
-          - name: density
-            type: float
-          - name: contamination_pct
-            type: float
-          - name: moisture_pct
-            type: float
-          - name: filler_pct
-            type: float
-          - name: filler_type
-            type: string
-          - name: has_metal
-            type: bool
-          - name: has_fr
-            type: bool
-          - name: has_pvc
-            type: bool
-          - name: quantity_lbs
-            type: float
-          - name: food_grade
-            type: bool
-          - name: medical_grade
-            type: bool
+    - label: PolymerFamily
+      description: "Polymer family grouping — HDPE, PP, PET, ABS, etc."
+      managedby: sync
+      candidate: false
+      queryentity: false
+      taxonomy: true
+      auxiliary: false
+      properties:
+        - name: code
+          type: string
+          required: true
 
-      - label: IntakeMatchRequest
-        id_property: intake_id
-        match_direction: material_to_facility
-        description: >
-          Pydantic model passed to POST /v1/match. NOT a persisted Neo4j node.
-          Contains flattened material properties + supplier context + geo.
-        properties:
-          - name: intake_id
-            type: int
-            required: true
-          - name: supplier_id
-            type: int
-            required: true
-          - name: material_id
-            type: int
-            required: true
-          - name: polymer
-            type: string
-            required: true
-          - name: form
-            type: string
-          - name: density
-            type: float
-          - name: mfi
-            type: float
-          - name: contamination_pct
-            type: float
-            default: 0.0
-          - name: moisture_pct
-            type: float
-            default: 0.0
-          - name: has_metal
-            type: bool
-            default: false
-          - name: has_fr
-            type: bool
-            default: false
-          - name: has_pvc
-            type: bool
-            default: false
-          - name: filler_pct
-            type: float
-            default: 0.0
-          - name: quantity_lbs
-            type: float
-            default: 0
-          - name: food_grade_required
-            type: bool
-            default: false
-          - name: medical_grade_required
-            type: bool
-            default: false
-          - name: intake_lat
-            type: float
-          - name: intake_lon
-            type: float
-          - name: mode
-            type: enum
-            values: [strict, relaxed]
-            default: strict
+    - label: MaterialForm
+      description: "Physical form — pellet, regrind, flake, bale, rollstock"
+      managedby: sync
+      candidate: false
+      queryentity: false
+      taxonomy: true
+      auxiliary: false
+      properties:
+        - name: code
+          type: string
+          required: true
 
-    # =========================================================================
-    # TAXONOMY NODES
-    # =========================================================================
-    taxonomy:
+    - label: MaterialColor
+      description: "Specific color classification"
+      managedby: sync
+      candidate: false
+      queryentity: false
+      taxonomy: true
+      auxiliary: false
+      properties:
+        - name: code
+          type: string
+          required: true
 
-      - label: Polymer
-        id_property: code
-        parent_label: PolymerFamily
-        parent_edge: BELONGS_TO
-        candidate_edge: null
-        query_edge: IS_POLYMER
-        description: "Specific polymer grade — e.g., HDPE 5502BN"
-        constraint: "CREATE CONSTRAINT polymer_code IF NOT EXISTS FOR (n:Polymer) REQUIRE n.code IS UNIQUE"
+    - label: SourceType
+      description: "Origin class — PCR, PIR, wide-spec"
+      managedby: sync
+      candidate: false
+      queryentity: false
+      taxonomy: true
+      auxiliary: false
+      properties:
+        - name: code
+          type: string
+          required: true
 
-      - label: PolymerFamily
-        id_property: code
-        candidate_edge: ACCEPTS_POLYMER
-        cardinality: any
-        description: "Polymer family grouping — HDPE, PP, PET, ABS, etc."
-        constraint: "CREATE CONSTRAINT polymer_family_code IF NOT EXISTS FOR (n:PolymerFamily) REQUIRE n.code IS UNIQUE"
+    - label: ProcessType
+      description: "Transformation method — injection, extrusion, blowmold, film, thermoform, compounding"
+      managedby: sync
+      candidate: false
+      queryentity: false
+      taxonomy: true
+      auxiliary: false
+      properties:
+        - name: name
+          type: string
+          required: true
 
-      - label: MaterialForm
-        id_property: code
-        candidate_edge: ACCEPTS_FORM
-        query_edge: HAS_FORM
-        cardinality: any
-        description: "Physical form — pellet, regrind, flake, bale, rollstock"
-        constraint: "CREATE CONSTRAINT material_form_code IF NOT EXISTS FOR (n:MaterialForm) REQUIRE n.code IS UNIQUE"
+    - label: FillerType
+      description: "Additive/filler — talc, CaCO3, glass fiber"
+      managedby: sync
+      candidate: false
+      queryentity: false
+      taxonomy: true
+      auxiliary: false
+      properties:
+        - name: code
+          type: string
+          required: true
 
-      - label: MaterialColor
-        id_property: code
-        candidate_edge: ACCEPTS_COLOR
-        cardinality: any
-        description: "Specific color classification"
-        constraint: "CREATE CONSTRAINT material_color_code IF NOT EXISTS FOR (n:MaterialColor) REQUIRE n.code IS UNIQUE"
+    - label: EquipmentType
+      description: "Reified equipment capability"
+      managedby: static
+      candidate: false
+      queryentity: false
+      taxonomy: true
+      auxiliary: false
+      properties:
+        - name: name
+          type: string
+          required: true
+          values: [shredder, granulator, wash_line, extruder, sorting_line, regrind_handler, flake_handler, rollstock_handler]
+        - name: equipment_class
+          type: string
+          values: [size_reduction, cleaning, processing, sorting, form_handling]
 
-      - label: SourceType
-        id_property: code
-        description: "Origin class — PCR, PIR, wide-spec"
-        constraint: "CREATE CONSTRAINT source_type_code IF NOT EXISTS FOR (n:SourceType) REQUIRE n.code IS UNIQUE"
+    # --- AUXILIARY NODES ---
+    - label: Market
+      description: "Geographic market region"
+      managedby: sync
+      candidate: false
+      queryentity: false
+      taxonomy: false
+      auxiliary: true
+      properties:
+        - name: region
+          type: string
+          required: true
+        - name: name
+          type: string
+        - name: conforming_limit_usd
+          type: float
+          nullable: true
 
-      - label: ProcessType
-        id_property: name
-        candidate_edge: OPERATES_PROCESS
-        description: "Transformation method — injection, extrusion, blowmold, film, thermoform, compounding"
-        constraint: "CREATE CONSTRAINT process_type_name IF NOT EXISTS FOR (n:ProcessType) REQUIRE n.name IS UNIQUE"
+    - label: Community
+      description: "Louvain community cluster"
+      managedby: gds
+      candidate: false
+      queryentity: false
+      taxonomy: false
+      auxiliary: true
+      properties:
+        - name: community_id
+          type: int
+          required: true
 
-      - label: FillerType
-        id_property: code
-        candidate_edge: ACCEPTS_FILLER
-        description: "Additive/filler — talc, CaCO3, glass fiber"
-        constraint: "CREATE CONSTRAINT filler_type_code IF NOT EXISTS FOR (n:FillerType) REQUIRE n.code IS UNIQUE"
+    - label: Grade
+      description: "Capability grade / performance archetype"
+      managedby: sync
+      candidate: false
+      queryentity: false
+      taxonomy: false
+      auxiliary: true
+      properties:
+        - name: grade_id
+          type: string
+          required: true
+        - name: polymer_code
+          type: string
+        - name: mfi_min
+          type: float
+        - name: mfi_max
+          type: float
+        - name: max_contamination_pct
+          type: float
+        - name: max_filler_pct
+          type: float
+        - name: tier
+          type: string
+        - name: density_range
+          type: string
+        - name: active
+          type: bool
+        - name: louvain_community_id
+          type: int
+          managedby: gds
 
-      - label: MaterialCategory
-        id_property: code
-        candidate_edge: ACCEPTS_CATEGORY
-        description: "Broad material classification"
-        constraint: "CREATE CONSTRAINT material_category_code IF NOT EXISTS FOR (n:MaterialCategory) REQUIRE n.code IS UNIQUE"
+    - label: CapabilityProfile
+      description: "Facility capability profile node — industrial envelope"
+      managedby: sync
+      candidate: false
+      queryentity: false
+      taxonomy: false
+      auxiliary: true
+      properties:
+        - name: capability_id
+          type: string
+          required: true
 
-      - label: FormFactor
-        id_property: code
-        candidate_edge: ACCEPTS_FORM
-        description: "Accepted form factor — facility-side preference"
-        constraint: "CREATE CONSTRAINT form_factor_code IF NOT EXISTS FOR (n:FormFactor) REQUIRE n.code IS UNIQUE"
-
-      - label: ColorFamily
-        id_property: code
-        candidate_edge: ACCEPTS_COLOR
-        description: "Color grouping — naturals, darks, mixed"
-        constraint: "CREATE CONSTRAINT color_family_code IF NOT EXISTS FOR (n:ColorFamily) REQUIRE n.code IS UNIQUE"
-
-      - label: QualityLevel
-        id_property: code
-        candidate_edge: REQUIRES_QUALITY
-        description: "Quality tier — premium, standard, wide-spec"
-        constraint: "CREATE CONSTRAINT quality_level_code IF NOT EXISTS FOR (n:QualityLevel) REQUIRE n.code IS UNIQUE"
-
-      - label: MaterialAttribute
-        id_property: code
-        description: "Attribute tag — pvc_contaminated, flame_retardant, etc."
-        constraint: "CREATE CONSTRAINT material_attribute_code IF NOT EXISTS FOR (n:MaterialAttribute) REQUIRE n.code IS UNIQUE"
-
-    # =========================================================================
-    # KB / PERFORMANCE NODES
-    # =========================================================================
-    knowledge:
-
-      - label: Grade
-        id_property: grade_id
-        description: >
-          Capability grade / performance archetype output.
-          Contains numeric envelopes (MFI range, contamination max, density range)
-          derived from KB YAML files.
-        managed_by: sync
-        constraint: "CREATE CONSTRAINT grade_id IF NOT EXISTS FOR (n:Grade) REQUIRE n.grade_id IS UNIQUE"
-        properties:
-          - name: grade_id
-            type: string
-            required: true
-          - name: polymer_code
-            type: string
-          - name: mfi_min
-            type: float
-          - name: mfi_max
-            type: float
-          - name: max_contamination_pct
-            type: float
-          - name: max_filler_pct
-            type: float
-          - name: tier
-            type: string
-          - name: density_range
-            type: string
-          - name: active
-            type: bool
-          - name: louvain_community_id
-            type: int
-            managed_by: gds
-
-      - label: CapabilityProfile
-        id_property: capability_id
-        description: >
-          Facility capability profile node — industrial envelope.
-          Derived from plasticos.facility.profile tolerances/equipment.
-        managed_by: sync
-
-      - label: Application
-        id_property: id
-        description: "End-use application — pallet molding, automotive trim, film"
-        constraint: "CREATE CONSTRAINT application_id IF NOT EXISTS FOR (n:Application) REQUIRE n.id IS UNIQUE"
-
-      - label: Certification
-        id_property: id
-        description: "Compliance standard — ASTM D638, ISO 9001, RMS, FDA"
-        constraint: "CREATE CONSTRAINT certification_id IF NOT EXISTS FOR (n:Certification) REQUIRE n.id IS UNIQUE"
-
-      - label: Additive
-        id_property: id
-        description: "Modifier/compatibilizer — MAPE, SEBS-g-MA, E-GMA"
-        constraint: "CREATE CONSTRAINT additive_id IF NOT EXISTS FOR (n:Additive) REQUIRE n.id IS UNIQUE"
-
-    # =========================================================================
-    # AUXILIARY NODES
-    # =========================================================================
-    auxiliary:
-
-      - label: Market
-        id_property: region
-        description: "Geographic market region — derived from partner.state_id.name"
-        constraint: "CREATE CONSTRAINT market_region IF NOT EXISTS FOR (n:Market) REQUIRE n.region IS UNIQUE"
-        properties:
-          - name: region
-            type: string
-            required: true
-          - name: name
-            type: string
-          - name: conforming_limit_usd
-            type: float
-            nullable: true
-
-      - label: Freight
-        id_property: corridor
-        description: "Logistics corridor — e.g., TX→OH. Derived from plasticos.load aggregation."
-        constraint: "CREATE CONSTRAINT freight_corridor IF NOT EXISTS FOR (n:Freight) REQUIRE n.corridor IS UNIQUE"
-        properties:
-          - name: corridor
-            type: string
-            required: true
-          - name: road_miles
-            type: float
-          - name: rate_usd_lb
-            type: float
-          - name: total_usd
-            type: float
-          - name: volatility_index
-            type: float
-
-      - label: Community
-        id_property: community_id
-        description: "Louvain community cluster — materialized as first-class node"
-        constraint: "CREATE CONSTRAINT community_id IF NOT EXISTS FOR (n:Community) REQUIRE n.community_id IS UNIQUE"
-
-      - label: EquipmentType
-        id_property: name
-        added_in: v0.4.0
-        description: >
-          Reified equipment capability. Materializes boolean Facility properties
-          (has_shredder, etc.) as first-class topology. Boolean properties REMAIN
-          on Facility for gate compatibility.
-        managed_by: static
-        constraint: "CREATE CONSTRAINT equipment_type_name IF NOT EXISTS FOR (e:EquipmentType) REQUIRE e.name IS UNIQUE"
-        index: "CREATE INDEX equipment_class IF NOT EXISTS FOR (e:EquipmentType) ON (e.equipment_class)"
-        properties:
-          - name: name
-            type: string
-            required: true
-            values: [shredder, granulator, wash_line, extruder, sorting_line, regrind_handler, flake_handler, rollstock_handler]
-          - name: equipment_class
-            type: string
-            values: [size_reduction, cleaning, processing, sorting, form_handling]
-        bootstrap_data:
-          - {name: shredder, equipment_class: size_reduction}
-          - {name: granulator, equipment_class: size_reduction}
-          - {name: wash_line, equipment_class: cleaning}
-          - {name: extruder, equipment_class: processing}
-          - {name: sorting_line, equipment_class: sorting}
-          - {name: regrind_handler, equipment_class: form_handling}
-          - {name: flake_handler, equipment_class: form_handling}
-          - {name: rollstock_handler, equipment_class: form_handling}
-
-      - label: TransactionOutcome
-        id_property: outcome_id
-        added_in: v1.1
-        description: "Records match outcome — success/failure/partial with quality grade"
-        properties:
-          - name: outcome_id
-            type: string
-            required: true
-          - name: intake_id
-            type: int
-          - name: facility_id
-            type: int
-          - name: outcome
-            type: enum
-            values: [success, failure, partial]
-          - name: quality_grade
-            type: float
-            description: "0.0-1.0"
-          - name: turnaround_days
-            type: float
-          - name: created_at
-            type: datetime
-
-      - label: SignalEvent
-        id_property: event_id
-        added_in: v1.1
-        description: "Temporal event for decay / entity resolution"
-        properties:
-          - name: event_id
-            type: string
-          - name: entity_id
-            type: string
-          - name: event_type
-            type: string
-          - name: value
-            type: float
-          - name: created_at
-            type: datetime
+    - label: TransactionOutcome
+      description: "Records match outcome — success/failure/partial with quality grade"
+      managedby: sync
+      candidate: false
+      queryentity: false
+      taxonomy: false
+      auxiliary: true
+      properties:
+        - name: outcome_id
+          type: string
+          required: true
+        - name: intake_id
+          type: int
+        - name: facility_id
+          type: int
+        - name: outcome
+          type: enum
+          values: [success, failure, partial]
+        - name: quality_grade
+          type: float
+          description: "0.0-1.0"
+        - name: turnaround_days
+          type: float
+        - name: created_at
+          type: datetime
 
   # =========================================================================
-  # EDGES
+  # EDGES (flat list)
   # =========================================================================
   edges:
+    # --- CAPABILITY ---
+    - type: ACCEPTS_POLYMER
+      from: Facility
+      to: PolymerFamily
+      direction: DIRECTED
+      category: capability
+      managedby: sync
+      properties: []
 
-    # --- CAPABILITY (sync) ---
-    capability:
-      - type: ACCEPTS_POLYMER
-        from: Facility
-        to: PolymerFamily
-        managed_by: sync
-        description: "Facility accepts this polymer family. Source: facility_profile.polymer_family_id"
-        gate_role: "Gate 1 — Polymer via taxonomy traversal"
+    - type: ACCEPTS_FORM
+      from: Facility
+      to: MaterialForm
+      direction: DIRECTED
+      category: capability
+      managedby: sync
+      properties: []
 
-      - type: ACCEPTS_FORM
-        from: Facility
-        to: MaterialForm
-        managed_by: sync
-        description: "Facility accepts this physical form"
+    - type: ACCEPTS_COLOR
+      from: Facility
+      to: MaterialColor
+      direction: DIRECTED
+      category: capability
+      managedby: sync
+      properties: []
 
-      - type: ACCEPTS_COLOR
-        from: Facility
-        to: MaterialColor
-        managed_by: sync
+    - type: ACCEPTS_FILLER
+      from: Facility
+      to: FillerType
+      direction: DIRECTED
+      category: capability
+      managedby: sync
+      properties: []
 
-      - type: ACCEPTS_CATEGORY
-        from: Facility
-        to: MaterialCategory
-        managed_by: sync
+    - type: HAS_MATERIAL
+      from: Facility
+      to: MaterialProfile
+      direction: DIRECTED
+      category: capability
+      managedby: sync
+      properties: []
 
-      - type: ACCEPTS_FILLER
-        from: Facility
-        to: FillerType
-        managed_by: sync
+    - type: HAS_CAPABILITY
+      from: Facility
+      to: CapabilityProfile
+      direction: DIRECTED
+      category: capability
+      managedby: sync
+      properties: []
 
-      - type: REQUIRES_QUALITY
-        from: Facility
-        to: QualityLevel
-        managed_by: sync
+    - type: HAS_EQUIPMENT
+      from: Facility
+      to: EquipmentType
+      direction: DIRECTED
+      category: capability
+      managedby: sync
+      properties: []
 
-      - type: HAS_MATERIAL
-        from: Facility
-        to: MaterialProfile
-        managed_by: sync
+    # --- TAXONOMY ---
+    - type: BELONGS_TO
+      from: Polymer
+      to: PolymerFamily
+      direction: DIRECTED
+      category: taxonomy
+      managedby: sync
+      properties: []
 
-      - type: HAS_CAPABILITY
-        from: Facility
-        to: CapabilityProfile
-        managed_by: sync
+    - type: IS_POLYMER
+      from: MaterialProfile
+      to: Polymer
+      direction: DIRECTED
+      category: taxonomy
+      managedby: sync
+      properties: []
 
-      - type: HAS_EQUIPMENT
-        from: Facility
-        to: EquipmentType
-        direction: DIRECTED
-        managed_by: sync
-        added_in: v0.4.0
-        description: >
-          Topological mirror of boolean properties. f.has_shredder = true →
-          (f)-[:HAS_EQUIPMENT]->(EquipmentType {name: 'shredder'}).
-          Boolean properties REMAIN on Facility — Gate 10 reads them.
-        gate_impact: NONE
-        scoring_impact: NONE
+    - type: HAS_FORM
+      from: MaterialProfile
+      to: MaterialForm
+      direction: DIRECTED
+      category: taxonomy
+      managedby: sync
+      properties: []
 
-    # --- PROCESS ---
-    process:
-      - type: CAN_RUN
-        from: CapabilityProfile
-        to: Grade
-        managed_by: sync
-
-      - type: OPERATES_PROCESS
-        from: Facility
-        to: ProcessType
-        managed_by: sync
-
-      - type: BELONGS_TO
-        from: Polymer
-        to: PolymerFamily
-        managed_by: sync
-        description: "Polymer taxonomy hierarchy"
-        gate_role: "Gate 1 — taxonomy traversal path"
-
-    # --- MATERIAL TAXONOMY ---
-    material_taxonomy:
-      - type: IS_POLYMER
-        from: MaterialProfile
-        to: Polymer
-        managed_by: sync
-
-      - type: HAS_FORM
-        from: MaterialProfile
-        to: MaterialForm
-        managed_by: sync
-
-      - type: MODIFIED_BY_FILLER
-        from: MaterialProfile
-        to: FillerType
-        managed_by: sync
-
-      - type: HAS_ATTRIBUTE
-        from: MaterialProfile
-        to: MaterialAttribute
-        managed_by: sync
+    - type: OPERATES_PROCESS
+      from: Facility
+      to: ProcessType
+      direction: DIRECTED
+      category: capability
+      managedby: sync
+      properties: []
 
     # --- MARKET ---
-    market:
-      - type: LOCATED_IN_MARKET
-        from: Facility
-        to: Market
-        managed_by: sync
+    - type: LOCATED_IN_MARKET
+      from: Facility
+      to: Market
+      direction: DIRECTED
+      category: market
+      managedby: sync
+      properties: []
 
-      - type: IMPACTS
-        from: Market
-        to: Freight
-        managed_by: sync
-        description: "Corridor endpoint states"
+    # --- TRANSACTION ---
+    - type: TRANSACTED_WITH
+      from: Facility
+      to: Facility
+      direction: DIRECTED
+      category: transaction
+      managedby: sync
+      properties:
+        - name: txn_count
+          type: int
+        - name: last_tx_date
+          type: datetime
+        - name: outcome
+          type: string
+        - name: created_at
+          type: datetime
 
-    # --- TRANSACTION (permanent historical) ---
-    transaction:
-      - type: TRANSACTED_WITH
-        from: Facility
-        to: Facility
-        managed_by: sync
-        properties:
-          - {name: txn_count, type: int}
-          - {name: last_tx_date, type: datetime}
-          - {name: outcome, type: string, added_in: v1.1}
-          - {name: created_at, type: datetime, added_in: v1.1}
-        index: "CREATE INDEX tx_last_date IF NOT EXISTS FOR ()-[r:TRANSACTED_WITH]-() ON (r.last_tx_date)"
-        note: "Permanent historical record. No temporal properties removed. RECENTLY_TRANSACTED_WITH is the hot overlay."
+    - type: BOUGHT_POLYMER
+      from: Facility
+      to: Polymer
+      direction: DIRECTED
+      category: transaction
+      managedby: customaggregation
+      properties:
+        - name: txn_count
+          type: int
+        - name: total_lbs
+          type: float
+        - name: last_date
+          type: datetime
 
-      - type: BOUGHT_POLYMER
-        from: Facility
-        to: Polymer
-        managed_by: custom_aggregation
-        properties:
-          - {name: txn_count, type: int}
-          - {name: total_lbs, type: float}
-          - {name: last_date, type: datetime}
-        index: "CREATE INDEX bought_polymer_count IF NOT EXISTS FOR ()-[r:BOUGHT_POLYMER]-() ON (r.txn_count)"
-        description: "Revealed preference — which polymers has this buyer actually purchased"
-
-      - type: BOUGHT_FORM
-        from: Facility
-        to: MaterialForm
-        managed_by: custom_aggregation
-        properties:
-          - {name: txn_count, type: int}
-
-      - type: ACCEPTED_OFFER_FROM
-        from: Facility
-        to: Facility
-        managed_by: custom_aggregation
-        properties:
-          - {name: offer_count, type: int}
-          - {name: avg_price_per_lb, type: float}
-          - {name: total_lbs, type: float}
-        index: "CREATE INDEX accepted_offer_count IF NOT EXISTS FOR ()-[r:ACCEPTED_OFFER_FROM]-() ON (r.offer_count)"
+    - type: RECENTLY_TRANSACTED_WITH
+      from: Facility
+      to: Facility
+      direction: DIRECTED
+      category: transaction
+      managedby: customaggregation
+      properties:
+        - name: last_txn_date
+          type: datetime
+        - name: txn_count_90d
+          type: int
+        - name: recency_score
+          type: float
+          description: "exp(-age_days / 90.0)"
+        - name: total_volume_lbs_90d
+          type: float
 
     # --- EXCLUSION ---
-    exclusion:
-      - type: EXCLUDED_FROM
-        from: Facility
-        to: Facility
-        managed_by: sync
-        properties:
-          - {name: reason, type: string}
-          - {name: expiry_date, type: datetime}
-        description: "Manual hard block checked in match_strict.cypher WHERE clause"
-        gate_role: "Exclusion filter in all match queries"
+    - type: EXCLUDED_FROM
+      from: Facility
+      to: Facility
+      direction: DIRECTED
+      category: exclusion
+      managedby: sync
+      properties:
+        - name: reason
+          type: string
+        - name: expiry_date
+          type: datetime
 
     # --- PRECOMPUTED (GDS) ---
-    precomputed:
-      - type: STRUCTURALLY_COMPATIBLE
-        from: MaterialProfile
-        to: Facility
-        managed_by: gds
-        rebuild_job: structural.cypher
-        properties:
-          - {name: score, type: float}
-        index: "CREATE INDEX structural_score IF NOT EXISTS FOR ()-[r:STRUCTURALLY_COMPATIBLE]-() ON (r.score)"
-        gate_role: "Scoring dimension — structural_score"
+    - type: STRUCTURALLY_COMPATIBLE
+      from: MaterialProfile
+      to: Facility
+      direction: DIRECTED
+      category: precomputed
+      managedby: gds
+      properties:
+        - name: score
+          type: float
 
-      - type: SUCCESS_WITH
-        from: Facility
-        to: Grade
-        managed_by: gds
-        rebuild_job: reinforcement.cypher
-        properties:
-          - {name: txn_count, type: int}
-          - {name: last_success_at, type: datetime, added_in: v1.1}
-          - {name: avg_quality_grade, type: float, added_in: v1.1}
-        gate_role: "Scoring dimension — reinforcement_score"
+    - type: SUCCESS_WITH
+      from: Facility
+      to: Grade
+      direction: DIRECTED
+      category: precomputed
+      managedby: gds
+      properties:
+        - name: txn_count
+          type: int
+        - name: last_success_at
+          type: datetime
+        - name: avg_quality_grade
+          type: float
 
-      - type: IN_COMMUNITY
-        from: Facility
-        to: Community
-        managed_by: gds
-        description: "Materialized community membership (replaces integer property for topology)"
+    - type: IN_COMMUNITY
+      from: Facility
+      to: Community
+      direction: DIRECTED
+      category: precomputed
+      managedby: gds
+      properties: []
 
-    # --- v0.4.0 NEW LAYERS ---
+    - type: COLOCATED_WITH
+      from: Facility
+      to: Facility
+      direction: UNDIRECTED
+      category: precomputed
+      managedby: customaggregation
+      properties:
+        - name: distance_km
+          type: float
+        - name: proximity_score
+          type: float
+          description: "1.0 / (1.0 + distance_km / 200.0)"
 
-    # Layer 1: Polymer Similarity
-    polymer_similarity:
-      - type: CO_ACCEPTED_WITH
-        from: PolymerFamily
-        to: PolymerFamily
-        direction: UNDIRECTED
-        managed_by: gds
-        added_in: v0.4.0
-        rebuild_job: co_occurrence_polymer.cypher
-        rebuild_cadence: "weekly (Sunday 02:30)"
-        properties:
-          - {name: jaccard_index, type: float}
-          - {name: facility_overlap_count, type: int}
-          - {name: lift, type: float}
-        index: "CREATE INDEX co_accepted_jaccard IF NOT EXISTS FOR ()-[r:CO_ACCEPTED_WITH]-() ON (r.jaccard_index)"
-        gds_config:
-          algorithm: nodeSimilarity
-          projection:
-            node_labels: [Facility, PolymerFamily]
-            relationship_types: [ACCEPTS_POLYMER]
-            orientation: NATURAL
-          config:
-            similarityCutoff: 0.3
-            topK: 10
-            writeRelationshipType: CO_ACCEPTED_WITH
-            writeProperty: jaccard_index
-        match_query_impact: NONE
-        gate_impact: NONE
-        scoring_impact: NONE
+    - type: CAN_RUN
+      from: CapabilityProfile
+      to: Grade
+      direction: DIRECTED
+      category: capability
+      managedby: sync
+      properties: []
 
-      - type: SUBSTITUTABLE_FOR
-        from: PolymerFamily
-        to: PolymerFamily
-        direction: DIRECTED
-        managed_by: static
-        added_in: v0.4.0
-        properties:
-          - {name: substitution_score, type: float, description: "0.0–1.0 interchangeability"}
-          - {name: direction, type: string, description: "symmetric | a_for_b | b_for_a"}
-          - {name: application_context, type: string, description: "Qualifying context. NULL = all contexts"}
-        index: "CREATE INDEX substitutable_score IF NOT EXISTS FOR ()-[r:SUBSTITUTABLE_FOR]-() ON (r.substitution_score)"
-        seed_data:
-          - {from_code: HDPE, to_code: LLDPE, score: 0.7, direction: symmetric, context: general}
-          - {from_code: rPET, to_code: PET, score: 0.6, direction: a_for_b, context: packaging}
-          - {from_code: PP, to_code: HDPE, score: 0.4, direction: symmetric, context: injection_molding}
-          - {from_code: LDPE, to_code: LLDPE, score: 0.8, direction: symmetric, context: film}
-          - {from_code: ABS, to_code: HIPS, score: 0.5, direction: symmetric, context: general}
-        match_query_impact: NONE
-        gate_impact: NONE
-        scoring_impact: NONE
+    - type: RESULTED_IN
+      from: Facility
+      to: TransactionOutcome
+      direction: DIRECTED
+      category: transaction
+      managedby: sync
+      properties:
+        - name: outcome
+          type: string
+        - name: quality_grade
+          type: float
+        - name: turnaround_days
+          type: float
+        - name: created_at
+          type: datetime
 
-      - type: CO_PURCHASED_WITH
-        from: Polymer
-        to: Polymer
-        direction: UNDIRECTED
-        managed_by: custom_aggregation
-        properties:
-          - {name: buyer_count, type: int}
-          - {name: jaccard, type: float}
-        index: "CREATE INDEX co_purchased_jaccard IF NOT EXISTS FOR ()-[r:CO_PURCHASED_WITH]-() ON (r.jaccard)"
-        description: "Behavioral co-occurrence from buyer transaction patterns"
-
-    # Layer 2: Geo-Proximity Topology
-    geo_proximity:
-      - type: COLOCATED_WITH
-        from: Facility
-        to: Facility
-        direction: UNDIRECTED
-        managed_by: custom_aggregation
-        added_in: v0.4.0
-        rebuild_job: geo_proximity.cypher
-        rebuild_cadence: "weekly (Sunday 03:15)"
-        properties:
-          - {name: distance_km, type: float}
-          - {name: proximity_score, type: float, description: "1.0 / (1.0 + distance_km / 200.0)"}
-        index: "CREATE INDEX colocated_proximity IF NOT EXISTS FOR ()-[r:COLOCATED_WITH]-() ON (r.proximity_score)"
-        write_threshold:
-          max_distance_km: 500
-          top_k_per_facility: 20
-          proximity_decay_km: 200
-        match_query_impact: NONE
-        note: "match_strict.cypher geo scoring uses inline point.distance. COLOCATED_WITH exists for GDS projections only."
-
-    # Layer 3: Temporal Transaction Weighting
-    temporal_weighting:
-      - type: RECENTLY_TRANSACTED_WITH
-        from: Facility
-        to: Facility
-        direction: DIRECTED
-        managed_by: custom_aggregation
-        added_in: v0.4.0
-        rebuild_job: temporal_recency.cypher
-        rebuild_cadence: "nightly (03:15)"
-        lifecycle: ephemeral
-        properties:
-          - {name: last_txn_date, type: datetime}
-          - {name: txn_count_90d, type: int}
-          - {name: recency_score, type: float, description: "exp(-age_days / 90.0)"}
-          - {name: total_volume_lbs_90d, type: float}
-        index: "CREATE INDEX recently_txn_recency IF NOT EXISTS FOR ()-[r:RECENTLY_TRANSACTED_WITH]-() ON (r.recency_score)"
-        recency_decay:
-          function: "exp(-age_days / 90.0)"
-          half_life_days: 62
-          prune_threshold: 0.1
-          prune_age_days: 207
-        match_query_impact: NONE
-
-      - type: ACCEPTED_MATERIAL_FROM
-        from: Facility
-        to: Facility
-        direction: DIRECTED
-        managed_by: custom_aggregation
-        added_in: v0.4.0
-        rebuild_job: reinforcement_accepted.cypher
-        rebuild_cadence: "nightly (03:00)"
-        properties:
-          - {name: count, type: int}
-          - {name: success_rate, type: float}
-          - {name: recency_score, type: float}
-          - {name: last_event_date, type: datetime}
-          - {name: aggregate_value_usd, type: float}
-          - {name: avg_quality_grade, type: float}
-        recency_decay:
-          function: "exp(-age_days / 180.0)"
-          half_life_days: 125
-        match_query_impact: NONE
-
-    # Layer 4: Process Affinity Topology
-    process_affinity:
-      - type: COMPATIBLE_WITH_PROCESS
-        from: PolymerFamily
-        to: ProcessType
-        direction: DIRECTED
-        managed_by: static
-        added_in: v0.4.0
-        properties:
-          - {name: optimal_mfi_min, type: float, nullable: true}
-          - {name: optimal_mfi_max, type: float, nullable: true}
-          - {name: compatibility_grade, type: string, description: "optimal | acceptable | marginal"}
-        index: "CREATE INDEX compatible_process_grade IF NOT EXISTS FOR ()-[r:COMPATIBLE_WITH_PROCESS]-() ON (r.compatibility_grade)"
-        seed_data:
-          - {polymer_code: HDPE, process_name: injection, mfi_min: 10.0, mfi_max: null, grade: optimal}
-          - {polymer_code: HDPE, process_name: extrusion, mfi_min: null, mfi_max: 20.0, grade: optimal}
-          - {polymer_code: HDPE, process_name: blowmold, mfi_min: 0.5, mfi_max: 10.0, grade: optimal}
-          - {polymer_code: PP, process_name: injection, mfi_min: 10.0, mfi_max: null, grade: optimal}
-          - {polymer_code: PP, process_name: extrusion, mfi_min: null, mfi_max: 20.0, grade: optimal}
-          - {polymer_code: PP, process_name: blowmold, mfi_min: 0.5, mfi_max: 10.0, grade: optimal}
-          - {polymer_code: PP, process_name: film, mfi_min: null, mfi_max: 5.0, grade: optimal}
-          - {polymer_code: LDPE, process_name: film, mfi_min: null, mfi_max: 5.0, grade: optimal}
-          - {polymer_code: LDPE, process_name: extrusion, mfi_min: null, mfi_max: 20.0, grade: acceptable}
-          - {polymer_code: LLDPE, process_name: film, mfi_min: null, mfi_max: 5.0, grade: optimal}
-          - {polymer_code: LLDPE, process_name: extrusion, mfi_min: null, mfi_max: 20.0, grade: optimal}
-          - {polymer_code: PET, process_name: injection, mfi_min: 10.0, mfi_max: null, grade: optimal}
-          - {polymer_code: PET, process_name: thermoform, mfi_min: null, mfi_max: null, grade: optimal}
-          - {polymer_code: ABS, process_name: injection, mfi_min: 10.0, mfi_max: null, grade: optimal}
-          - {polymer_code: ABS, process_name: extrusion, mfi_min: null, mfi_max: 20.0, grade: acceptable}
-          - {polymer_code: HIPS, process_name: injection, mfi_min: 10.0, mfi_max: null, grade: optimal}
-          - {polymer_code: HIPS, process_name: thermoform, mfi_min: null, mfi_max: null, grade: acceptable}
-          - {polymer_code: PC, process_name: injection, mfi_min: 10.0, mfi_max: null, grade: optimal}
-          - {polymer_code: PA, process_name: injection, mfi_min: 10.0, mfi_max: null, grade: optimal}
-          - {polymer_code: PA, process_name: extrusion, mfi_min: null, mfi_max: 20.0, grade: acceptable}
-        note: "Gate 4 reads f.process_type and $mfi. Does NOT traverse this edge. Exists for KGE/GDS only."
-        match_query_impact: NONE
-        gate_impact: NONE
-
-    # Layer 5: Equipment Capability Graph
-    equipment_capability:
-      - type: REQUIRES_EQUIPMENT
-        from: MaterialForm
-        to: EquipmentType
-        direction: DIRECTED
-        managed_by: static
-        added_in: v0.4.0
-        properties:
-          - {name: requirement_level, type: string, description: "required | preferred | optional"}
-        seed_data:
-          - {form_code: regrind, equipment_name: regrind_handler, requirement_level: required}
-          - {form_code: flake, equipment_name: flake_handler, requirement_level: required}
-          - {form_code: rollstock, equipment_name: rollstock_handler, requirement_level: required}
-          - {form_code: bale, equipment_name: shredder, requirement_level: required}
-          - {form_code: bale, equipment_name: granulator, requirement_level: required}
-          - {form_code: regrind, equipment_name: granulator, requirement_level: preferred}
-          - {form_code: flake, equipment_name: wash_line, requirement_level: preferred}
-        match_query_impact: NONE
-
-    # Layer 6: Negative Signal
-    negative_signal:
-      - type: REJECTED_MATERIAL_FROM
-        from: Facility
-        to: Facility
-        direction: DIRECTED
-        managed_by: custom_aggregation
-        added_in: v0.4.0
-        rebuild_job: reinforcement_rejected.cypher
-        rebuild_cadence: "nightly (03:00)"
-        properties:
-          - {name: count, type: int}
-          - {name: rejection_rate, type: float}
-          - {name: last_rejection_date, type: datetime}
-          - {name: primary_reason_code, type: string, description: "contamination|mfi_out_of_spec|wrong_polymer|quality|moisture|other"}
-          - {name: recency_score, type: float}
-        indexes:
-          - "CREATE INDEX rejected_material_recency IF NOT EXISTS FOR ()-[r:REJECTED_MATERIAL_FROM]-() ON (r.recency_score)"
-          - "CREATE INDEX rejected_material_reason IF NOT EXISTS FOR ()-[r:REJECTED_MATERIAL_FROM]-() ON (r.primary_reason_code)"
-        recency_decay:
-          function: "exp(-age_days / 90.0)"
-          half_life_days: 62
-        note: "EXCLUDED_FROM = manual hard block. REJECTED_MATERIAL_FROM = behavioral soft signal. Complementary."
-        match_query_impact: NONE
-
-      - type: REJECTED_BY
-        from: Facility
-        to: Facility
-        managed_by: custom_aggregation
-        properties:
-          - {name: rejection_count, type: int}
-          - {name: top_reason, type: string}
-        description: "Offer-lifecycle negative signal from derived_edges"
-
-    # Layer 7: Behavioral / Derived
-    behavioral:
-      - type: PROCESSED_POLYMER
-        from: Facility
-        to: PolymerFamily
-        managed_by: custom_aggregation
-        rebuild_cadence: nightly
-        properties:
-          - {name: count, type: int}
-          - {name: avg_yield_pct, type: float}
-          - {name: recency_score, type: float}
-          - {name: last_event_date, type: datetime}
-          - {name: aggregate_volume_lbs, type: float}
-        description: >
-          Behavioral edge distinct from ACCEPTS_POLYMER (declared capability).
-          Captures actual processing experience, not claimed capability.
-
-      - type: COMPATIBLE_WITH
-        from: Polymer
-        to: ProcessType
-        managed_by: domain_knowledge
-        properties:
-          - {name: min_mfi, type: float}
-          - {name: max_mfi, type: float}
-
-      - type: SIMILAR_PROFILE_SHAPE
-        from: Facility
-        to: Facility
-        managed_by: gds
-        properties:
-          - {name: cosine_sim, type: float}
-        description: "Capability similarity from multi-edge GDS projection"
-
-      - type: COMPETES_WITH
-        from: Facility
-        to: Facility
-        managed_by: gds
-        properties:
-          - {name: overlap_score, type: float}
-        description: "Competitive overlap — shared polymers × market × distance"
-
-    # Layer 8: Outcome / Feedback (v1.1)
-    outcome:
-      - type: RESULTED_IN
-        from: Facility
-        to: TransactionOutcome
-        added_in: v1.1
-        managed_by: sync
-        properties:
-          - {name: outcome, type: string}
-          - {name: quality_grade, type: float}
-          - {name: turnaround_days, type: float}
-          - {name: created_at, type: datetime}
-
-      - type: RESOLVED_FROM
-        from: MaterialProfile
-        to: SignalEvent
-        added_in: v1.1
-        managed_by: sync
-        properties:
-          - {name: confidence, type: float}
-          - {name: method, type: enum, values: [deterministic, probabilistic]}
-          - {name: source, type: string}
-
-    # Layer 9: Economic
-    economic:
-      - type: RATE_PROFILE
-        from: Facility
-        to: PolymerFamily
-        managed_by: custom_aggregation
-        rebuild_cadence: weekly
-        properties:
-          - {name: avg_price_per_lb, type: float}
-          - {name: price_tolerance_pct, type: float}
-          - {name: last_quoted_date, type: datetime}
-          - {name: volume_tier, type: string}
-        description: "Per facility-polymer pricing signal for price-fit scoring"
-
-      - type: PRICE_CORRIDOR
-        from: Market
-        to: Market
-        direction: UNDIRECTED
-        managed_by: custom_aggregation
-        rebuild_cadence: weekly
-        properties:
-          - {name: avg_price_delta_pct, type: float}
-          - {name: volatility, type: float}
-          - {name: correlation, type: float}
-          - {name: trade_flow_direction, type: string}
+# ---------------------------------------------------------------------------
+# MATCH ENTITIES
+# ---------------------------------------------------------------------------
+matchentities:
+  candidate:
+    - label: Facility
+      matchdirection: material_to_facility
+  queryentity:
+    - label: MaterialProfile
+      matchdirection: material_to_facility
 
 # ---------------------------------------------------------------------------
 # QUERY SCHEMA
 # ---------------------------------------------------------------------------
-query_schema:
-
-  match_directions:
-    - name: material_to_facility
-      description: "Match inbound material intake to optimal buyer facilities"
-      query_node: MaterialProfile
-      candidate_node: Facility
-      default: true
-
-  derived_parameters:
-    - name: contamination_headroom
-      expression: "f.contamination_tolerance - $contamination_pct"
-      type: float
-      description: "How much contamination margin remains"
-    - name: mfi_center_fit
-      expression: "1.0 - abs($mfi - (f.min_mfi + f.max_mfi) / 2.0) / ((f.max_mfi - f.min_mfi) / 2.0)"
-      type: float
-      description: "How centered MFI is within facility range"
-
+queryschema:
+  matchdirections:
+    - material_to_facility
   fields:
     - name: intake_id
       type: int
@@ -1157,604 +707,431 @@ query_schema:
       default: strict
 
 # ---------------------------------------------------------------------------
-# GATES — 14 hard WHERE clause gates (all in Cypher, zero Python)
+# TRAVERSAL
+# ---------------------------------------------------------------------------
+traversal:
+  steps:
+    - name: polymer_taxonomy
+      description: "Traverse polymer taxonomy to match polymer family"
+      pattern: "(f:Facility)-[:ACCEPTS_POLYMER]->(pf:PolymerFamily)<-[:BELONGS_TO]-(p:Polymer {code: $polymer})"
+      required: true
+      matchdirections:
+        - material_to_facility
+
+    - name: structural_compatibility
+      description: "Optional structural compatibility edge"
+      pattern: "(m:MaterialProfile {material_id: $material_id})-[sc:STRUCTURALLY_COMPATIBLE]->(f)"
+      required: false
+      matchdirections:
+        - material_to_facility
+
+    - name: capability_profile
+      description: "Optional capability profile edge"
+      pattern: "(f)-[:HAS_CAPABILITY]->(cp:CapabilityProfile)-[:CAN_RUN]->(g:Grade)"
+      required: false
+      matchdirections:
+        - material_to_facility
+
+# ---------------------------------------------------------------------------
+# GATES — 14 hard WHERE clause gates
 # ---------------------------------------------------------------------------
 gates:
-  count: 14
-  engine: "Single-stage Cypher WHERE clause"
-  file: "app/graph/queries/match_strict.cypher"
-  null_safety: "All gates use IS NULL OR pattern — missing facility data = pass"
+  - name: polymer_taxonomy
+    description: "Gate 1 — Polymer via taxonomy traversal"
+    type: traversal
+    pattern: "(f:Facility)-[:ACCEPTS_POLYMER]->(pf:PolymerFamily)<-[:BELONGS_TO]-(p:Polymer {code: $polymer})"
+    nullbehavior: fail
+    matchdirections:
+      - material_to_facility
 
-  definitions:
-    - id: 1
-      name: "Polymer (taxonomy traversal)"
-      cypher_fragment: >
-        MATCH (f:Facility)-[:ACCEPTS_POLYMER]->(pf:PolymerFamily)
-              -[:BELONGS_TO]-(p:Polymer {code: $polymer})
-      type: structural
-      reads: [ACCEPTS_POLYMER, BELONGS_TO]
-      null_behavior: "Must match — no NULL bypass"
+  - name: density_range
+    description: "Gate 2 — Density range"
+    type: range
+    candidateprop_min: min_density
+    candidateprop_max: max_density
+    queryparam: density
+    nullbehavior: pass
+    matchdirections:
+      - material_to_facility
 
-    - id: 2
-      name: "Density range"
-      cypher_fragment: >
-        (f.min_density IS NULL OR f.min_density <= $density)
-        AND (f.max_density IS NULL OR f.max_density >= $density)
-      type: numeric_range
-      reads: [Facility.min_density, Facility.max_density]
+  - name: mfi_range
+    description: "Gate 3 — MFI range"
+    type: range
+    candidateprop_min: min_mfi
+    candidateprop_max: max_mfi
+    queryparam: mfi
+    nullbehavior: pass
+    matchdirections:
+      - material_to_facility
 
-    - id: 3
-      name: "MFI range"
-      cypher_fragment: >
-        (f.min_mfi IS NULL OR f.min_mfi <= $mfi)
-        AND (f.max_mfi IS NULL OR f.max_mfi >= $mfi)
-      type: numeric_range
-      reads: [Facility.min_mfi, Facility.max_mfi]
+  - name: mfi_process_physics
+    description: "Gate 4 — MFI–Process physics"
+    type: composite
+    logic: OR
+    cypheroverride: >
+      f.process_type IS NULL OR f.process_type = 'any'
+      OR (f.process_type = 'injection' AND $mfi > 10)
+      OR (f.process_type = 'extrusion' AND $mfi < 20)
+      OR (f.process_type = 'blowmold' AND $mfi > 0.5 AND $mfi < 10)
+      OR (f.process_type = 'film' AND $mfi < 5)
+    nullbehavior: pass
+    matchdirections:
+      - material_to_facility
 
-    - id: 4
-      name: "MFI–Process physics"
-      cypher_fragment: >
-        f.process_type IS NULL OR f.process_type = 'any'
-        OR (f.process_type = 'injection' AND $mfi > 10)
-        OR (f.process_type = 'extrusion' AND $mfi < 20)
-        OR (f.process_type = 'blowmold' AND $mfi > 0.5 AND $mfi < 10)
-        OR (f.process_type = 'film' AND $mfi < 5)
-      type: physics_rule
-      reads: [Facility.process_type]
-      note: "COMPATIBLE_WITH_PROCESS edge materializes this for KGE/GDS. Gate still enforces via WHERE."
+  - name: contamination_tolerance
+    description: "Gate 5 — Contamination tolerance"
+    type: threshold
+    candidateprop: contamination_tolerance
+    queryparam: contamination_pct
+    operator: ">="
+    nullbehavior: pass
+    matchdirections:
+      - material_to_facility
 
-    - id: 5
-      name: "Contamination tolerance"
-      cypher_fragment: >
-        f.contamination_tolerance IS NULL
-        OR f.contamination_tolerance >= $contamination_pct
-      type: numeric_threshold
+  - name: moisture_tolerance
+    description: "Gate 6 — Moisture tolerance"
+    type: threshold
+    candidateprop: moisture_tolerance
+    queryparam: moisture_pct
+    operator: ">="
+    nullbehavior: pass
+    matchdirections:
+      - material_to_facility
 
-    - id: 6
-      name: "Moisture tolerance"
-      cypher_fragment: >
-        f.moisture_tolerance IS NULL
-        OR f.moisture_tolerance >= $moisture_pct
-      type: numeric_threshold
+  - name: metal_removal
+    description: "Gate 7 — Metal removal capability"
+    type: boolean
+    candidateprop: can_remove_metal
+    queryparam: has_metal
+    nullbehavior: pass
+    matchdirections:
+      - material_to_facility
 
-    - id: 7
-      name: "Metal removal capability"
-      cypher_fragment: "NOT $has_metal OR f.can_remove_metal = true"
-      type: boolean_capability
+  - name: fr_filtering
+    description: "Gate 8 — Flame retardant filtering"
+    type: boolean
+    candidateprop: can_filter_fr
+    queryparam: has_fr
+    nullbehavior: pass
+    matchdirections:
+      - material_to_facility
 
-    - id: 8
-      name: "Flame retardant filtering"
-      cypher_fragment: "NOT $has_fr OR f.can_filter_fr = true"
-      type: boolean_capability
+  - name: wash_line_moisture
+    description: "Gate 9 — Wash line (moisture > 0.5% needs wash)"
+    type: composite
+    cypheroverride: "$moisture_pct <= 0.5 OR f.has_wash_line = true"
+    nullbehavior: pass
+    matchdirections:
+      - material_to_facility
 
-    - id: 9
-      name: "Wash line (moisture > 0.5% needs wash)"
-      cypher_fragment: "$moisture_pct <= 0.5 OR f.has_wash_line = true"
-      type: conditional_equipment
+  - name: form_equipment
+    description: "Gate 10 — Form–Equipment compatibility"
+    type: composite
+    cypheroverride: >
+      $form IS NULL
+      OR ($form = 'regrind' AND f.handles_regrind = true)
+      OR ($form = 'flake' AND f.handles_flake = true)
+      OR ($form = 'rollstock' AND f.handles_rollstock = true)
+      OR ($form = 'pellet')
+      OR ($form = 'bale' AND (f.has_shredder = true OR f.has_granulator = true))
+    nullbehavior: pass
+    matchdirections:
+      - material_to_facility
 
-    - id: 10
-      name: "Form–Equipment compatibility"
-      cypher_fragment: >
-        $form IS NULL
-        OR ($form = 'regrind' AND f.handles_regrind = true)
-        OR ($form = 'flake' AND f.handles_flake = true)
-        OR ($form = 'rollstock' AND f.handles_rollstock = true)
-        OR ($form = 'pellet')
-        OR ($form = 'bale' AND (f.has_shredder = true OR f.has_granulator = true))
-      type: form_equipment
-      note: "REQUIRES_EQUIPMENT edge materializes this for KGE. Gate reads boolean properties."
+  - name: pvc_tolerance
+    description: "Gate 11 — PVC tolerance"
+    type: boolean
+    candidateprop: pvc_tolerant
+    queryparam: has_pvc
+    nullbehavior: pass
+    matchdirections:
+      - material_to_facility
 
-    - id: 11
-      name: "PVC tolerance"
-      cypher_fragment: "NOT $has_pvc OR f.pvc_tolerant = true"
-      type: boolean_capability
+  - name: filler_tolerance
+    description: "Gate 12 — Filler tolerance"
+    type: composite
+    cypheroverride: "$filler_pct = 0 OR f.accepts_filled_materials = true"
+    nullbehavior: pass
+    matchdirections:
+      - material_to_facility
 
-    - id: 12
-      name: "Filler tolerance"
-      cypher_fragment: "$filler_pct = 0 OR f.accepts_filled_materials = true"
-      type: boolean_capability
+  - name: lot_size
+    description: "Gate 13 — Lot size"
+    type: range
+    candidateprop_min: min_lot_size_lbs
+    candidateprop_max: max_lot_size_lbs
+    queryparam: quantity_lbs
+    nullbehavior: pass
+    matchdirections:
+      - material_to_facility
 
-    - id: 13
-      name: "Lot size"
-      cypher_fragment: >
-        (f.min_lot_size_lbs IS NULL OR f.min_lot_size_lbs <= $quantity_lbs)
-        AND (f.max_lot_size_lbs IS NULL OR f.max_lot_size_lbs >= $quantity_lbs)
-      type: numeric_range
-
-    - id: 14
-      name: "Certifications (food/medical)"
-      cypher_fragment: >
-        (NOT $food_grade_required OR f.food_grade_certified = true)
-        AND (NOT $medical_grade_required OR f.medical_grade_capable = true)
-      type: compliance
-
-  exclusion_filter:
-    cypher_fragment: >
-      AND NOT exists {
-        MATCH (supplier:Facility {facility_id: $supplier_id})-[:EXCLUDED_FROM]->(f)
-      }
-    reads: [EXCLUDED_FROM]
+  - name: certifications
+    description: "Gate 14 — Certifications (food/medical)"
+    type: composite
+    cypheroverride: >
+      (NOT $food_grade_required OR f.food_grade_certified = true)
+      AND (NOT $medical_grade_required OR f.medical_grade_capable = true)
+    nullbehavior: pass
+    matchdirections:
+      - material_to_facility
 
 # ---------------------------------------------------------------------------
 # SCORING
 # ---------------------------------------------------------------------------
 scoring:
-
-  match_strict:
-    file: "app/graph/queries/match_strict.cypher"
-    status: "UNCHANGED_IN_V040 + v1.1 temporal decay"
-    reads_edges:
-      - ACCEPTS_POLYMER
-      - BELONGS_TO
-      - STRUCTURALLY_COMPATIBLE
-      - HAS_CAPABILITY
-      - CAN_RUN
-      - SUCCESS_WITH
-      - EXCLUDED_FROM
-    does_not_read:
-      - CO_ACCEPTED_WITH
-      - SUBSTITUTABLE_FOR
-      - COLOCATED_WITH
-      - RECENTLY_TRANSACTED_WITH
-      - ACCEPTED_MATERIAL_FROM
-      - COMPATIBLE_WITH_PROCESS
-      - HAS_EQUIPMENT
-      - REQUIRES_EQUIPMENT
-      - REJECTED_MATERIAL_FROM
-
   dimensions:
     - name: structural_score
-      source: "coalesce(sc.score, 0.5)"
-      weight_key: w_structural
-      default_weight: 0.30
       description: "Precomputed structural compatibility MaterialProfile→Facility"
+      source: traversalalias
+      alias: sc
+      candidateprop: score
+      computation: traversalalias
+      defaultwhennull: 0.5
+      weightkey: w_structural
+      defaultweight: 0.30
+      aggregation: additive
+      matchdirections:
+        - material_to_facility
 
     - name: geo_score
-      source: "1.0 / (1.0 + distance_km / $geo_decay_km)"
-      weight_key: w_geo
-      default_weight: 0.25
       description: "Geographic proximity with configurable decay"
-      null_default: 0.5
+      source: computed
+      computation: geodecay
+      decayconstant: 800000
+      defaultwhennull: 0.5
+      weightkey: w_geo
+      defaultweight: 0.25
+      aggregation: additive
+      matchdirections:
+        - material_to_facility
 
     - name: reinforcement_score
-      source: "(log(txn_count + 1) / log(1000 + 1)) * recency_weight"
-      weight_key: w_reinforcement
-      default_weight: 0.20
-      description: "Transaction history with v1.1 temporal decay (180-day half-life)"
+      description: "Transaction history with temporal decay (180-day half-life)"
+      source: computed
+      computation: lognormalized
+      expression: "(log(txn_count + 1) / log(1000 + 1)) * recency_weight"
+      defaultwhennull: 0.0
+      weightkey: w_reinforcement
+      defaultweight: 0.20
+      aggregation: additive
+      matchdirections:
+        - material_to_facility
 
     - name: facility_freshness
-      source: "exp(-1.0 * duration.inDays(f.last_transaction_at, datetime()).days / 90.0)"
-      weight_key: w_freshness
-      default_weight: 0.10
-      added_in: v1.1
       description: "Facility recency signal — 90-day half-life, cold-start default 0.3"
-      null_default: 0.3
+      source: candidateproperty
+      candidateprop: last_transaction_at
+      computation: temporalproximity
+      decayconstant: 90
+      defaultwhennull: 0.3
+      weightkey: w_freshness
+      defaultweight: 0.10
+      aggregation: additive
+      matchdirections:
+        - material_to_facility
 
     - name: community_bias
-      source: "CASE WHEN f_comm = g_comm THEN 1.0 ELSE $community_cross_bias END"
-      application: multiplicative
-      default_value: 0.92
       description: "Louvain community coherence — multiplicative modifier"
+      source: computed
+      computation: communitymatch
+      bias: 0.92
+      defaultwhennull: 1.0
+      weightkey: w_community
+      defaultweight: 1.0
+      aggregation: multiplicative
+      matchdirections:
+        - material_to_facility
 
-  formula: >
-    ($w_structural * structural_score
-     + $w_geo * geo_score
-     + $w_reinforcement * reinforcement_score
-     + $w_freshness * facility_freshness)
-    * community_bias
+# ---------------------------------------------------------------------------
+# DERIVED PARAMETERS
+# ---------------------------------------------------------------------------
+derivedparameters:
+  - name: contamination_headroom
+    expression: "f.contamination_tolerance - $contamination_pct"
+    type: float
+    description: "How much contamination margin remains"
 
-  future_dimensions:
-    - name: price_score
-      weight_key: w_price
-      default_weight: 0.15
-      source: "1.0 - clamp(|buyer_avg_price - intake_target_price| / intake_target_price, 0, max_gap)"
-      description: "Price-fit signal from RATE_PROFILE edge"
-      status: planned
+  - name: mfi_center_fit
+    expression: "1.0 - abs($mfi - (f.min_mfi + f.max_mfi) / 2.0) / ((f.max_mfi - f.min_mfi) / 2.0)"
+    type: float
+    description: "How centered MFI is within facility range"
 
-    - name: capacity_score
-      source: "1.0 - (current_utilization_pct / 100.0)"
-      description: "Deprioritize facilities near capacity"
-      status: planned
+# ---------------------------------------------------------------------------
+# SOFT SIGNALS
+# ---------------------------------------------------------------------------
+softsignals: []
 
-    - name: kge_similarity
-      source: "CompoundE3D beam search score"
-      description: "KGE embedding-based semantic similarity"
-      status: "Phase 4"
+# ---------------------------------------------------------------------------
+# SYNC
+# ---------------------------------------------------------------------------
+sync:
+  endpoints:
+    - path: "/v1/sync/facilities"
+      method: POST
+      targetnode: Facility
+      idproperty: facility_id
+      batchstrategy: UNWINDMERGE
+      taxonomyedges:
+        - field: polymer_families
+          edgetype: ACCEPTS_POLYMER
+          targetlabel: PolymerFamily
+          targetid: code
+        - field: forms
+          edgetype: ACCEPTS_FORM
+          targetlabel: MaterialForm
+          targetid: code
+        - field: colors
+          edgetype: ACCEPTS_COLOR
+          targetlabel: MaterialColor
+          targetid: code
 
-  match_relaxed:
-    file: "app/graph/queries/match_relaxed.cypher"
-    description: "Multiplicative penalty scoring — relaxes hard gates to soft penalties"
-    status: UNCHANGED_IN_V040
+    - path: "/v1/sync/materials"
+      method: POST
+      targetnode: MaterialProfile
+      idproperty: material_id
+      batchstrategy: UNWINDMERGE
+      taxonomyedges:
+        - field: polymer
+          edgetype: IS_POLYMER
+          targetlabel: Polymer
+          targetid: code
+        - field: form
+          edgetype: HAS_FORM
+          targetlabel: MaterialForm
+          targetid: code
+
+    - path: "/v1/sync/polymers"
+      method: POST
+      targetnode: Polymer
+      idproperty: code
+      batchstrategy: UNWINDMERGE
+      taxonomyedges:
+        - field: family
+          edgetype: BELONGS_TO
+          targetlabel: PolymerFamily
+          targetid: code
+
+    - path: "/v1/sync/exclusions"
+      method: POST
+      targetedge: EXCLUDED_FROM
+      fromnode: Facility
+      tonode: Facility
+      batchstrategy: UNWINDMERGE
 
 # ---------------------------------------------------------------------------
 # GDS JOBS
 # ---------------------------------------------------------------------------
-gds_jobs:
+gdsjobs:
+  - name: louvain
+    algorithm: louvain
+    schedule:
+      type: cron
+      cron: "0 2 * * 0"
+    projection:
+      nodelabels:
+        - Facility
+      edgetypes:
+        - TRANSACTED_WITH
+    writeproperty: louvain_community_id
+    writeto: Facility
 
-  existing:
-    - name: louvain
-      file: "app/graph/queries/community.cypher"
-      job_module: "app/jobs/louvain.py"
-      schedule: "weekly (Sunday 02:00)"
-      writes_property: louvain_community_id
-      writes_to: [Facility, Grade]
-      status: UNCHANGED
+  - name: structural_precompute
+    algorithm: nodeSimilarity
+    schedule:
+      type: cron
+      cron: "0 3 * * *"
+    projection:
+      nodelabels:
+        - MaterialProfile
+        - Facility
+        - PolymerFamily
+      edgetypes:
+        - ACCEPTS_POLYMER
+        - IS_POLYMER
+        - BELONGS_TO
+    writeedge: STRUCTURALLY_COMPATIBLE
 
-    - name: structural_precompute
-      file: "app/graph/queries/structural.cypher"
-      job_module: "app/jobs/structural.py"
-      schedule: "nightly (03:00)"
-      writes_edge: STRUCTURALLY_COMPATIBLE
-      status: UNCHANGED
+  - name: reinforcement_rebuild
+    algorithm: custom
+    schedule:
+      type: cron
+      cron: "30 3 * * *"
+    projection:
+      nodelabels:
+        - Facility
+        - Grade
+      edgetypes:
+        - TRANSACTED_WITH
+    writeedge: SUCCESS_WITH
+    recencydecay: true
+    recencyhalflifedays: 180
 
-    - name: reinforcement_rebuild
-      file: "app/graph/queries/reinforcement.cypher"
-      job_module: "app/jobs/reinforcement.py"
-      schedule: "nightly (03:30)"
-      writes_edge: SUCCESS_WITH
-      status: UNCHANGED
+  - name: geo_proximity
+    algorithm: custom
+    schedule:
+      type: cron
+      cron: "15 3 * * 0"
+    projection:
+      nodelabels:
+        - Facility
+      edgetypes: []
+    writeedge: COLOCATED_WITH
 
-  new_v040:
-    - name: reinforcement_accepted
-      file: "app/graph/queries/reinforcement_accepted.cypher"
-      job_module: "app/jobs/reinforcement_outcomes.py"
-      schedule: "nightly (03:00)"
-      writes_edges: [ACCEPTED_MATERIAL_FROM, REJECTED_MATERIAL_FROM]
-      added_in: v0.4.0
-
-    - name: temporal_recency
-      file: "app/graph/queries/temporal_recency.cypher"
-      job_module: "app/jobs/temporal_recency.py"
-      schedule: "nightly (03:15)"
-      writes_edges: [RECENTLY_TRANSACTED_WITH]
-      depends_on: reinforcement_accepted
-      added_in: v0.4.0
-      prune_cypher: "MATCH ()-[r:RECENTLY_TRANSACTED_WITH]->() WHERE r.recency_score < 0.1 DELETE r"
-
-    - name: polymer_co_occurrence
-      file: "app/graph/queries/co_occurrence_polymer.cypher"
-      job_module: "app/jobs/polymer_similarity.py"
-      schedule: "weekly (Sunday 02:30)"
-      algorithm: nodeSimilarity
-      writes_edges: [CO_ACCEPTED_WITH]
-      depends_on: louvain
-      added_in: v0.4.0
-
-    - name: geo_proximity
-      file: "app/graph/queries/geo_proximity.cypher"
-      job_module: "app/jobs/geo_proximity.py"
-      schedule: "weekly (Sunday 03:15)"
-      config:
-        max_distance_km: 500
-        top_k_per_facility: 20
-        proximity_decay_km: 200
-      writes_edges: [COLOCATED_WITH]
-      added_in: v0.4.0
-
-    - name: louvain_geo
-      file: "app/graph/queries/community_geo.cypher"
-      job_module: "app/jobs/louvain_geo.py"
-      schedule: "weekly (Sunday 03:30)"
-      algorithm: louvain
-      projection:
-        node_labels: [Facility]
-        relationship_types: [TRANSACTED_WITH, COLOCATED_WITH]
-        relationship_weight_property: proximity_score
-      writes_property: louvain_geo_community_id
-      depends_on: geo_proximity
-      added_in: v0.4.0
-      note: "Parallel Louvain — does NOT overwrite louvain_community_id"
-
-    - name: equipment_sync
-      file: "app/graph/queries/sync_equipment_edges.cypher"
-      job_module: "app/jobs/equipment_sync.py"
-      schedule: "weekly (Sunday 04:00)"
-      writes_edges: [HAS_EQUIPMENT]
-      added_in: v0.4.0
-      description: "Full reconciliation of HAS_EQUIPMENT against Facility boolean properties"
-
-  new_v11:
-    - name: decay_recompute
-      file: "app/jobs/decay_recompute.py"
-      schedule: "nightly (04:00)"
-      description: "Recompute temporal decay on all recency-weighted edges"
-      added_in: v1.1
+  - name: louvain_geo
+    algorithm: louvain
+    schedule:
+      type: cron
+      cron: "30 3 * * 0"
+    projection:
+      nodelabels:
+        - Facility
+      edgetypes:
+        - TRANSACTED_WITH
+        - COLOCATED_WITH
+    writeproperty: louvain_geo_community_id
+    writeto: Facility
 
 # ---------------------------------------------------------------------------
-# KGE CONFIGURATION
+# KGE (disabled for now)
 # ---------------------------------------------------------------------------
 kge:
   model: CompoundE3D
-  embedding_dim: 300
-  status: "Phase 4"
-
-  training_relation_types:
-    existing:
-      - ACCEPTS_POLYMER
-      - ACCEPTS_FORM
-      - ACCEPTS_COLOR
-      - OPERATES_PROCESS
-      - LOCATED_IN_MARKET
-      - TRANSACTED_WITH
-      - STRUCTURALLY_COMPATIBLE
-      - SUCCESS_WITH
-    new_v040:
-      - CO_ACCEPTED_WITH
-      - SUBSTITUTABLE_FOR
-      - COMPATIBLE_WITH_PROCESS
-      - RECENTLY_TRANSACTED_WITH
-      - HAS_EQUIPMENT
-      - REJECTED_MATERIAL_FROM
-
-  negative_sampling_strategy:
-    v030: random
-    v040_enhancement: >
-      Use CAPABILITY_SIMILAR pairs that have NOT transacted as hard negatives.
-      Use REJECTED_MATERIAL_FROM as explicit negatives.
-      Expected 10-15% link prediction precision gain.
-
-  expected_improvements:
-    polymer_embedding_separability: "20-30%"
-    link_prediction_active_pairs: "15-20%"
-    process_prediction_accuracy: "15-20%"
-    overall_mrr: "10-15%"
+  embeddingdim: 300
+  trainingrelations:
+    - ACCEPTS_POLYMER
+    - ACCEPTS_FORM
+    - ACCEPTS_COLOR
+    - OPERATES_PROCESS
+    - LOCATED_IN_MARKET
+    - TRANSACTED_WITH
+    - STRUCTURALLY_COMPATIBLE
+    - SUCCESS_WITH
 
 # ---------------------------------------------------------------------------
-# SYNC ENDPOINTS
+# COMPLIANCE
 # ---------------------------------------------------------------------------
-api_endpoints:
-  - path: "POST /v1/match"
-    status: UNCHANGED
-    description: "Intake params in, ranked facilities out"
-  - path: "POST /v1/sync/facilities"
-    status: ADDITIVE_CHANGE
-    note: "Equipment edge sync added after existing logic"
-  - path: "POST /v1/sync/materials"
-    status: UNCHANGED
-  - path: "POST /v1/admin/rebuild"
-    status: ADDITIVE_CHANGE
-    note: "New GDS jobs added to rebuild sequence"
-  - path: "GET /v1/health"
-    status: UNCHANGED
-  - path: "POST /v1/outcomes"
-    status: NEW
-    added_in: v1.1
-    description: "Record transaction outcomes (feedback loop)"
-  - path: "POST /v1/resolve/material"
-    status: NEW
-    added_in: v1.1
-    description: "Entity resolution for ambiguous material inputs"
-  - path: "GET /v1/facility/{id}/performance"
-    status: NEW
-    added_in: v1.1
-    description: "Facility performance with temporal decay"
-
-# ---------------------------------------------------------------------------
-# CONFIGURATION
-# ---------------------------------------------------------------------------
-config:
-  env_prefix: "PLASTICOS_"
-  settings:
-    # Neo4j
-    neo4j_uri: "bolt://localhost:7687"
-    neo4j_user: neo4j
-    neo4j_pool_size: 50
-    neo4j_max_connection_lifetime: 3600
-    # Scoring weights
-    w_structural: 0.30
-    w_geo: 0.25
-    w_reinforcement: 0.20
-    w_freshness: 0.10
-    geo_decay_km: 800.0
-    community_cross_bias: 0.92
-    max_results: 25
-    # Temporal decay
-    decay_transaction_half_life: 180.0
-    decay_facility_half_life: 90.0
-    decay_structural_half_life: 365.0
-    # Feedback loop
-    outcome_ema_alpha: 0.1
-    # Entity resolution
-    resolution_density_tolerance: 0.05
-    resolution_mfi_tolerance: 5.0
-    resolution_min_confidence: 0.6
-    # Geo proximity
-    geo_proximity_max_distance_km: 500
-    geo_proximity_decay_km: 200
-    # Recency
-    recency_prune_threshold: 0.1
-    # KGE
-    kge_enabled: false
-    kge_embedding_dim: 300
-    kge_confidence_threshold: 0.3
-
-# ---------------------------------------------------------------------------
-# ROLLOUT PHASES
-# ---------------------------------------------------------------------------
-rollout:
-  phases:
-    - id: A
-      name: "Static Topology"
-      week: 1
-      layers: [process_affinity, equipment_capability]
-      risk: lowest
-      adds:
-        nodes: [EquipmentType]
-        edges: [COMPATIBLE_WITH_PROCESS, HAS_EQUIPMENT, REQUIRES_EQUIPMENT]
-        jobs: [equipment_sync]
-      validation:
-        - "Run existing test suite — all pass"
-        - "match_strict.cypher against 10 canonical intakes — identical results"
-        - "EquipmentType node count = 8"
-        - "HAS_EQUIPMENT edges match boolean property audit"
-
-    - id: B
-      name: "Polymer Similarity"
-      week: 2
-      layers: [polymer_similarity]
-      risk: low
-      adds:
-        edges: [CO_ACCEPTED_WITH, SUBSTITUTABLE_FOR]
-        jobs: [polymer_co_occurrence]
-      validation:
-        - "match_strict.cypher — identical results"
-        - "CO_ACCEPTED_WITH edge count within [0, n_polymers * 10]"
-        - "SUBSTITUTABLE_FOR seed count matches seed_data length"
-
-    - id: C
-      name: "Geo-Proximity"
-      week: 3
-      layers: [geo_proximity]
-      risk: medium
-      adds:
-        edges: [COLOCATED_WITH]
-        properties: [louvain_geo_community_id]
-        jobs: [geo_proximity, louvain_geo]
-      validation:
-        - "match_strict.cypher — identical results"
-        - "COLOCATED_WITH count <= n_facilities * 20"
-        - "Neo4j heap < 70%"
-        - "louvain_community_id property UNCHANGED"
-        - "louvain_geo_community_id property written"
-
-    - id: D
-      name: "Temporal + Negative"
-      week: 4
-      layers: [temporal_weighting, negative_signal]
-      risk: medium
-      prerequisites:
-        - "Transaction outcome data available"
-        - "TRANSACTED_WITH.last_date populated"
-      adds:
-        edges: [RECENTLY_TRANSACTED_WITH, ACCEPTED_MATERIAL_FROM, REJECTED_MATERIAL_FROM]
-        jobs: [reinforcement_accepted, temporal_recency]
-      validation:
-        - "match_strict.cypher — identical results"
-        - "RECENTLY_TRANSACTED_WITH count <= TRANSACTED_WITH count"
-        - "All RECENTLY_TRANSACTED_WITH.recency_score >= 0.1"
-        - "SUCCESS_WITH edges UNCHANGED"
-
-    - id: E
-      name: "Outcome Feedback + Entity Resolution"
-      week: 5
-      layers: [outcome, entity_resolution]
-      risk: low
-      adds:
-        nodes: [TransactionOutcome, SignalEvent]
-        edges: [RESULTED_IN, RESOLVED_FROM]
-        endpoints: ["POST /v1/outcomes", "POST /v1/resolve/material"]
-        jobs: [decay_recompute]
-
-    - id: F
-      name: "KGE Integration"
-      week: 8-10
-      layers: [kge]
-      risk: high
-      adds:
-        scoring_dimension: kge_similarity
-
-# ---------------------------------------------------------------------------
-# SAFETY CHECKS
-# ---------------------------------------------------------------------------
-safety_checks:
-  - name: match_baseline
-    description: "Capture match_strict output for 10 canonical intakes pre-deploy"
-    file: "tests/fixtures/match_baseline.json"
-  - name: match_regression
-    description: "Assert identical facility_id ordering + final_score < 1e-6"
-    file: "tests/test_match_regression.py"
-  - name: edge_count_monitor
-    alert: "Total edges > 5× baseline"
-  - name: heap_monitor
-    alert: "heap_used / heap_max > 0.70"
-  - name: gds_memory_estimate
-    alert: "Estimated projection memory > 50% available"
-  - name: rollback_test
-    description: "Each layer rollback Cypher tested in testcontainer"
-    file: "tests/test_rollback.py"
-
-# ---------------------------------------------------------------------------
-# ADDITIVE GUARANTEE
-# ---------------------------------------------------------------------------
-additive_guarantee:
-  match_strict_cypher:
-    modified: false
-    reads_new_edges: false
-    reads_new_properties: false
-    same_14_gates: true
-    same_scoring_formula: true
-    same_return_columns: true
-  match_relaxed_cypher:
-    modified: false
-  community_cypher:
-    modified: false
-    louvain_community_id: unchanged
-  structural_cypher:
-    modified: false
-    STRUCTURALLY_COMPATIBLE: unchanged
-  reinforcement_cypher:
-    modified: false
-    SUCCESS_WITH: unchanged
-  scoring_policy:
-    modified: false
-    same_4_dimensions: true
-    same_weights: true
-    same_formula: true
-  existing_node_labels:
-    modified: false
-    properties_removed: false
-    properties_renamed: false
-    constraints_changed: false
-  existing_edge_types:
-    modified: false
-    properties_removed: false
-    properties_renamed: false
-  post_v1_match_output:
-    identical_before_and_after: true
-    tolerance: 1e-6
-
-# ---------------------------------------------------------------------------
-# SCHEMA SUMMARY
-# ---------------------------------------------------------------------------
-schema_summary:
-  v030:
-    node_labels: 12
-    edge_types: 13
-    gds_jobs: 3
-    scoring_dimensions: 4
-    gates: 14
-  v040:
-    node_labels: 22
-    edge_types: 31
-    gds_jobs: 9
-    scoring_dimensions: 5
-    gates: 14
-  delta:
-    node_labels_added: 10
-    edge_types_added: 18
-    gds_jobs_added: 6
-    scoring_dimensions_added: 1
-    gates_added: 0
-    gates_modified: 0
-    existing_files_deleted: 0
-    breaking_changes: 0
-
-# ---------------------------------------------------------------------------
-# CODING STANDARDS
-# ---------------------------------------------------------------------------
-coding_standards:
-  - "Never use Odoo ORM — this is standalone Python"
-  - ".cypher files are source of truth for matching logic"
-  - "NULL-safe gates (coalesce or skip)"
-  - "UNWIND+MERGE for batch sync, never loops"
-  - "Return per-dimension score breakdown, not just final score"
-  - "Docker Compose: neo4j:5-enterprise with GDS plugin"
-  - "All temporal edges include created_at datetime"
-  - "Outcome feedback is non-blocking (fire-and-forget POST)"
-  - "Decay half-lives configurable via PLASTICOS_DECAY_* env vars"
-  - "Every .cypher file has a comment header (purpose, inputs, outputs)"
-  - "Entity resolution returns confidence scores"
-  - "Compliance constraints live IN Cypher WHERE clause, never in Python post-filter"
-  - "Type hints everywhere, no Any in public interfaces"
-  - "Async driver with connection pooling"
-  - "Tests seed deterministic data in testcontainer"
+compliance:
+  regimes:
+    - name: plastics_recycling
+      description: "Plastics recycling industry compliance"
+  prohibitedfactors:
+    enabled: true
+    blockedfields: []
+    enforcement: compiletime
+    auditonviolation: true
+  audit:
+    enabled: true
+    logmatchrequests: true
+    logmatchresults: true
+    logsyncoperations: true
+    logadminoperations: true
+    retentiondays: 90
+  pii:
+    enabled: false
+    fields: []
+    candidatefields: []
+    handling: hash
+    encryptionkeysource: env
+  retention:
+    transactionttldays: 365
+    auditttldays: 90

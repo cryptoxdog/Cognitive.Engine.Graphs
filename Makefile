@@ -78,7 +78,8 @@ local-api:Run API locally against Dockerized DBs
 	PLASTICOS_NEO4J_PASSWORD=l9-dev-password \
 	PLASTICOS_REDIS_URL=redis://localhost:6379/0 \
 	PLASTICOS_LOG_LEVEL=debug \
-	uvicorn engine.api.app:create_app --factory --reload --port 8000
+	L9_LIFECYCLE_HOOK=engine.boot:GraphLifecycle \
+	uvicorn chassis.app:create_app --factory --reload --port 8000
 
 # ── Production ─────────────────────────────────────────────
 

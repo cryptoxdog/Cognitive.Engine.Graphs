@@ -8,30 +8,30 @@
 # status: active
 # --- /L9_META ---
 #
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Universal CI/CD Pack — PR Review Configuration
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-VERSION: 1.0.0
-PURPOSE: Define PR review policies and size limits
-NOTE: Repository Variables (vars.*) override values here
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# Universal CI/CD Pack — PR Review Configuration
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# VERSION: 1.0.0
+# PURPOSE: Define PR review policies and size limits
+# NOTE: Repository Variables (vars.*) override values here
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-──────────────────────────────────────────────────────────────────────────
-PR Size Limits
-──────────────────────────────────────────────────────────────────────────
+# ──────────────────────────────────────────────────────────────────────────
+# PR Size Limits
+# ──────────────────────────────────────────────────────────────────────────
 size_limits:
-Lines changed warning threshold (adds comment, non-blocking)
+  # Lines changed warning threshold (adds comment, non-blocking)
   warn_threshold: 300
 
-Lines changed blocking threshold (fails check, blocks merge)
+  # Lines changed blocking threshold (fails check, blocks merge)
   block_threshold: 1000
 
-Maximum files changed in a single PR
+  # Maximum files changed in a single PR
   max_files_changed: 50
 
-──────────────────────────────────────────────────────────────────────────
-Protected Files (Require CODEOWNERS approval)
-──────────────────────────────────────────────────────────────────────────
+# ──────────────────────────────────────────────────────────────────────────
+# Protected Files (Require CODEOWNERS approval)
+# ──────────────────────────────────────────────────────────────────────────
 protected_files:
   - ".github/workflows/*.yml"
   - ".github/workflows/*.yaml"
@@ -39,11 +39,11 @@ protected_files:
   - "Dockerfile"
   - "pyproject.toml"
   - "setup.py"
-Add your critical files here
+  # Add your critical files here
 
-──────────────────────────────────────────────────────────────────────────
-Review Audit Scopes (Guidelines for reviewers)
-──────────────────────────────────────────────────────────────────────────
+# ──────────────────────────────────────────────────────────────────────────
+# Review Audit Scopes (Guidelines for reviewers)
+# ──────────────────────────────────────────────────────────────────────────
 audit_scopes:
   security:
     - sql_injection
@@ -72,14 +72,14 @@ audit_scopes:
     - error_handling
     - integration_tests
 
-──────────────────────────────────────────────────────────────────────────
-CODEOWNERS Settings
-──────────────────────────────────────────────────────────────────────────
+# ──────────────────────────────────────────────────────────────────────────
+# CODEOWNERS Settings
+# ──────────────────────────────────────────────────────────────────────────
 codeowners:
   required_approvals: 1
   dismiss_stale_reviews: true
   require_code_owner_reviews: true
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-END OF PR REVIEW CONFIGURATION
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# END OF PR REVIEW CONFIGURATION
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

@@ -182,7 +182,7 @@
 # LANGUAGE: Python 3.12+, async/await for all I/O (Neo4j, PostgreSQL, Redis).
 # TYPE HINTS: Every function signature, class attribute, ambiguous variable.
 # MODELS: Pydantic v2 BaseModel (frozen where appropriate) for all structured data.
-# FORMATTER: ruff format (Black-compatible, 88-char line length). Run before commit.
+# FORMATTER: ruff format (Black-compatible, 120-char line length). Run before commit.
 # LINTER: ruff check + mypy --strict engine/
 # LOGGING: structlog.get_logger(__name__). Include tenant, trace_id, action in context.
 # NAMING: snake_case everywhere. No Pydantic Field(alias=...). YAML keys = Python field names.

@@ -8,20 +8,20 @@
 # status: active
 # --- /L9_META ---
 #
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Universal CI/CD Pack — Dependabot Configuration
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-VERSION: 1.0.0
-PURPOSE: Automated dependency updates with logical grouping
-CUSTOMIZE: Update reviewers, assignees, and dependency groups for your stack
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# Universal CI/CD Pack — Dependabot Configuration
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# VERSION: 1.0.0
+# PURPOSE: Automated dependency updates with logical grouping
+# CUSTOMIZE: Update reviewers, assignees, and dependency groups for your stack
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 version: 2
 
 updates:
-──────────────────────────────────────────────────────────────────────
-Python Dependencies
-──────────────────────────────────────────────────────────────────────
+  # ──────────────────────────────────────────────────────────────────────
+  # Python Dependencies
+  # ──────────────────────────────────────────────────────────────────────
   - package-ecosystem: "pip"
     directory: "/"
     schedule:
@@ -41,16 +41,16 @@ Python Dependencies
       - "python"
       - "automerge-candidate"
 
-CUSTOMIZE: Replace with your GitHub username(s)
+    # CUSTOMIZE: Replace with your GitHub username(s)
     reviewers:
       - "YOUR_GITHUB_USERNAME"
 
     assignees:
       - "YOUR_GITHUB_USERNAME"
 
-Dependency groups — customize for your stack
+    # Dependency groups — customize for your stack
     groups:
-Web frameworks
+      # Web frameworks
       web-framework:
         patterns:
           - "fastapi*"
@@ -62,7 +62,7 @@ Web frameworks
           - "requests*"
           - "httpx*"
 
-Database drivers and ORMs
+      # Database drivers and ORMs
       database:
         patterns:
           - "psycopg*"
@@ -72,7 +72,7 @@ Database drivers and ORMs
           - "pymongo*"
           - "redis*"
 
-Testing frameworks
+      # Testing frameworks
       testing:
         patterns:
           - "pytest*"
@@ -80,7 +80,7 @@ Testing frameworks
           - "hypothesis*"
           - "faker*"
 
-Development tools
+      # Development tools
       dev-tools:
         patterns:
           - "ruff*"
@@ -89,7 +89,7 @@ Development tools
           - "isort*"
           - "pre-commit*"
 
-Security and cryptography
+      # Security and cryptography
       security:
         patterns:
           - "cryptography*"
@@ -97,7 +97,7 @@ Security and cryptography
           - "passlib*"
           - "bcrypt*"
 
-Monitoring and logging
+      # Monitoring and logging
       observability:
         patterns:
           - "structlog*"
@@ -105,9 +105,9 @@ Monitoring and logging
           - "prometheus*"
           - "opentelemetry*"
 
-──────────────────────────────────────────────────────────────────────
-GitHub Actions
-──────────────────────────────────────────────────────────────────────
+  # ──────────────────────────────────────────────────────────────────────
+  # GitHub Actions
+  # ──────────────────────────────────────────────────────────────────────
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
@@ -124,9 +124,9 @@ GitHub Actions
       - "github-actions"
       - "automerge-candidate"
 
-──────────────────────────────────────────────────────────────────────
-Docker
-──────────────────────────────────────────────────────────────────────
+  # ──────────────────────────────────────────────────────────────────────
+  # Docker
+  # ──────────────────────────────────────────────────────────────────────
   - package-ecosystem: "docker"
     directory: "/"
     schedule:
@@ -142,6 +142,6 @@ Docker
       - "dependencies"
       - "docker"
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-END OF DEPENDABOT CONFIGURATION
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# END OF DEPENDABOT CONFIGURATION
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
