@@ -26,9 +26,9 @@ domain:
 ontology:
   nodes:
     - label: Facility
-      managed_by: sync
+      managedby: sync
       candidate: true
-      match_direction: intake_to_buyer
+      matchdirection: intake_to_buyer
       description: Recycling facility that processes plastic materials
       properties:
         - name: facility_id
@@ -63,7 +63,7 @@ ontology:
           type: float
           description: Maximum contamination percentage accepted (0-100)
         - name: food_grade_certified
-          type: boolean
+          type: bool
           description: FDA food-grade certification status
         - name: capacity_tons_month
           type: float
@@ -85,9 +85,9 @@ ontology:
           description: Date of most recent transaction
 
     - label: MaterialIntake
-      managed_by: api
-      query_entity: true
-      match_direction: intake_to_buyer
+      managedby: api
+      queryentity: true
+      matchdirection: intake_to_buyer
       description: Material intake request (RFQ) from a buyer
       properties:
         - name: intake_id
@@ -106,7 +106,7 @@ ontology:
           type: float
           description: Contamination percentage
         - name: requires_food_grade
-          type: boolean
+          type: bool
           description: Whether food-grade certification is required
         - name: volume_tons
           type: float
@@ -122,7 +122,7 @@ ontology:
           description: Target price per ton
 
     - label: PolymerFamily
-      managed_by: static
+      managedby: static
       description: Polymer type taxonomy
       properties:
         - name: code
@@ -134,7 +134,7 @@ ontology:
           type: int
 
     - label: MaterialForm
-      managed_by: static
+      managedby: static
       description: Physical form of material (pellet, flake, regrind)
       properties:
         - name: form_id
@@ -149,7 +149,7 @@ ontology:
       to: PolymerFamily
       direction: DIRECTED
       category: capability
-      managed_by: sync
+      managedby: sync
       description: Facility can process this polymer type
 
     - type: ACCEPTS_FORM
@@ -157,22 +157,22 @@ ontology:
       to: MaterialForm
       direction: DIRECTED
       category: capability
-      managed_by: sync
+      managedby: sync
 
     - type: EXCLUDED_FROM
       from: Facility
       to: Facility
       direction: DIRECTED
       category: exclusion
-      managed_by: sync
+      managedby: sync
       description: Facility A is excluded from matching with Facility B
 
     - type: TRANSACTED_WITH
       from: Facility
       to: Facility
       direction: DIRECTED
-      category: history
-      managed_by: sync
+      category: transaction
+      managedby: sync
       properties:
         - name: transaction_date
           type: datetime
@@ -181,16 +181,16 @@ ontology:
         - name: volume_tons
           type: float
 
-match_entities:
+matchentities:
   candidate:
     - label: Facility
-      match_direction: intake_to_buyer
-  query_entity:
+      matchdirection: intake_to_buyer
+  queryentity:
     - label: MaterialIntake
-      match_direction: intake_to_buyer
+      matchdirection: intake_to_buyer
 
-query_schema:
-  match_directions:
+queryschema:
+  matchdirections:
     - intake_to_buyer
   fields:
     - name: polymer_type
@@ -203,7 +203,7 @@ query_schema:
     - name: contamination_pct
       type: float
     - name: requires_food_grade
-      type: boolean
+      type: bool
     - name: volume_tons
       type: float
     - name: lat
@@ -218,205 +218,201 @@ traversal:
     - name: polymer_capability
       pattern: "(candidate:Facility)-[:PROCESSES]->(polymer:PolymerFamily)"
       required: true
-      match_directions:
+      matchdirections:
         - intake_to_buyer
       description: Ensure facility processes the requested polymer type
 
 gates:
   - name: density_range
     type: range
-    candidate_min_prop: min_density
-    candidate_max_prop: max_density
-    query_param: density
-    null_behavior: pass
-    match_directions:
+    candidateprop_min: min_density
+    candidateprop_max: max_density
+    queryparam: density
+    nullbehavior: pass
+    matchdirections:
       - intake_to_buyer
     description: Material density must fall within facility's acceptable range
 
   - name: mfi_range
     type: range
-    candidate_min_prop: min_mfi
-    candidate_max_prop: max_mfi
-    query_param: mfi
-    null_behavior: pass
-    match_directions:
+    candidateprop_min: min_mfi
+    candidateprop_max: max_mfi
+    queryparam: mfi
+    nullbehavior: pass
+    matchdirections:
       - intake_to_buyer
 
   - name: contamination_threshold
     type: threshold
-    candidate_prop: contamination_tolerance
-    query_param: contamination_pct
+    candidateprop: contamination_tolerance
+    queryparam: contamination_pct
     operator: ">="
-    null_behavior: fail
-    match_directions:
+    nullbehavior: fail
+    matchdirections:
       - intake_to_buyer
     description: Facility must tolerate the material's contamination level
 
   - name: food_grade_check
     type: boolean
-    candidate_prop: food_grade_certified
-    query_param: requires_food_grade
-    null_behavior: pass
-    match_directions:
+    candidateprop: food_grade_certified
+    queryparam: requires_food_grade
+    nullbehavior: pass
+    matchdirections:
       - intake_to_buyer
     description: If food-grade required, facility must be certified
 
   - name: capacity_check
     type: threshold
-    candidate_prop: capacity_tons_month
-    query_param: volume_tons
+    candidateprop: capacity_tons_month
+    queryparam: volume_tons
     operator: ">="
-    null_behavior: pass
-    match_directions:
+    nullbehavior: pass
+    matchdirections:
       - intake_to_buyer
     description: Facility must have capacity for requested volume
 
   - name: exclusion_check
     type: exclusion
-    exclusion_edge: EXCLUDED_FROM
-    match_directions:
+    edgetype: EXCLUDED_FROM
+    matchdirections:
       - intake_to_buyer
     description: Exclude facilities on buyer's blacklist
 
 scoring:
   dimensions:
     - name: geo_proximity
-      computation: geo_decay
-      candidate_lat_prop: lat
-      candidate_lon_prop: lon
-      query_lat_param: lat
-      query_lon_param: lon
-      decay_km: 800.0
-      weight_key: w_geo
-      default_weight: 0.25
-      match_directions:
+      source: candidateproperty
+      computation: geodecay
+      candidateprop: lat
+      queryprop: lat
+      decayconstant: 800000.0
+      weightkey: w_geo
+      defaultweight: 0.25
+      matchdirections:
         - intake_to_buyer
 
     - name: credit_score
-      computation: log_normalized
-      candidate_prop: credit_score
-      max_value: 100.0
-      weight_key: w_credit
-      default_weight: 0.15
-      match_directions:
+      source: candidateproperty
+      computation: lognormalized
+      candidateprop: credit_score
+      maxvalue: 100.0
+      weightkey: w_credit
+      defaultweight: 0.15
+      matchdirections:
         - intake_to_buyer
 
     - name: contamination_tolerance_score
-      computation: inverse_linear
-      candidate_prop: contamination_tolerance
-      min_value: 0.0
-      max_value: 100.0
-      weight_key: w_contamination
-      default_weight: 0.10
-      match_directions:
+      source: candidateproperty
+      computation: inverselinear
+      candidateprop: contamination_tolerance
+      minvalue: 0.0
+      maxvalue: 100.0
+      weightkey: w_contamination
+      defaultweight: 0.10
+      matchdirections:
         - intake_to_buyer
       description: Lower contamination tolerance = more selective = higher quality
 
     - name: community_match
-      computation: community_match
-      candidate_prop: community_id
-      query_param: community_id
-      cross_community_bias: 0.92
-      weight_key: w_community
-      default_weight: 0.10
-      match_directions:
+      source: candidateproperty
+      computation: communitymatch
+      candidateprop: community_id
+      queryprop: community_id
+      bias: 0.92
+      weightkey: w_community
+      defaultweight: 0.10
+      matchdirections:
         - intake_to_buyer
 
     - name: rate_score
-      computation: weighted_rate
-      rate_prop: rate_per_ton
-      confidence_prop: rate_confidence
-      weight_key: w_rate
-      default_weight: 0.15
-      match_directions:
+      source: candidateproperty
+      computation: weightedrate
+      candidateprop: rate_per_ton
+      weightkey: w_rate
+      defaultweight: 0.15
+      matchdirections:
         - intake_to_buyer
 
     - name: price_alignment
-      computation: price_alignment
-      candidate_prop: rate_per_ton
-      query_param: target_price
-      max_spread: 500.0
-      weight_key: w_price
-      default_weight: 0.15
-      match_directions:
+      source: candidateproperty
+      computation: pricealignment
+      candidateprop: rate_per_ton
+      queryprop: target_price
+      weightkey: w_price
+      defaultweight: 0.15
+      matchdirections:
         - intake_to_buyer
 
     - name: recency
-      computation: temporal_proximity
-      candidate_prop: last_transaction_date
-      decay_days: 180.0
-      weight_key: w_recency
-      default_weight: 0.10
-      match_directions:
+      source: candidateproperty
+      computation: temporalproximity
+      candidateprop: last_transaction_date
+      decayconstant: 15552000.0
+      weightkey: w_recency
+      defaultweight: 0.10
+      matchdirections:
         - intake_to_buyer
 
 sync:
   endpoints:
-    - entity_type: Facility
-      label: Facility
-      id_field: facility_id
-      strategy: merge
-      properties:
-        - name
-        - lat
-        - lon
-        - credit_score
-        - min_density
-        - max_density
-        - min_mfi
-        - max_mfi
-        - contamination_tolerance
-        - food_grade_certified
-        - capacity_tons_month
-        - tier
-        - rate_per_ton
-        - rate_confidence
-        - last_transaction_date
+    - path: /sync/facility
+      targetnode: Facility
+      idproperty: facility_id
+      batchstrategy: UNWINDMERGE
 
-    - entity_type: PolymerFamily
-      label: PolymerFamily
-      id_field: code
-      strategy: merge
-      properties:
-        - name
-        - resin_code
+    - path: /sync/polymerfamily
+      targetnode: PolymerFamily
+      idproperty: code
+      batchstrategy: UNWINDMERGE
 
-    - entity_type: MaterialForm
-      label: MaterialForm
-      id_field: form_id
-      strategy: merge
-      properties:
-        - name
+    - path: /sync/materialform
+      targetnode: MaterialForm
+      idproperty: form_id
+      batchstrategy: UNWINDMERGE
 
-gds_jobs:
+gdsjobs:
   - name: louvain_community
     algorithm: louvain
-    schedule: cron
-    cron_expression: "0 2 * * *"
+    schedule:
+      type: cron
+      cron: "0 2 * * *"
     projection:
-      node_labels:
+      nodelabels:
         - Facility
-      edge_types:
+      edgetypes:
         - TRANSACTED_WITH
-    write_property: community_id
-    description: Nightly community detection for network effect scoring
+    writeproperty: community_id
 
   - name: facility_similarity
     algorithm: node_similarity
-    schedule: manual
+    schedule:
+      type: manual
     projection:
-      node_labels:
+      nodelabels:
         - Facility
         - PolymerFamily
-      edge_types:
+      edgetypes:
         - PROCESSES
-    write_edge: SIMILAR_TO
-    similarity_cutoff: 0.5
+    writeedge: SIMILAR_TO
 
 compliance:
-  enabled: true
-  prohibited_factors: []
+  regimes:
+    - name: general
+      description: General compliance for plastics recycling marketplace
+  prohibitedfactors:
+    enabled: true
+    blockedfields: []
+    enforcement: compiletime
+    auditonviolation: true
+  audit:
+    enabled: true
+    logmatchrequests: true
+    logmatchresults: true
+    logsyncoperations: true
+    logadminoperations: true
+    retentiondays: 90
   pii:
+    enabled: false
     fields: []
     handling: redact
-  audit_on_violation: true
+    encryptionkeysource: env
