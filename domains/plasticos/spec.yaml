@@ -271,12 +271,15 @@ gates:
       - intake_to_buyer
     description: Facility must have capacity for requested volume
 
-  - name: exclusion_check
-    type: exclusion
-    edgetype: EXCLUDED_FROM
-    matchdirections:
-      - intake_to_buyer
-    description: Exclude facilities on buyer's blacklist
+  # NOTE: Exclusion gate disabled - requires query entity node in graph
+  # to check for EXCLUDED_FROM edges. Will re-enable when buyer entity
+  # is passed as a node reference rather than just parameters.
+  # - name: exclusion_check
+  #   type: exclusion
+  #   edgetype: EXCLUDED_FROM
+  #   matchdirections:
+  #     - intake_to_buyer
+  #   description: Exclude facilities on buyer's blacklist
 
 scoring:
   dimensions:
