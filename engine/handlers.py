@@ -775,7 +775,58 @@ async def handle_outcomes(tenant: str, payload: dict[str, Any]) -> dict[str, Any
     compliance = ComplianceEngine(domain_spec)
     if compliance.enabled:
         compliance.log_outcome(tenant=tenant, outcome_id=outcome_id, outcome=outcome)
-    return {"status": "recorded", "outcome_id": outcome_id}
+
+    response: dict[str, Any] = {"status": "recorded", "outcome_id": outcome_id}
+
+    # Feedback loop: propagate outcome to signal weights and score adjustments
+    if domain_spec.feedbackloop.enabled:
+        from engine.feedback.convergence import ConvergenceLoop
+
+        outcome_data = {
+            "outcome_id": outcome_id,
+            "match_id": match_id,
+            "candidate_id": candidate_id,
+            "outcome": outcome,
+            "value": payload.get("value"),
+        }
+        loop = ConvergenceLoop(graph_driver, domain_spec)
+        feedback_metadata = await loop.on_outcome_recorded(outcome_data)
+        response["feedback"] = feedback_metadata
+
+    # Causal edge creation: auto-create causal chain from outcome
+    if domain_spec.causal.enabled:
+        from engine.causal.causal_compiler import CausalCompiler
+
+        compiler = CausalCompiler(domain_spec)
+        for edge_spec in domain_spec.causal.causal_edges:
+            if edge_spec.edge_type == "RESULTED_IN":
+                edge_cypher = compiler.compile_causal_edge_create(edge_spec)
+                try:
+                    await graph_driver.execute_query(
+                        cypher=edge_cypher,
+                        parameters={
+                            "source_id": candidate_id,
+                            "target_id": outcome_id,
+                            "confidence": 1.0,
+                            "mechanism": f"outcome_{outcome}",
+                        },
+                        database=domain_spec.domain.id,
+                    )
+                except Exception:
+                    logger.warning("Causal edge creation failed for outcome=%s", outcome_id)
+
+        # Compute attribution if enabled
+        if domain_spec.causal.attribution_enabled:
+            from engine.causal.attribution import AttributionCalculator
+
+            attr_calc = AttributionCalculator(graph_driver, domain_spec)
+            try:
+                attribution = await attr_calc.compute_attribution(outcome_id)
+                response["attribution"] = attribution
+            except Exception:
+                logger.warning("Attribution calculation failed for outcome=%s", outcome_id)
+
+    return response
 
 
 async def handle_resolve(tenant: str, payload: dict[str, Any]) -> dict[str, Any]:

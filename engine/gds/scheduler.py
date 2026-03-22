@@ -138,6 +138,10 @@ class GDSScheduler:
                 result = await self._run_geoproximity(job_spec)
             elif algo == "equipmentsync":
                 result = await self._run_equipment_sync(job_spec)
+            elif algo == "feedback_recalculation":
+                result = await self._run_feedback_recalculation(job_spec)
+            elif algo == "causal_chain_scoring":
+                result = await self._run_causal_chain_scoring(job_spec)
             else:
                 logger.warning(f"Unknown algorithm: {algo}")
                 result = {"status": "skipped", "reason": f"unknown algorithm: {algo}"}
@@ -468,6 +472,60 @@ class GDSScheduler:
             ("handles_flake", "flakehandler"),
             ("handles_rollstock", "rollstockhandler"),
         ]
+
+    async def _run_feedback_recalculation(self, job_spec: GDSJobSpec) -> dict[str, Any]:
+        """Recalculate dimension weights based on accumulated outcomes."""
+        from engine.feedback.signal_weights import SignalWeightCalculator
+
+        calculator = SignalWeightCalculator(self.graph_driver, self.domain_spec)
+        weights = await calculator.recalculate_weights()
+        logger.info(f"Feedback recalculation: {len(weights)} weights updated")
+        return {"algorithm": "feedback_recalculation", "weights_updated": len(weights)}
+
+    async def _run_causal_chain_scoring(self, job_spec: GDSJobSpec) -> dict[str, Any]:
+        """
+        Score entities by their causal chain depth and strength.
+
+        Entities that appear in deeper, validated causal chains get higher
+        causal_influence_score. This score becomes a scoring dimension
+        available to the ScoringAssembler.
+        """
+        db = self.domain_spec.domain.id
+        node_label = self._get_candidate_label(job_spec)
+        write_prop = sanitize_label(job_spec.writeproperty or "causal_influence_score")
+
+        # Build edge pattern from causal spec
+        causal_spec = self.domain_spec.causal
+        if causal_spec.causal_edges:
+            safe_types = [sanitize_label(e.edge_type) for e in causal_spec.causal_edges]
+            edge_pattern = "|".join(safe_types)
+            rel_pattern = f"[:{edge_pattern}*1..{causal_spec.chain_depth_limit}]"
+        else:
+            rel_pattern = f"[*1..{causal_spec.chain_depth_limit}]"
+
+        # Calculate causal influence score per entity
+        cypher = f"""
+        MATCH (n:{node_label})
+        OPTIONAL MATCH path = (n)-{rel_pattern}->(effect)
+        WITH n,
+             count(DISTINCT effect) AS downstream_effects,
+             max(length(path)) AS max_chain_depth,
+             avg(CASE WHEN length(path) > 0 THEN
+                 reduce(conf = 1.0, r IN relationships(path) | conf * coalesce(r.confidence, 0.5))
+                 ELSE 0.0 END) AS avg_chain_confidence
+        SET n.{write_prop} = CASE
+            WHEN downstream_effects > 0
+            THEN (toFloat(downstream_effects) * 0.4 +
+                  toFloat(coalesce(max_chain_depth, 0)) * 0.3 +
+                  coalesce(avg_chain_confidence, 0.0) * 0.3)
+            ELSE 0.0
+        END
+        RETURN count(n) AS nodes_scored
+        """
+        result = await self.graph_driver.execute_query(cypher, database=db)
+        scored = result[0]["nodes_scored"] if result else 0
+        logger.info(f"Causal chain scoring: {scored} nodes scored for {node_label}")
+        return {"algorithm": "causal_chain_scoring", "nodes_scored": scored}
 
     # ── Lifecycle ──────────────────────────────────────────
 

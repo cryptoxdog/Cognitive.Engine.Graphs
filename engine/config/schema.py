@@ -18,7 +18,7 @@ from __future__ import annotations
 from enum import StrEnum
 from typing import Any
 
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
 class ManagedByType(StrEnum):
@@ -627,6 +627,59 @@ class PluginsSpec(BaseModel):
     syncvalidators: list[str] = Field(default_factory=list)
 
 
+class SignalWeightSpec(BaseModel):
+    """Spec for outcome-based signal weight learning."""
+
+    model_config = ConfigDict(frozen=True)
+
+    enabled: bool = False
+    recalculation_cadence_days: int = 30
+    min_outcomes_for_recalculation: int = 100
+    baseline_weight: float = 1.0
+    max_weight: float = 3.0
+    min_weight: float = 0.1
+    frequency_adjustment: bool = True
+
+
+class FeedbackLoopSpec(BaseModel):
+    """Spec for the outcome feedback convergence loop."""
+
+    model_config = ConfigDict(frozen=True)
+
+    enabled: bool = False
+    signal_weights: SignalWeightSpec = Field(default_factory=SignalWeightSpec)
+    propagation_boost_factor: float = 1.15
+    propagation_similarity_threshold: float = 0.4
+    outcome_edge_type: str = "RESULTED_IN"
+    outcome_node_label: str = "TransactionOutcome"
+
+
+class CausalEdgeSpec(BaseModel):
+    """Domain spec declaration for causal edge types."""
+
+    model_config = ConfigDict(frozen=True)
+
+    edge_type: str
+    source_label: str
+    target_label: str
+    required_properties: list[str] = Field(default_factory=list)
+    temporal_validation: bool = True
+    confidence_threshold: float = 0.0
+
+
+class CausalSubgraphSpec(BaseModel):
+    """Spec for causal subgraph configuration."""
+
+    model_config = ConfigDict(frozen=True)
+
+    enabled: bool = False
+    causal_edges: list[CausalEdgeSpec] = Field(default_factory=list)
+    attribution_enabled: bool = False
+    counterfactual_enabled: bool = False
+    temporal_decay_enabled: bool = False
+    chain_depth_limit: int = 5
+
+
 class DomainMetadata(BaseModel):
     """Domain pack metadata."""
 
@@ -655,6 +708,8 @@ class DomainSpec(BaseModel):
     compliance: ComplianceSpec | None = None
     plugins: PluginsSpec | None = None
     calibration: CalibrationSpec | None = None
+    feedbackloop: FeedbackLoopSpec = Field(default_factory=FeedbackLoopSpec)
+    causal: CausalSubgraphSpec = Field(default_factory=CausalSubgraphSpec)
 
     @model_validator(mode="after")
     def validate_cross_references(self) -> DomainSpec:
