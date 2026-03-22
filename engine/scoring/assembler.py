@@ -175,10 +175,11 @@ class ScoringAssembler:
     def _compile_geodecay(self, dim: ScoringDimensionSpec) -> str:
         k = dim.decayconstant or 50000.0
         lat_prop = sanitize_label(dim.candidateprop or "lat")
+        query_lat_param = sanitize_label(dim.queryprop or lat_prop)
         return (
             f"1.0 / (1.0 + point.distance("
             f"point({{latitude: candidate.{lat_prop}, longitude: candidate.lon}}),"
-            f" point({{latitude: $query.{lat_prop}, longitude: $query.lon}})"
+            f" point({{latitude: ${query_lat_param}, longitude: $lon}})"
             f") / {k})"
         )
 
@@ -198,8 +199,8 @@ class ScoringAssembler:
         query_prop = sanitize_label(dim.queryprop or "community_id")
         return (
             f"CASE "
-            f"  WHEN candidate.{cand_prop} IS NULL OR $query.{query_prop} IS NULL THEN 0.5 "
-            f"  WHEN candidate.{cand_prop} = $query.{query_prop} THEN {bias} "
+            f"  WHEN candidate.{cand_prop} IS NULL OR ${query_prop} IS NULL THEN 0.5 "
+            f"  WHEN candidate.{cand_prop} = ${query_prop} THEN {bias} "
             f"  ELSE 0.2 "
             f"END"
         )
@@ -234,9 +235,9 @@ class ScoringAssembler:
         default = float(dim.defaultwhennull)  # nosemgrep: float-requires-try-except
         return (
             f"CASE "
-            f"  WHEN $query.{query_prop} IS NULL OR $query.{query_prop} <= 0 THEN {default} "
+            f"  WHEN ${query_prop} IS NULL OR ${query_prop} <= 0 THEN {default} "
             f"  WHEN candidate.{cand_prop} IS NULL OR candidate.{cand_prop} <= 0 THEN {default} "
-            f"  ELSE toFloat(1.0 - abs(log(candidate.{cand_prop} / $query.{query_prop})) / {tau}) "
+            f"  ELSE toFloat(1.0 - abs(log(candidate.{cand_prop} / ${query_prop})) / {tau}) "
             f"END"
         )
 

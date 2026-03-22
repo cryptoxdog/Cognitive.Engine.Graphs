@@ -313,7 +313,7 @@ async def handle_match(tenant: str, payload: dict[str, Any]) -> dict[str, Any]:
     traversal_clauses = traversal_assembler.assemble_traversal(match_direction)
 
     scoring_assembler = ScoringAssembler(domain_spec)
-    scoring_clause, _pareto_metadata = scoring_assembler.assemble_scoring_clause(match_direction, weights)
+    scoring_clause, pareto_metadata = scoring_assembler.assemble_scoring_clause(match_direction, weights)
 
     candidate_labels = [c.label for c in domain_spec.matchentities.candidate if c.matchdirection == match_direction]
     if not candidate_labels:
@@ -334,7 +334,7 @@ async def handle_match(tenant: str, payload: dict[str, Any]) -> dict[str, Any]:
     )
 
     try:
-        parameters = {**resolved_query, "query": resolved_query, "top_n": top_n}
+        parameters = {**resolved_query, "top_n": top_n}
         results = await graph_driver.execute_query(
             cypher=cypher,
             parameters=parameters,
@@ -349,6 +349,30 @@ async def handle_match(tenant: str, payload: dict[str, Any]) -> dict[str, Any]:
             detail="Query execution error",
         ) from exc
 
+    # Build Pareto candidates from results and compute front metadata
+    pareto_candidates_input: list[Any] | None = None
+    if results:
+        from engine.config.settings import settings as _settings
+
+        if _settings.pareto_enabled:
+            from engine.scoring.pareto import ParetoCandidate
+
+            pareto_candidates_input = [
+                ParetoCandidate(
+                    candidate_id=str(r.get("candidate", {}).get("entity_id", i)),
+                    dimension_scores={
+                        k: float(v)
+                        for k, v in r.items()
+                        if k not in ("candidate", "score") and isinstance(v, (int, float))
+                    },
+                )
+                for i, r in enumerate(results)
+            ]
+            # Re-run assembler with Pareto candidates to get front metadata
+            _, pareto_metadata = scoring_assembler.assemble_scoring_clause(
+                match_direction, weights, pareto_candidates=pareto_candidates_input
+            )
+
     execution_time_ms = (time.monotonic() - start_time) * 1000
     response = {
         "candidates": results,
@@ -357,6 +381,8 @@ async def handle_match(tenant: str, payload: dict[str, Any]) -> dict[str, Any]:
         "total_candidates": len(results),
         "execution_time_ms": round(execution_time_ms, 2),
     }
+    if pareto_metadata:
+        response["pareto"] = pareto_metadata
 
     # Flush audit entries (currently logs warning since db_pool=None;
     # will persist to PostgreSQL once provisioned)
@@ -728,7 +754,12 @@ async def handle_enrich(tenant: str, payload: dict[str, Any]) -> dict[str, Any]:
 
 
 def register_all(chassis_router: Any) -> None:
-    """Register all 8 action handlers with the chassis."""
+    """Register all 8 action handlers with a legacy chassis router interface.
+
+    The primary registration path is via chassis.actions._init_engine()
+    which builds the handler dict directly. This function exists for
+    chassis implementations that use a router.register_handler() pattern.
+    """
     chassis_router.register_handler("match", handle_match)
     chassis_router.register_handler("sync", handle_sync)
     chassis_router.register_handler("admin", handle_admin)

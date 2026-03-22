@@ -775,7 +775,6 @@ FILE_REGISTRY: list[FileMeta] = [
     FileMeta("chassis/audit.py", "chassis", ["api"], ["chassis", "audit"], "platform-team"),
     FileMeta("chassis/chassis_app.py", "chassis", ["api"], ["chassis", "fastapi", "single-ingress"], "platform-team"),
     FileMeta("chassis/config.py", "chassis", ["api", "config"], ["chassis", "settings"], "platform-team"),
-    FileMeta("chassis/engine_boot.py", "chassis", ["api"], ["chassis", "lifecycle", "boot"], "platform-team"),
     FileMeta("chassis/errors.py", "chassis", ["api"], ["chassis", "errors", "exceptions"], "platform-team"),
     FileMeta("chassis/health.py", "chassis", ["api"], ["chassis", "health", "readiness"], "platform-team"),
     FileMeta("chassis/middleware.py", "chassis", ["api"], ["chassis", "middleware", "tenant"], "platform-team"),

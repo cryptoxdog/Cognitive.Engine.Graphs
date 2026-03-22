@@ -6,27 +6,12 @@ engine: graph
 layer: [api]
 tags: [chassis, fastapi, legacy]
 owner: platform-team
-status: active
+status: deprecated
 --- /L9_META ---
 
-chassis/app.py — Reusable, Micro-Service Agnostic L9 Chassis
-
-Single-ingress HTTP boundary for ANY L9 constellation engine.
-Zero engine imports.  All engine coupling flows through two seams:
-
-    1. LifecycleHook — engine tells the chassis how to start/stop.
-    2. execute_action  — chassis calls the engine's action router.
-
-Usage (Graph engine):
-    # in your engine's __main__.py or entrypoint:
-    from chassis.app import create_app
-    from myengine.boot import GraphLifecycle
-
-    app = create_app(lifecycle_hook=GraphLifecycle())
-
-Usage (uvicorn --factory):
-    # set L9_LIFECYCLE_HOOK=myengine.boot:GraphLifecycle  (env var)
-    uvicorn chassis.app:create_app --factory
+chassis/app.py — DEPRECATED — use chassis.chassis_app instead.
+This file will be removed in v1.2.0.
+All imports of LifecycleHook and create_app should reference chassis.chassis_app.
 """
 
 from __future__ import annotations
@@ -35,6 +20,7 @@ import importlib
 import logging
 import os
 import uuid
+import warnings
 from abc import ABC, abstractmethod
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
@@ -45,6 +31,12 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+warnings.warn(
+    "chassis.app is deprecated. Import from chassis.chassis_app instead.",
+    DeprecationWarning,
+    stacklevel=2,
+)
 
 logger = logging.getLogger(__name__)
 
