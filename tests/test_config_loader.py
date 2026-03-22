@@ -27,6 +27,12 @@ from engine.config.loader import (
 )
 
 
+@pytest.fixture(autouse=True)
+def _zero_cache_ttl(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Disable TTL so mtime-based invalidation tests work immediately."""
+    monkeypatch.setenv("DOMAIN_CACHE_TTL_SECONDS", "0")
+
+
 @pytest.fixture
 def domains_dir(tmp_path: Path) -> Path:
     domain_dir = tmp_path / "testdomain"

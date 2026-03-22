@@ -89,7 +89,7 @@ class Settings(BaseSettings):
 
     # --- KGE (Phase 4) ---
     kge_enabled: bool = False
-    kge_embedding_dim: int = 300
+    kge_embedding_dim: int = 256  # Must match KGESpec.embeddingdim default (schema.py)
     kge_confidence_threshold: float = 0.3
 
     # --- Pareto / Multi-Objective ---

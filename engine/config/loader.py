@@ -17,6 +17,8 @@ from __future__ import annotations
 
 import logging
 import os
+import threading
+import time
 from pathlib import Path
 
 import yaml
@@ -42,41 +44,57 @@ class DomainPackLoader:
     """
     Loads and caches domain spec YAML files with hot-reload support.
 
-    Thread-safety note: The _cache dict is designed for single-threaded
-    initialization at startup. It is populated during application bootstrap
-    before any concurrent requests are served. In multi-worker deployments,
-    each worker has its own DomainPackLoader instance with isolated cache.
-    Do NOT share a DomainPackLoader instance across threads or async tasks
-    that may mutate the cache concurrently.
+    Thread-safety: Cache operations are protected by a threading.Lock.
+    TTL-based invalidation avoids per-request stat() syscalls.
+    LRU eviction keeps cache bounded (configurable via DOMAIN_CACHE_MAX_SIZE).
     """
 
     def __init__(self, config_path: str | None = None) -> None:
         raw = config_path or os.getenv("DOMAIN_SPECS_PATH") or "domains"
         self._base_path = Path(raw).resolve()
-        # NOTE: Cache is NOT thread-safe. See class docstring for usage constraints.
-        self._cache: dict[str, tuple[DomainSpec, float]] = {}
+        self._cache: dict[str, tuple[DomainSpec, float, float]] = {}  # domain_id → (spec, mtime, cached_at)
+        self._lock = threading.Lock()
+        self._max_size = int(os.getenv("DOMAIN_CACHE_MAX_SIZE", "100"))
+        self._ttl_seconds = float(os.getenv("DOMAIN_CACHE_TTL_SECONDS", "30"))
 
     def load_domain(self, domain_id: str) -> DomainSpec:
         """Load and validate a domain spec with mtime-based cache invalidation."""
         spec_path = self._resolve_spec_path(domain_id)
-        current_mtime = spec_path.stat().st_mtime
 
-        if domain_id in self._cache:
-            cached_spec, cached_mtime = self._cache[domain_id]
-            if cached_mtime >= current_mtime:
-                return cached_spec
-            logger.info("Domain spec changed on disk, reloading: %s", domain_id)
+        with self._lock:
+            if domain_id in self._cache:
+                cached_spec, cached_mtime, cached_at = self._cache[domain_id]
+                # Skip stat() if within TTL
+                if (time.monotonic() - cached_at) < self._ttl_seconds:
+                    return cached_spec
+                # TTL expired — check mtime
+                current_mtime = spec_path.stat().st_mtime
+                if cached_mtime >= current_mtime:
+                    # Refresh cached_at timestamp
+                    self._cache[domain_id] = (cached_spec, cached_mtime, time.monotonic())
+                    return cached_spec
+                logger.info("Domain spec changed on disk, reloading: %s", domain_id)
+            else:
+                current_mtime = spec_path.stat().st_mtime
 
-        spec = self._load_and_validate(spec_path, domain_id)
-        self._cache[domain_id] = (spec, current_mtime)
-        return spec
+            spec = self._load_and_validate(spec_path, domain_id)
+
+            # LRU eviction: if cache is full, remove oldest entry
+            if len(self._cache) >= self._max_size and domain_id not in self._cache:
+                oldest_key = min(self._cache, key=lambda k: self._cache[k][2])
+                del self._cache[oldest_key]
+                logger.debug("Evicted oldest domain cache entry: %s", oldest_key)
+
+            self._cache[domain_id] = (spec, current_mtime, time.monotonic())
+            return spec
 
     def invalidate(self, domain_id: str | None = None) -> None:
         """Force cache invalidation."""
-        if domain_id:
-            self._cache.pop(domain_id, None)
-        else:
-            self._cache.clear()
+        with self._lock:
+            if domain_id:
+                self._cache.pop(domain_id, None)
+            else:
+                self._cache.clear()
 
     def list_domains(self) -> list[str]:
         """Discover all domain directories containing spec.yaml."""

@@ -63,6 +63,14 @@ class GraphLifecycle(LifecycleHook):
 
     async def shutdown(self) -> None:
         logger.info("GraphLifecycle.shutdown → closing Neo4j pool")
+        # Shut down all GDS schedulers
+        from engine.handlers import _gds_schedulers
+
+        for domain_id, scheduler in _gds_schedulers.items():
+            logger.info("Shutting down GDS scheduler for domain: %s", domain_id)
+            scheduler.shutdown()
+        _gds_schedulers.clear()
+
         if self._graph_driver:
             await self._graph_driver.close()
         logger.info("GraphLifecycle.shutdown complete")

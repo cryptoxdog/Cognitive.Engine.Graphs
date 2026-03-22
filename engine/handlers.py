@@ -38,6 +38,7 @@ logger = logging.getLogger(__name__)
 _graph_driver: GraphDriver | None = None
 _domain_loader: DomainPackLoader | None = None
 _gds_schedulers: dict[str, GDSScheduler] = {}
+_tenant_allowlist: set[str] | None = None  # None = all tenants allowed (dev mode)
 
 
 class EngineError(Exception):
@@ -60,9 +61,28 @@ class ExecutionError(EngineError):
 
 def init_dependencies(graph_driver: GraphDriver, domain_loader: DomainPackLoader) -> None:
     """Called by chassis at startup to inject dependencies."""
-    global _graph_driver, _domain_loader
+    global _graph_driver, _domain_loader, _tenant_allowlist
     _graph_driver = graph_driver
     _domain_loader = domain_loader
+    import os
+
+    allowlist_raw = os.getenv("TENANT_ALLOWLIST", "")
+    if allowlist_raw.strip():
+        _tenant_allowlist = {t.strip() for t in allowlist_raw.split(",") if t.strip()}
+        logger.info("Tenant allowlist configured: %s", _tenant_allowlist)
+    else:
+        _tenant_allowlist = None  # All tenants allowed (dev/staging)
+        logger.warning("No TENANT_ALLOWLIST configured — all tenants accessible")
+
+
+def _validate_tenant_access(tenant: str, action: str) -> None:
+    """Reject requests for unauthorized tenants."""
+    if _tenant_allowlist is not None and tenant not in _tenant_allowlist:
+        raise ValidationError(
+            f"Tenant '{tenant}' not in authorized allowlist",
+            action=action,
+            tenant=tenant,
+        )
 
 
 def _require_deps() -> tuple[GraphDriver, DomainPackLoader]:
@@ -255,6 +275,7 @@ def _sanitize_expression(expr: str) -> str:
 async def handle_match(tenant: str, payload: dict[str, Any]) -> dict[str, Any]:
     """Gate-then-score graph traversal."""
     graph_driver, domain_loader = _require_deps()
+    _validate_tenant_access(tenant, "match")
     start_time = time.monotonic()
 
     query = _require_key(payload, "query", "match", tenant)
@@ -337,6 +358,10 @@ async def handle_match(tenant: str, payload: dict[str, Any]) -> dict[str, Any]:
         "execution_time_ms": round(execution_time_ms, 2),
     }
 
+    # Flush audit entries (currently logs warning since db_pool=None;
+    # will persist to PostgreSQL once provisioned)
+    await compliance.flush_audit()
+
     if compliance.enabled:
         response = compliance.redact_response(response, tenant)
     return response
@@ -345,6 +370,7 @@ async def handle_match(tenant: str, payload: dict[str, Any]) -> dict[str, Any]:
 async def handle_sync(tenant: str, payload: dict[str, Any]) -> dict[str, Any]:
     """Batch UNWIND MERGE/MATCH SET for graph entities."""
     graph_driver, domain_loader = _require_deps()
+    _validate_tenant_access(tenant, "sync")
 
     entity_type = _require_key(payload, "entity_type", "sync", tenant)
     batch = _require_key(payload, "batch", "sync", tenant)
@@ -398,12 +424,14 @@ async def handle_sync(tenant: str, payload: dict[str, Any]) -> dict[str, Any]:
             detail=str(exc),
         ) from exc
 
+    await compliance.flush_audit()
     return {"status": "success", "entity_type": entity_type, "synced_count": len(batch)}
 
 
 async def handle_admin(tenant: str, payload: dict[str, Any]) -> dict[str, Any]:
     """Admin: introspection, schema init, GDS trigger."""
     graph_driver, domain_loader = _require_deps()
+    _validate_tenant_access(tenant, "admin")
     subaction = _require_key(payload, "subaction", "admin", tenant)
 
     if subaction == "list_domains":
@@ -463,6 +491,7 @@ def _get_or_create_scheduler(spec: DomainSpec, driver: GraphDriver) -> GDSSchedu
     if domain_id not in _gds_schedulers:
         scheduler = GDSScheduler(spec, driver)
         scheduler.register_jobs()
+        scheduler.start()
         _gds_schedulers[domain_id] = scheduler
     return _gds_schedulers[domain_id]
 
@@ -470,6 +499,7 @@ def _get_or_create_scheduler(spec: DomainSpec, driver: GraphDriver) -> GDSSchedu
 async def handle_outcomes(tenant: str, payload: dict[str, Any]) -> dict[str, Any]:
     """Write TransactionOutcome nodes and RESULTED_IN edges."""
     graph_driver, domain_loader = _require_deps()
+    _validate_tenant_access(tenant, "outcomes")
 
     match_id = _require_key(payload, "match_id", "outcomes", tenant)
     candidate_id = _require_key(payload, "candidate_id", "outcomes", tenant)
@@ -528,6 +558,7 @@ async def handle_outcomes(tenant: str, payload: dict[str, Any]) -> dict[str, Any
 async def handle_resolve(tenant: str, payload: dict[str, Any]) -> dict[str, Any]:
     """Entity resolution: create RESOLVED_FROM edge between duplicate entities."""
     graph_driver, domain_loader = _require_deps()
+    _validate_tenant_access(tenant, "resolve")
 
     entity_type = _require_key(payload, "entity_type", "resolve", tenant)
     source_id = _require_key(payload, "source_id", "resolve", tenant)
@@ -643,6 +674,7 @@ async def handle_enrich(tenant: str, payload: dict[str, Any]) -> dict[str, Any]:
       - tenant: str
     """
     graph_driver, domain_loader = _require_deps()
+    _validate_tenant_access(tenant, "enrich")
     domain_spec = domain_loader.load_domain(tenant)
 
     entity_type = payload.get("entity_type")

@@ -15,21 +15,20 @@ Implements: Gap Analysis P1-5 (AI Governance)
 This module provides:
 1. Prompt injection defense (input sanitization)
 2. Output schema validation (Pydantic integration)
-3. Sandboxed code execution (RestrictedPython)
-4. Cost/token monitoring
+3. Cost/token monitoring
 
 Installation:
-    pip install pydantic RestrictedPython
+    pip install pydantic
 
 Usage:
-    from engine.security.llm import sanitize_llm_input, validate_llm_output, safe_exec
+    from engine.security.llm import sanitize_llm_input, validate_llm_output
 """
 
 import json
 import logging
 import re
 from collections.abc import Generator
-from typing import Any, TypeVar
+from typing import TypeVar
 
 from pydantic import BaseModel, ValidationError
 
@@ -175,119 +174,17 @@ def validate_llm_output[T: BaseModel](llm_response: str, expected_schema: type[T
 
 
 # ============================================================
-# Sandboxed Code Execution
+# Sandboxed Code Execution — REMOVED (Audit Finding T1-01)
 # ============================================================
-
-from RestrictedPython import compile_restricted, safe_globals
-from RestrictedPython.Guards import guarded_iter_unpack_sequence
-
-
-def safe_exec(code: str, allowed_imports: list[str] | None = None, timeout_seconds: int = 5) -> dict[str, Any]:
-    """
-    Execute LLM-generated code in restricted sandbox.
-
-    Restrictions:
-    - No file I/O
-    - No network access
-    - No subprocess execution
-    - No import of unauthorized modules
-    - Execution timeout
-
-    Args:
-        code: Python code to execute
-        allowed_imports: Whitelist of importable modules
-        timeout_seconds: Max execution time
-
-    Returns:
-        Namespace dict with execution results
-
-    Raises:
-        SecurityError: If code violates restrictions
-        TimeoutError: If execution exceeds timeout
-
-    Example:
-        code = llm.generate(prompt="Write a function to calculate fibonacci")
-
-        result = safe_exec(
-            code,
-            allowed_imports=["math", "itertools"],
-            timeout_seconds=5
-        )
-
-        if "fibonacci" in result:
-            fib = result["fibonacci"](10)  # noqa — docstring example, no print in production
-    """
-    allowed_imports = allowed_imports or ["math", "datetime", "itertools"]
-
-    # Compile with restrictions
-    byte_code = compile_restricted(code, filename="<llm_generated>", mode="exec")
-
-    if byte_code.errors:
-        raise SyntaxError(f"Generated code has syntax errors: {byte_code.errors}")
-
-    # Build restricted globals
-    restricted_globals = {
-        "__builtins__": safe_globals,
-        "_getiter_": guarded_iter_unpack_sequence,
-    }
-
-    # Add allowed imports
-    for module_name in allowed_imports:
-        try:
-            module = __import__(module_name)
-            restricted_globals[module_name] = module
-        except ImportError:
-            logger.warning(f"Allowed module '{module_name}' not available")
-
-    # Execute in isolated child process — no in-process exec() (SEC-003)
-    import multiprocessing
-    import multiprocessing.queues
-
-    result_queue: multiprocessing.Queue[dict[str, Any] | Exception] = multiprocessing.Queue()
-
-    def _worker(
-        code_obj: bytes,
-        globals_dict: dict[str, Any],
-        out_q: "multiprocessing.Queue[dict[str, Any] | Exception]",
-    ) -> None:
-        try:
-            import marshal
-
-            code = marshal.loads(code_obj)  # noqa: S302 — child process only, no parent deserialization risk
-            ns = dict(globals_dict)
-            exec(code, ns)  # isolated child process — no parent state
-            # Filter out non-picklable values before returning
-            safe_ns = {k: v for k, v in ns.items() if k not in ("__builtins__", "_getiter_")}
-            out_q.put(safe_ns)
-        except Exception as exc:
-            out_q.put(exc)
-
-    import marshal
-
-    code_bytes = marshal.dumps(byte_code.code)
-
-    proc = multiprocessing.Process(
-        target=_worker,
-        args=(code_bytes, restricted_globals, result_queue),
-        daemon=True,
-    )
-    proc.start()
-    proc.join(timeout=timeout_seconds)
-
-    if proc.is_alive():
-        proc.terminate()
-        proc.join()
-        raise TimeoutError(f"Code execution exceeded {timeout_seconds}s timeout")
-
-    if result_queue.empty():
-        raise RuntimeError("Sandboxed worker exited without returning a result")
-
-    outcome = result_queue.get_nowait()
-    if isinstance(outcome, Exception):
-        logger.error(f"Sandboxed code execution failed: {outcome}")
-        raise outcome
-
-    return outcome
+# REMOVED: safe_exec() and _worker() deleted due to RCE risk.
+# RestrictedPython + multiprocessing.Process exec() does not provide
+# sufficient sandboxing against __subclasses__ traversal, frame
+# introspection, or marshal deserialization attacks.
+#
+# If sandboxed code execution is required in future, use an OS-level
+# sandbox (gVisor, nsjail, Firecracker) or a WebAssembly runtime.
+#
+# See: Audit Finding T1-01 (CRITICAL)
 
 
 # ============================================================

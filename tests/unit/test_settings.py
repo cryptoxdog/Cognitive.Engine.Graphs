@@ -65,7 +65,7 @@ class TestSettingsDefaults:
         """Default KGE config is disabled."""
         s = Settings()
         assert s.kge_enabled is False
-        assert s.kge_embedding_dim == 300
+        assert s.kge_embedding_dim == 256
         assert s.kge_confidence_threshold == 0.3
 
     def test_default_api_config(self) -> None:
