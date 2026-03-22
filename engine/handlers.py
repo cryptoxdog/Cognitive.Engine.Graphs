@@ -354,7 +354,10 @@ async def handle_match(tenant: str, payload: dict[str, Any]) -> dict[str, Any]:
     traversal_assembler = TraversalAssembler(domain_spec)
     traversal_clauses = traversal_assembler.assemble_traversal(match_direction)
 
-    scoring_assembler = ScoringAssembler(domain_spec)
+    scoring_assembler = ScoringAssembler(domain_spec, graph_driver=graph_driver)
+    # Convergence loop: load learned weights from feedback loop
+    if domain_spec.feedbackloop.enabled and domain_spec.feedbackloop.signal_weights.enabled:
+        await scoring_assembler.load_learned_weights()
     scoring_clause, pareto_metadata = scoring_assembler.assemble_scoring_clause(match_direction, weights)
 
     candidate_labels = [c.label for c in domain_spec.matchentities.candidate if c.matchdirection == match_direction]
@@ -571,6 +574,22 @@ async def handle_sync(tenant: str, payload: dict[str, Any]) -> dict[str, Any]:
             endpoint_spec=endpoint_spec,
         )
 
+    # R3: Causal edge validation when domain has causal edges enabled
+    rejected_count = 0
+    if domain_spec.causal.enabled and payload.get("edge_type"):
+        from engine.causal.causal_validator import CausalEdgeRuntimeValidator
+
+        validator = CausalEdgeRuntimeValidator(domain_spec.causal)
+        batch, rejected = validator.validate_batch(batch, payload["edge_type"])
+        rejected_count = len(rejected)
+        if not batch:
+            return {
+                "status": "all_rejected",
+                "entity_type": entity_type,
+                "synced_count": 0,
+                "rejected_count": rejected_count,
+            }
+
     generator = SyncGenerator(domain_spec)
     cypher = generator.generate_sync_query(endpoint_spec, batch)
 
@@ -589,7 +608,14 @@ async def handle_sync(tenant: str, payload: dict[str, Any]) -> dict[str, Any]:
         ) from exc
 
     await compliance.flush_audit()
-    return {"status": "success", "entity_type": entity_type, "synced_count": len(batch)}
+    result: dict[str, Any] = {
+        "status": "success",
+        "entity_type": entity_type,
+        "synced_count": len(batch),
+    }
+    if rejected_count > 0:
+        result["rejected_count"] = rejected_count
+    return result
 
 
 async def handle_admin(tenant: str, payload: dict[str, Any]) -> dict[str, Any]:
@@ -720,7 +746,7 @@ def _get_or_create_scheduler(spec: DomainSpec, driver: GraphDriver) -> GDSSchedu
 
 
 async def handle_outcomes(tenant: str, payload: dict[str, Any]) -> dict[str, Any]:
-    """Write TransactionOutcome nodes and RESULTED_IN edges."""
+    """Write TransactionOutcome nodes with match fingerprint and RESULTED_IN edges."""
     graph_driver, domain_loader = _require_deps()
     _validate_tenant_access(tenant, "outcomes")
 
@@ -738,11 +764,42 @@ async def handle_outcomes(tenant: str, payload: dict[str, Any]) -> dict[str, Any
     domain_spec = domain_loader.load_domain(tenant)
     outcome_id = f"out_{uuid.uuid4().hex[:12]}"
 
+    # R3: Causal validation for RESULTED_IN edge
+    if domain_spec.causal.enabled:
+        from engine.causal.causal_validator import CausalEdgeRuntimeValidator
+
+        validator = CausalEdgeRuntimeValidator(domain_spec.causal)
+        edge_record = {
+            "source_ts": payload.get("source_ts"),
+            "target_ts": payload.get("target_ts"),
+            "confidence": payload.get("confidence"),
+        }
+        _valid, rejected = validator.validate_batch([edge_record], "RESULTED_IN")
+        if rejected:
+            logger.info(
+                "Causal validation rejected RESULTED_IN edge: %s",
+                rejected[0].get("rejection_reason"),
+            )
+
+    # R5: Extract match fingerprint from payload
+    fingerprint = payload.get("fingerprint", {})
+    active_dimensions = fingerprint.get("active_dimensions", [])
+    dimension_weights = fingerprint.get("dimension_weights", {})
+    gates_passed = fingerprint.get("gates_passed", [])
+    match_direction = fingerprint.get("match_direction")
+    candidate_count = fingerprint.get("candidate_count", 0)
+
     cypher = """
     CREATE (o:TransactionOutcome {
         outcome_id: $outcome_id, match_id: $match_id,
         candidate_id: $candidate_id, outcome: $outcome,
-        value: $value, created_at: datetime(), tenant: $tenant
+        value: $value, created_at: datetime(), tenant: $tenant,
+        domain_id: $domain_id,
+        active_dimensions: $active_dimensions,
+        dimension_weights: $dimension_weights,
+        gates_passed: $gates_passed,
+        match_direction: $match_direction,
+        candidate_count: $candidate_count
     })
     WITH o
     OPTIONAL MATCH (c {entity_id: $candidate_id})
@@ -761,6 +818,12 @@ async def handle_outcomes(tenant: str, payload: dict[str, Any]) -> dict[str, Any
                 "outcome": outcome,
                 "value": payload.get("value"),
                 "tenant": tenant,
+                "domain_id": domain_spec.domain.id,
+                "active_dimensions": active_dimensions,
+                "dimension_weights": str(dimension_weights),
+                "gates_passed": gates_passed,
+                "match_direction": match_direction,
+                "candidate_count": candidate_count,
             },
             database=domain_spec.domain.id,
         )
@@ -771,6 +834,20 @@ async def handle_outcomes(tenant: str, payload: dict[str, Any]) -> dict[str, Any
             tenant=tenant,
             detail=str(exc),
         ) from exc
+
+    # R6: Counterfactual generation for negative outcomes
+    if domain_spec.counterfactual.enabled and outcome == "failure":
+        try:
+            from engine.causal.counterfactual import CounterfactualGenerator
+
+            generator = CounterfactualGenerator(
+                counterfactual_spec=domain_spec.counterfactual,
+                graph_driver=graph_driver,
+                domain_id=domain_spec.domain.id,
+            )
+            await generator.generate_for_outcome(outcome_id)
+        except Exception:
+            logger.warning("Counterfactual generation failed for %s", outcome_id, exc_info=True)
 
     compliance = ComplianceEngine(domain_spec)
     if compliance.enabled:
@@ -830,17 +907,68 @@ async def handle_outcomes(tenant: str, payload: dict[str, Any]) -> dict[str, Any
 
 
 async def handle_resolve(tenant: str, payload: dict[str, Any]) -> dict[str, Any]:
-    """Entity resolution: create RESOLVED_FROM edge between duplicate entities."""
+    """Entity resolution: create RESOLVED_FROM edge between duplicate entities.
+
+    When semantic_registry is enabled, uses multi-signal similarity scoring
+    to automatically find and merge duplicates. Otherwise, falls back to
+    manual RESOLVED_FROM edge creation.
+    """
     graph_driver, domain_loader = _require_deps()
     _validate_tenant_access(tenant, "resolve")
 
     entity_type = _require_key(payload, "entity_type", "resolve", tenant)
+    domain_spec = domain_loader.load_domain(tenant)
+
+    # R8: Semantic registry-based resolution
+    if domain_spec.semantic_registry.enabled and entity_type in domain_spec.semantic_registry.entity_labels:
+        from engine.resolution.resolver import EntityResolver
+
+        resolver = EntityResolver(
+            registry_spec=domain_spec.semantic_registry,
+            graph_driver=graph_driver,
+            domain_id=domain_spec.domain.id,
+        )
+
+        # Batch mode: resolve all entities of this type
+        if payload.get("mode") == "batch":
+            try:
+                result = await resolver.resolve_batch(
+                    entity_label=entity_type,
+                    threshold=payload.get("threshold"),
+                )
+            except Exception as exc:
+                raise ExecutionError(
+                    "Batch entity resolution failed",
+                    action="resolve",
+                    tenant=tenant,
+                    detail=str(exc),
+                ) from exc
+            else:
+                return {"status": "batch_resolved", **result}
+
+        # Single entity mode
+        source_id = _require_key(payload, "source_id", "resolve", tenant)
+        try:
+            result = await resolver.resolve_entity(
+                entity_id=source_id,
+                entity_label=entity_type,
+            )
+        except Exception as exc:
+            raise ExecutionError(
+                "Entity resolution failed",
+                action="resolve",
+                tenant=tenant,
+                detail=str(exc),
+            ) from exc
+        else:
+            return {"status": "resolved", **result}
+
+    # Legacy manual resolution
     source_id = _require_key(payload, "source_id", "resolve", tenant)
     target_id = _require_key(payload, "target_id", "resolve", tenant)
     confidence = payload.get("confidence", 1.0)
     signal = payload.get("signal", "manual")
 
-    domain_spec = domain_loader.load_domain(tenant)
     label = sanitize_label(entity_type)
     resolution_id = f"res_{uuid.uuid4().hex[:12]}"
 

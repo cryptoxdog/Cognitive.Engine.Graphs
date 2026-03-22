@@ -4,13 +4,14 @@ l9_schema: 1
 origin: engine-specific
 engine: graph
 layer: [feedback]
-tags: [feedback, convergence]
+tags: [feedback, convergence, signal-weights]
 owner: engine-team
 status: active
 --- /L9_META ---
 
 Outcome feedback loop engine.
 Closes the gap between handle_outcomes and the scoring/matching pipeline.
+Signal weight retraining and convergence.
 """
 
 from engine.feedback.convergence import ConvergenceLoop
