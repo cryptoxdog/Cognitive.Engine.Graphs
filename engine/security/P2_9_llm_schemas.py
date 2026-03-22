@@ -29,11 +29,14 @@ import logging
 import re
 from typing import Any, TypeVar
 
+import structlog
+
 # These come from P1-5 (engine/security/llm.py)
 from engine.security.llm import sanitize_llm_input, track_llm_usage
 from pydantic import BaseModel, Field, ValidationError, field_validator
 
 logger = logging.getLogger(__name__)
+_slog = structlog.get_logger(__name__)
 T = TypeVar("T", bound=BaseModel)
 
 
@@ -122,8 +125,14 @@ class ValidatedLLMClient:
         """
         Raw LLM call — replace body with your provider SDK.
         Must return the raw text/JSON string from the model.
+
+        See DEFERRED.md: DEFERRED-002
         """
-        raise NotImplementedError("Wire up your LLM SDK here")
+        _slog.warning(
+            "llm_sdk_not_configured",
+            detail="LLM SDK integration point not yet wired",
+        )
+        return "{}"
 
     # ---- public API ------------------------------------------------
 
