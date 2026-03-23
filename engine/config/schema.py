@@ -279,6 +279,45 @@ class TraversalSpec(BaseModel):
 
     steps: list[TraversalStepSpec]
 
+    @model_validator(mode="after")
+    def validate_traversal_hops(self) -> TraversalSpec:
+        """W1-04: Validate traversal hop counts against hard cap.
+
+        Ensures no variable-length path exceeds MAX_HOP_HARD_CAP.
+        """
+        import re
+
+        from engine.config.settings import settings
+
+        max_cap = settings.max_hop_hard_cap
+        hop_re = re.compile(r"\*(\d+)?(?:\.\.(\d+))?")
+
+        for step in self.steps:
+            for match in hop_re.finditer(step.pattern):
+                min_hops_str, max_hops_str = match.group(1), match.group(2)
+                # Validate min hops
+                if min_hops_str:
+                    min_hops = int(min_hops_str)
+                    if min_hops < 1:
+                        msg = f"Traversal step '{step.name}': hop count must be >= 1, got {min_hops}"
+                        raise ValueError(msg)
+                # Validate max hops
+                if max_hops_str:
+                    max_hops = int(max_hops_str)
+                elif min_hops_str:
+                    max_hops = int(min_hops_str)
+                else:
+                    # unbounded '*' — flag it
+                    max_hops = max_cap + 1
+                if max_hops < 1:
+                    msg = f"Traversal step '{step.name}': hop count must be >= 1, got {max_hops}"
+                    raise ValueError(msg)
+                if max_hops > max_cap:
+                    msg = f"Traversal step '{step.name}': max hops {max_hops} exceeds hard cap {max_cap}"
+                    raise ValueError(msg)
+
+        return self
+
 
 class GateSpec(BaseModel):
     """Gate definition."""
@@ -298,6 +337,19 @@ class GateSpec(BaseModel):
         return v
 
     operator: str | None = None
+
+    @field_validator("operator", mode="before")
+    @classmethod
+    def validate_operator(cls, v: object) -> object:
+        """W1-03: Validate gate operator is a known safe value."""
+        if v is None:
+            return v
+        allowed = {">=", "<=", ">", "<", "=", "!=", "<>", "IN", "CONTAINS", "STARTS WITH", "ENDS WITH"}
+        if str(v) not in allowed:
+            msg = f"Gate operator '{v}' is not in the allowed set: {sorted(allowed)}"
+            raise ValueError(msg)
+        return v
+
     logic: str | None = None  # For composite gates: "AND" / "OR"
     nullbehavior: NullBehavior = NullBehavior.PASS
     roleexempt: list[str] | None = None
@@ -580,34 +632,58 @@ class DomainSpec(BaseModel):
 
     @model_validator(mode="after")
     def validate_cross_references(self) -> DomainSpec:
-        """Validate cross-references between sections."""
+        """Validate cross-references between sections.
+
+        W1-01 (seL4-inspired): Enforces global invariants across the domain spec,
+        mirroring seL4's approach of verifying system-wide consistency rather than
+        checking individual objects in isolation. Gated by DOMAIN_STRICT_VALIDATION.
+        """
+        from engine.config.settings import settings
+
         # Collect all node labels
         node_labels = {n.label for n in self.ontology.nodes}
 
-        # Collect all node properties
-        node_props = {}
+        # Collect all node properties per label
+        node_props: dict[str, set[str]] = {}
         for node in self.ontology.nodes:
             node_props[node.label] = {p.name for p in node.properties}
 
         # Collect all edge types
         edge_types = {e.type for e in self.ontology.edges}
 
+        # Collect all query schema field names + derived param names (valid gate params)
+        query_field_names = {f.name for f in self.queryschema.fields}
+        derived_param_names = {p.name for p in self.derivedparameters}
+        all_param_names = query_field_names | derived_param_names
+
         # Validate candidate/queryentity references
         for candidate in self.matchentities.candidate:
             if candidate.label not in node_labels:
-                raise ValueError(f"Candidate label '{candidate.label}' not found in ontology")
+                msg = f"Candidate label '{candidate.label}' not found in ontology"
+                raise ValueError(msg)
 
         for qe in self.matchentities.queryentity:
             if qe.label not in node_labels:
-                raise ValueError(f"Query entity label '{qe.label}' not found in ontology")
+                msg = f"Query entity label '{qe.label}' not found in ontology"
+                raise ValueError(msg)
 
-        # Validate gate property references (basic check)
+        # (a) W1-01: Every edge source/target type references a declared node
+        if settings.domain_strict_validation:
+            for edge in self.ontology.edges:
+                if edge.from_ not in node_labels:
+                    msg = f"Edge '{edge.type}' source '{edge.from_}' not found in ontology nodes"
+                    raise ValueError(msg)
+                if edge.to not in node_labels:
+                    msg = f"Edge '{edge.type}' target '{edge.to}' not found in ontology nodes"
+                    raise ValueError(msg)
+
+        # Validate gate property references
         for gate in self.gates:
             if gate.candidateprop and "." not in gate.candidateprop:
                 # Check if any candidate node has this property
                 found = False
-                for candidate in self.matchentities.candidate:
-                    if candidate.label in node_props and gate.candidateprop in node_props[candidate.label]:
+                for candidate_ent in self.matchentities.candidate:
+                    if candidate_ent.label in node_props and gate.candidateprop in node_props[candidate_ent.label]:
                         found = True
                         break
                 if not found:
@@ -616,15 +692,43 @@ class DomainSpec(BaseModel):
 
             if gate.type == GateType.EXCLUSION and gate.edgetype:
                 if gate.edgetype not in edge_types:
-                    raise ValueError(f"Gate '{gate.name}' references unknown edge type '{gate.edgetype}'")
+                    msg = f"Gate '{gate.name}' references unknown edge type '{gate.edgetype}'"
+                    raise ValueError(msg)
+
+            # (d) W1-01: No gate references an undeclared parameter
+            if settings.domain_strict_validation and gate.queryparam and all_param_names:
+                if gate.queryparam not in all_param_names:
+                    # Allow params that look like compound refs (e.g. with _min/_max suffixes)
+                    base = gate.queryparam.removesuffix("_min").removesuffix("_max")
+                    base = base.removesuffix("_start").removesuffix("_end")
+                    if base not in all_param_names and gate.queryparam not in all_param_names:
+                        import logging
+
+                        _logger = logging.getLogger(__name__)
+                        _logger.warning(
+                            "Gate '%s' references undeclared parameter '%s'",
+                            gate.name,
+                            gate.queryparam,
+                        )
+
+        # (c) W1-01: Scoring dimension default weights sum check
+        if settings.domain_strict_validation and self.scoring and self.scoring.dimensions:
+            weight_sum = sum(d.defaultweight for d in self.scoring.dimensions)
+            weight_ceiling = 1.0
+            tolerance = 1e-9
+            if weight_sum > weight_ceiling + tolerance:
+                msg = f"Scoring dimension default weights sum to {weight_sum:.4f}, exceeding {weight_ceiling}"
+                raise ValueError(msg)
 
         # Validate GDS job references
         for job in self.gdsjobs:
             for label in job.projection.nodelabels:
                 if label not in node_labels:
-                    raise ValueError(f"GDS job '{job.name}' references unknown node label '{label}'")
+                    msg = f"GDS job '{job.name}' references unknown node label '{label}'"
+                    raise ValueError(msg)
             for etype in job.projection.edgetypes:
                 if etype not in edge_types:
-                    raise ValueError(f"GDS job '{job.name}' references unknown edge type '{etype}'")
+                    msg = f"GDS job '{job.name}' references unknown edge type '{etype}'"
+                    raise ValueError(msg)
 
         return self

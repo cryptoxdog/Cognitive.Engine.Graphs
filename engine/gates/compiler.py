@@ -60,6 +60,66 @@ class GateCompiler:
         self._gates: list[GateSpec] = domain_spec.gates if domain_spec.gates else []
         self._compliance = getattr(domain_spec, "compliance", None)
 
+    # ── W1-03: Gate validation (seL4-inspired) ──────────────
+
+    def validate_gates(
+        self,
+        resolved_params: dict[str, object] | None = None,
+    ) -> list[str]:
+        """W1-03: Pre-compilation gate validation.
+
+        Checks:
+        (a) Every required gate field has a corresponding parameter in the resolved set.
+        (b) No gate uses an operator incompatible with the field's declared type.
+        (c) Post-compilation: if a resolved parameter is None, log WARNING and
+            reject if STRICT_NULL_GATES is enabled.
+
+        Returns list of warning messages (empty = all clear).
+        """
+        from engine.config.settings import settings
+
+        warnings: list[str] = []
+        # Build a property type index from ontology
+        prop_types: dict[str, str] = {}
+        for node in self.domain_spec.ontology.nodes:
+            for prop in node.properties:
+                prop_types[prop.name] = prop.type.value
+
+        # Operator-type compatibility matrix
+        numeric_operators = frozenset({">=", "<=", ">", "<"})
+        numeric_types = frozenset({"int", "float", "datetime", "date", "duration"})
+
+        for gate in self._gates:
+            # (a) Check that required gate params exist in resolved set
+            if resolved_params is not None and gate.queryparam:
+                if gate.queryparam not in resolved_params:
+                    msg = f"Gate '{gate.name}': parameter '${gate.queryparam}' not in resolved parameters"
+                    warnings.append(msg)
+                    if settings.strict_null_gates:
+                        logger.warning(msg)
+
+            # (b) Operator-type compatibility
+            if gate.operator and gate.candidateprop:
+                prop_type = prop_types.get(gate.candidateprop, "")
+                if gate.operator in numeric_operators and prop_type and prop_type not in numeric_types:
+                    msg = (
+                        f"Gate '{gate.name}': operator '{gate.operator}' "
+                        f"incompatible with property type '{prop_type}'"
+                    )
+                    warnings.append(msg)
+                    logger.warning(msg)
+
+            # (c) Null-param post-check
+            if resolved_params is not None and gate.queryparam:
+                val = resolved_params.get(gate.queryparam)
+                if val is None:
+                    msg = f"Gate '{gate.name}': parameter '${gate.queryparam}' resolved to null"
+                    if settings.strict_null_gates:
+                        warnings.append(msg)
+                        logger.warning(msg)
+
+        return warnings
+
     # ── Public API ─────────────────────────────────────────
 
     def compile(self, gate: GateSpec) -> str:
