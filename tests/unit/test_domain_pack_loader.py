@@ -172,7 +172,7 @@ class TestLoadDomain:
         """load_domain returns cached spec when mtime is unchanged."""
         loader = DomainPackLoader(config_path=str(tmp_path))
         mock_spec = MagicMock()
-        loader._cache["cached"] = (mock_spec, 1000.0)
+        loader._cache["cached"] = (mock_spec, 1000.0, 0.0)
         with patch.object(loader, "_resolve_spec_path") as mock_resolve:
             mock_path = MagicMock()
             mock_path.stat.return_value.st_mtime = 1000.0
@@ -185,7 +185,7 @@ class TestLoadDomain:
         loader = DomainPackLoader(config_path=str(tmp_path))
         old_spec = MagicMock()
         new_spec = MagicMock()
-        loader._cache["stale"] = (old_spec, 1000.0)
+        loader._cache["stale"] = (old_spec, 1000.0, 0.0)
         with (
             patch.object(loader, "_resolve_spec_path") as mock_resolve,
             patch.object(loader, "_load_and_validate", return_value=new_spec),

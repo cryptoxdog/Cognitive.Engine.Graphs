@@ -122,10 +122,23 @@ class ComplianceEngine:
             detail=f"Match request direction={match_direction}",
             trace_id=trace_id,
         )
-        # Detect and mask PII in query
+        # Detect PII in query for audit logging — do NOT mask inbound queries.
+        # Masking replaces values with '***', corrupting graph traversal results.
+        # PII redaction is applied on the RESPONSE path via redact_response().
         pii_fields = self._pii.get_pii_field_paths(query)
         if pii_fields:
-            return self._pii.mask_fields(query, list(pii_fields))
+            logger.info(
+                "PII detected in match query (fields: %s) — logged for audit, query passed through",
+                [str(f) for f in pii_fields],
+            )
+            self._audit.log_access(
+                actor=tenant,
+                tenant=tenant,
+                resource=", ".join(str(f) for f in pii_fields),
+                resource_type="pii_field",
+                pii_fields_accessed=[str(f) for f in pii_fields],
+                trace_id=trace_id,
+            )
         return query
 
     def check_sync_request(

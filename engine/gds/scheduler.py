@@ -180,8 +180,13 @@ class GDSScheduler:
         """
         try:
             await self.graph_driver.execute_query(pre_drop, database=db)
-        except Exception:
-            pass  # Graph didn't exist; expected on first run
+        except Exception as exc:
+            exc_msg = str(exc).lower()
+            if "not found" in exc_msg or "does not exist" in exc_msg:
+                pass  # Graph didn't exist; expected on first run
+            else:
+                logger.error("GDS pre-drop failed unexpectedly for %s: %s", graph_name, exc)
+                raise
 
         # Use json.dumps for proper Cypher array syntax
         node_labels = json.dumps(job_spec.projection.nodelabels)

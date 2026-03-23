@@ -67,7 +67,14 @@ class CompoundE3DConfig:
     @classmethod
     def from_settings(cls) -> CompoundE3DConfig:
         """Construct from global settings (fallback)."""
-        return cls(embedding_dim=settings.kge_embedding_dim)
+        config = cls(embedding_dim=settings.kge_embedding_dim)
+        if config.embedding_dim != 256:
+            logger.warning(
+                "KGE embedding_dim=%d differs from schema default (256). "
+                "Ensure domain spec KGESpec.embeddingdim matches.",
+                config.embedding_dim,
+            )
+        return config
 
 
 class CompoundE3D:
