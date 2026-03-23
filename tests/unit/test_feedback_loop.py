@@ -110,6 +110,8 @@ class TestConvergenceLoopEnabled:
             side_effect=[
                 [{"affected": 3}],  # propagate_outcome
                 [{"new_outcomes": 5}],  # should_recalculate (below threshold)
+                [],  # drift_detector: recent
+                [],  # drift_detector: baseline
             ]
         )
         loop = ConvergenceLoop(driver, spec)
@@ -125,6 +127,7 @@ class TestConvergenceLoopEnabled:
         assert result["feedback_loop"] == "enabled"
         assert result["propagation"]["propagated"] is True
         assert result["weights_recalculated"] is False
+        assert "drift" in result
 
     @pytest.mark.asyncio
     async def test_enabled_triggers_weight_recalculation(self):
@@ -137,6 +140,8 @@ class TestConvergenceLoopEnabled:
                 [{"new_outcomes": 200}],  # should_recalculate (above threshold)
                 [{"total": 200, "wins": 120}],  # recalculate_weights: totals
                 # No scoring dimensions so no per-dimension queries
+                [],  # drift_detector: recent
+                [],  # drift_detector: baseline
             ]
         )
         loop = ConvergenceLoop(driver, spec)
@@ -150,6 +155,7 @@ class TestConvergenceLoopEnabled:
 
         assert result["feedback_loop"] == "enabled"
         assert result["weights_recalculated"] is True
+        assert "drift" in result
 
     @pytest.mark.asyncio
     async def test_failure_outcome_triggers_penalty(self):
@@ -159,6 +165,8 @@ class TestConvergenceLoopEnabled:
             side_effect=[
                 [{"affected": 2}],  # propagate_outcome (penalty)
                 [{"new_outcomes": 0}],  # should_recalculate (below threshold)
+                [],  # drift_detector: recent
+                [],  # drift_detector: baseline
             ]
         )
         loop = ConvergenceLoop(driver, spec)
@@ -180,6 +188,8 @@ class TestConvergenceLoopEnabled:
         driver.execute_query = AsyncMock(
             side_effect=[
                 [{"new_outcomes": 0}],  # should_recalculate
+                [],  # drift_detector: recent
+                [],  # drift_detector: baseline
             ]
         )
         loop = ConvergenceLoop(driver, spec)

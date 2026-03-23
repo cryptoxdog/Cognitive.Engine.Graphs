@@ -545,6 +545,24 @@ async def handle_match(tenant: str, payload: dict[str, Any]) -> dict[str, Any]:
         )
         candidates_out = checker.annotate_candidates(candidates_out)
 
+    # BFS causal explanations when causal subgraph is enabled
+    if domain_spec.causal.enabled and candidates_out:
+        from engine.causal.serializer import CausalSubgraphSerializer
+
+        serializer = CausalSubgraphSerializer(graph_driver, domain_spec)
+        candidate_label = candidate_labels[0]
+        for c in candidates_out:
+            if isinstance(c, dict):
+                cand = c.get("candidate", {})
+                entity_id = str(cand.get("entity_id", "")) if isinstance(cand, dict) else ""
+                if entity_id:
+                    explanation = await serializer.serialize_neighborhood(
+                        node_id=entity_id,
+                        node_label=candidate_label,
+                        max_depth=min(domain_spec.causal.chain_depth_limit, 2),
+                    )
+                    c["match_explanation"] = explanation
+
     response = {
         "candidates": candidates_out,
         "query_id": f"q_{uuid.uuid4().hex[:12]}",

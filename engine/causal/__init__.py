@@ -19,6 +19,7 @@ from engine.causal.causal_compiler import CausalCompiler
 from engine.causal.causal_validator import CausalEdgeRuntimeValidator
 from engine.causal.counterfactual import CounterfactualGenerator
 from engine.causal.edge_taxonomy import CausalEdgeType, CausalEdgeValidator
+from engine.causal.serializer import CausalSubgraphSerializer
 
 __all__ = [
     "AttributionCalculator",
@@ -26,5 +27,6 @@ __all__ = [
     "CausalEdgeRuntimeValidator",
     "CausalEdgeType",
     "CausalEdgeValidator",
+    "CausalSubgraphSerializer",
     "CounterfactualGenerator",
 ]

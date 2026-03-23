@@ -301,11 +301,19 @@ class GDSScheduler:
                 logger.error(f"Failed to drop projected graph '{graph_name}': {drop_err}")
 
     async def _run_cooccurrence(self, job_spec: GDSJobSpec) -> dict[str, Any]:
-        """Build co-occurrence edges from bipartite projection."""
+        """Build co-occurrence edges from bipartite projection.
+
+        Applies OmniSage power-law pruning: for high-degree nodes (>10 edges),
+        retain only d^0.86 edges to prevent hub dominance in community detection.
+        """
         if not job_spec.sourceedge or not job_spec.writeedge:
             raise ValueError(f"Job {job_spec.name}: sourceedge and writeedge required")
         source_edge = sanitize_label(job_spec.sourceedge)
         write_edge = sanitize_label(job_spec.writeedge)
+        db = self.domain_spec.domain.id
+        pruning_alpha = 0.86
+
+        # Step 1: Build co-occurrence edges
         cypher = f"""
         MATCH (a)-[:{source_edge}]->(common)<-[:{source_edge}]-(b)
         WHERE id(a) < id(b)
@@ -315,10 +323,30 @@ class GDSScheduler:
         SET r.weight = weight, r.updated_at = datetime()
         RETURN count(r) AS edges_created
         """
-        result = await self.graph_driver.execute_query(cypher, database=self.domain_spec.domain.id)
+        result = await self.graph_driver.execute_query(cypher, database=db)
         edges = result[0]["edges_created"] if result else 0
-        logger.info(f"Co-occurrence: {edges} edges created/updated")
-        return {"edges_created": edges}
+
+        # Step 2: Power-law pruning — prune high-degree nodes to d^0.86 edges
+        # Only prune nodes with >10 co-occurrence edges to avoid over-pruning
+        prune_cypher = f"""
+        MATCH (n)-[r:{write_edge}]-()
+        WITH n, collect(r) AS edges, count(r) AS degree
+        WHERE degree > 10
+        WITH n, edges, degree, toInteger(degree ^ {pruning_alpha}) AS keep_count
+        WITH n, edges[keep_count..] AS to_prune
+        UNWIND to_prune AS r
+        DELETE r
+        RETURN count(r) AS pruned_edges
+        """
+        try:
+            prune_result = await self.graph_driver.execute_query(prune_cypher, database=db)
+            pruned = prune_result[0]["pruned_edges"] if prune_result else 0
+        except Exception as e:
+            logger.warning(f"Power-law pruning skipped: {e}")
+            pruned = 0
+
+        logger.info(f"Co-occurrence: {edges} edges created/updated, {pruned} pruned (alpha={pruning_alpha})")
+        return {"edges_created": edges, "edges_pruned": pruned, "pruning_alpha": pruning_alpha}
 
     async def _run_reinforcement(self, job_spec: GDSJobSpec) -> dict[str, Any]:
         """
