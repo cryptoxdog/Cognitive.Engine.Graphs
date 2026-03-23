@@ -97,6 +97,13 @@ class Settings(BaseSettings):
     pareto_n_samples: int = 50
     pareto_weight_discovery_enabled: bool = False  # off until outcome data flows
 
+    # --- Wave 1: Invariant & Validation Hardening (seL4-inspired) ---
+    domain_strict_validation: bool = True    # W1-01: cross-reference validators at load time
+    score_clamp_enabled: bool = True         # W1-02: clamp dimension scores to [0, 1]
+    strict_null_gates: bool = True           # W1-03: reject gates with null-resolved params
+    max_hop_hard_cap: int = 10               # W1-04: maximum hops for traversal patterns
+    param_strict_mode: bool = True           # W1-05: raise on derived parameter resolution failures
+
     @model_validator(mode="after")
     def _validate_production_secrets(self) -> "Settings":
         """Raise if default secrets are used in production environment."""

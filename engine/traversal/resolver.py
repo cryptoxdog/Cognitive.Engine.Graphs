@@ -22,6 +22,13 @@ from engine.utils.safe_eval import safe_eval
 logger = logging.getLogger(__name__)
 
 
+class ParameterResolutionError(Exception):
+    """W1-05: Raised when a derived parameter fails to resolve in strict mode.
+
+    Maps to HTTP 422 (Unprocessable Entity) in the handler layer.
+    """
+
+
 class ParameterResolver:
     """Resolves derived parameters from query input."""
 
@@ -37,16 +44,27 @@ class ParameterResolver:
 
         Returns:
             Query data with derived parameters added
+
+        Raises:
+            ParameterResolutionError: If PARAM_STRICT_MODE is enabled and
+                a derived parameter expression fails to evaluate.
         """
+        from engine.config.settings import settings
+
         resolved = query_data.copy()
 
         for param_spec in self.domain_spec.derivedparameters:
             try:
                 value = self._evaluate_expression(param_spec.expression, resolved)
                 resolved[param_spec.name] = value
-                logger.debug(f"Resolved parameter '{param_spec.name}' = {value}")
-            except Exception as e:
-                logger.error(f"Failed to resolve parameter '{param_spec.name}': {e}")
+                logger.debug("Resolved parameter '%s' = %s", param_spec.name, value)
+            except Exception as exc:
+                # W1-05: In strict mode, propagate the error instead of swallowing it.
+                # This prevents downstream gates from silently evaluating against null.
+                if settings.param_strict_mode:
+                    msg = f"Failed to resolve derived parameter '{param_spec.name}': {exc}"
+                    raise ParameterResolutionError(msg) from exc
+                logger.error("Failed to resolve parameter '%s': %s", param_spec.name, exc)
 
         return resolved
 

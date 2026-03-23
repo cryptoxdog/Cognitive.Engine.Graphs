@@ -30,7 +30,7 @@ from engine.graph.driver import GraphDriver
 from engine.scoring.assembler import ScoringAssembler
 from engine.sync.generator import SyncGenerator
 from engine.traversal.assembler import TraversalAssembler
-from engine.traversal.resolver import ParameterResolver
+from engine.traversal.resolver import ParameterResolutionError, ParameterResolver
 from engine.utils.security import sanitize_label
 
 logger = logging.getLogger(__name__)
@@ -272,6 +272,32 @@ def _sanitize_expression(expr: str) -> str:
     return expr_stripped
 
 
+_WEIGHT_FLOOR = 0.0
+_WEIGHT_CEILING = 1.0
+_WEIGHT_SUM_TOLERANCE = 1e-9
+
+
+def _validate_match_weights(weights: dict[str, float], tenant: str) -> None:
+    """W1-02: Validate user-supplied scoring weights.
+
+    Each weight must be in [0, 1] and the total sum must be <= 1.0.
+    """
+    for key, val in weights.items():
+        try:
+            w = float(val)
+        except (TypeError, ValueError):
+            msg = f"Weight '{key}' is not a valid number"
+            raise ValidationError(msg, action="match", tenant=tenant)
+        if w < _WEIGHT_FLOOR or w > _WEIGHT_CEILING:
+            msg = f"Weight '{key}' = {w} is outside allowed range [{_WEIGHT_FLOOR}, {_WEIGHT_CEILING}]"
+            raise ValidationError(msg, action="match", tenant=tenant)
+
+    weight_sum = sum(float(v) for v in weights.values())
+    if weight_sum > _WEIGHT_CEILING + _WEIGHT_SUM_TOLERANCE:
+        msg = f"Weights sum to {weight_sum:.4f}, exceeding {_WEIGHT_CEILING}"
+        raise ValidationError(msg, action="match", tenant=tenant)
+
+
 async def handle_match(tenant: str, payload: dict[str, Any]) -> dict[str, Any]:
     """Gate-then-score graph traversal."""
     graph_driver, domain_loader = _require_deps()
@@ -288,6 +314,14 @@ async def handle_match(tenant: str, payload: dict[str, Any]) -> dict[str, Any]:
         top_n = 10
 
     weights = payload.get("weights", {})
+
+    # W1-02: Validate user-supplied weights are in [0, 1] and sum to <= 1.0
+    if weights:
+        from engine.config.settings import settings
+
+        if settings.score_clamp_enabled:
+            _validate_match_weights(weights, tenant)
+
     domain_spec = domain_loader.load_domain(tenant)
 
     compliance = ComplianceEngine(domain_spec)
@@ -300,7 +334,15 @@ async def handle_match(tenant: str, payload: dict[str, Any]) -> dict[str, Any]:
         )
 
     resolver = ParameterResolver(domain_spec)
-    resolved_query = resolver.resolve_parameters(query)
+    try:
+        resolved_query = resolver.resolve_parameters(query)
+    except ParameterResolutionError as exc:
+        raise ValidationError(
+            str(exc),
+            action="match",
+            tenant=tenant,
+            detail="Derived parameter resolution failed (W1-05 strict mode)",
+        ) from exc
 
     for field in domain_spec.queryschema.fields:
         if field.name not in resolved_query:

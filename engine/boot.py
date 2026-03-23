@@ -33,6 +33,26 @@ from engine.handlers import init_dependencies
 
 logger = logging.getLogger(__name__)
 
+_WEIGHT_CEILING = 1.0
+_WEIGHT_SUM_TOLERANCE = 1e-9
+
+
+def _assert_default_weight_sum() -> None:
+    """W1-02: Assert default scoring weights sum to <= 1.0 at startup.
+
+    Prevents misconfiguration from silently producing unbounded scores.
+    """
+    weight_sum = settings.w_structural + settings.w_geo + settings.w_reinforcement + settings.w_freshness
+    if weight_sum > _WEIGHT_CEILING + _WEIGHT_SUM_TOLERANCE:
+        msg = (
+            f"Default scoring weights sum to {weight_sum:.4f} "
+            f"(W_STRUCTURAL={settings.w_structural} + W_GEO={settings.w_geo} + "
+            f"W_REINFORCEMENT={settings.w_reinforcement} + W_FRESHNESS={settings.w_freshness}), "
+            f"exceeding {_WEIGHT_CEILING}"
+        )
+        raise ValueError(msg)
+    logger.info("W1-02: Default weight sum validated: %.4f <= %.1f", weight_sum, _WEIGHT_CEILING)
+
 
 class GraphLifecycle(LifecycleHook):
     """
@@ -51,6 +71,10 @@ class GraphLifecycle(LifecycleHook):
         from engine.gds.scheduler import GDSScheduler
 
         logger.info("GraphLifecycle.startup → connecting Neo4j")
+
+        # W1-02: Startup weight-sum assertion
+        if settings.score_clamp_enabled:
+            _assert_default_weight_sum()
 
         self._graph_driver = GraphDriver(
             uri=settings.neo4j_uri,

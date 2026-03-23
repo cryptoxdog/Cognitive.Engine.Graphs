@@ -127,6 +127,9 @@ class ScoringAssembler:
             if dim.matchdirections and match_direction not in dim.matchdirections:
                 continue
             expr = self._compile_dimension(dim)
+            # W1-02: clamp each dimension expression to [0.0, 1.0] when enabled
+            if settings.score_clamp_enabled:
+                expr = self._clamp_expression(expr)
             dimension_exprs.append(f"{expr} AS {dim.name}")
             weight = weights.get(dim.weightkey, dim.defaultweight)
             weight_exprs.append(f"({weight} * {dim.name})")
@@ -323,6 +326,19 @@ class ScoringAssembler:
             alias = sanitize_label(dim.alias)
             return f"coalesce({alias}.{prop}, {default})"
         return f"coalesce(candidate.{prop}, {default})"
+
+    @staticmethod
+    def _clamp_expression(expr: str) -> str:
+        """W1-02: Wrap a Cypher expression in a CASE-based clamp to [0.0, 1.0].
+
+        Prevents unbounded scores from propagating through the scoring pipeline.
+        Mirrors seL4's invariant enforcement on all capability-transfer outputs.
+        """
+        return (
+            f"CASE WHEN ({expr}) < 0.0 THEN 0.0"
+            f" WHEN ({expr}) > 1.0 THEN 1.0"
+            f" ELSE ({expr}) END"
+        )
 
     def _build_score_expression(self, weight_exprs: list[str]) -> str:
         if not weight_exprs:

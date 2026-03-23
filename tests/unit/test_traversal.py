@@ -253,13 +253,20 @@ class TestParameterResolver:
         assert result["quarter"] == pytest.approx(25.0)
 
     def test_expression_error_does_not_crash(self):
+        from unittest.mock import patch
+
+        from engine.config.settings import Settings
+
         spec = _resolver_spec(
             [
                 {"name": "bad", "expression": "nonexistent_var + 1", "type": "float"},
             ]
         )
         resolver = ParameterResolver(spec)
-        result = resolver.resolve_parameters({"x": 1})
+        # W1-05: param_strict_mode defaults True; set False to test legacy swallow behavior
+        s = Settings(neo4j_password="test-pw", api_secret_key="test-key", param_strict_mode=False)
+        with patch("engine.config.settings.settings", s):
+            result = resolver.resolve_parameters({"x": 1})
         assert "bad" not in result  # failed silently, logged error
         assert result["x"] == 1  # original data intact
 
