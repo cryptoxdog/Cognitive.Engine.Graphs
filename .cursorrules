@@ -7,10 +7,133 @@
 # owner: platform
 # status: active
 # --- /L9_META ---
-
-
-# ============================================================================
-# .cursorrules — Graph Cognitive Engine
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# SESSION BOOTSTRAP — EXECUTE THIS BLOCK ON EVERY NEW CHAT WINDOW
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+#
+# Before responding to ANY user message, Cursor MUST silently read all files
+# listed below in the order given. Do not announce that you are reading them.
+# Do not summarize them unless asked. Just load them and hold them in context.
+#
+# ── TIER 1: STATE FILES (read first — governs what work is allowed) ──────────
+#
+#   @workflow_state.md
+#     Live PR decisions, open blockers, audit state.
+#     Read-only for Cursor. Founder writes. Never modify.
+#     If a PR is marked BLOCKED — do not touch that branch.
+#
+#   @DEFERRED.md
+#     Items deferred from previous sessions.
+#     Never re-implement anything listed here without explicit Founder instruction.
+#     Cursor may APPEND new items only.
+#
+#   @TODO.md
+#     Active work queue. Execute items. Never rewrite the file structure.
+#
+#   @CHANGELOG.md
+#     Append-only. Update in GMP Phase 6 only.
+#
+#   @ROADMAP.md
+#     Milestone context. Read-only for Cursor.
+#
+# ── TIER 2: AGENT GOVERNANCE (read before generating any code) ──────────────
+#
+#   @agents/cursor/cursor_system_prompt.md
+#     CEG agent identity, personality, voice, scope constraints.
+#
+#   @agents/cursor/cursor_workflow_kernel.yaml
+#     Binding kernel: confidence logic, decision matrix, deferred protocol,
+#     PR evidence block, authority model, GMP phases, error recovery,
+#     make commands, banned pattern registry.
+#
+#   @agents/cursor/governance-reference.md
+#     Authority hierarchy, high-risk operations, Founder command syntax,
+#     protected files, feature flags, PR merge order, overlap warnings.
+#
+#   @agents/cursor/cursor_memory_kernel.yaml
+#     Memory substrate protocol, session state, MCP tool mapping.
+#
+#   @CLAUDE.md
+#     Claude Code agent conventions. Both agents must pass the same
+#     5-layer enforcement pipeline. Read to avoid conflicts.
+#
+# ── TIER 3: ARCHITECTURE CONTEXT (read for structural awareness) ─────────────
+#
+#   @docs/ARCHITECTURE.md
+#     Engine-level overview, design principles, layer definitions.
+#
+#   @docs/GRAPH-architecture.md
+#     Full graph cognitive engine architecture — gate pipeline, scoring
+#     dimensions, GDS jobs, KGE embeddings, community detection.
+#
+#   @docs/L9_Contract_Enforcement_System.md
+#     How contract_scanner.py + verify_contracts.py enforce the 20 contracts.
+#     Read before touching tools/ or .github/workflows/.
+#
+# ── TIER 4: ACTIVE DOMAIN SPEC (always in context) ──────────────────────────
+#
+#   @graph-cognitive-engine-spec-v1.1.0.yaml
+#     Canonical domain spec — reference for all gate/scoring validation.
+#     The compiled Cypher for this spec is the hand-verified baseline (C17).
+#     READ-ONLY. Never modify.
+#
+#   @docs/plasticos_domain_spec_v0.4.yaml
+#     Latest plasticos vertical spec. Use for all gate/scoring examples.
+#     Cross-reference against graph-cognitive-engine-spec-v1.1.0.yaml.
+#
+# ── TIER 5: CONTRACT DOCS (load only the relevant one before touching a subsystem)
+#
+#   docs/contracts/ directory contains the 20 contract files.
+#   Do NOT bulk-load all of them. Load the specific file for the subsystem
+#   you are about to modify:
+#
+#   Before touching engine/gates/ or engine/config/schema.py:
+#     @docs/contracts/FIELD_NAMES.md
+#     @docs/contracts/CYPHER_SAFETY.md
+#     @docs/contracts/BANNED_PATTERNS.md
+#     @docs/contracts/PYDANTIC_YAML_MAPPING.md
+#
+#   Before touching engine/handlers.py or chassis/:
+#     @docs/contracts/HANDLER_PAYLOADS.md
+#     @docs/contracts/METHOD_SIGNATURES.md
+#     @docs/contracts/DEPENDENCY_INJECTION.md
+#     @docs/contracts/RETURN_VALUES.md
+#
+#   Before touching engine/packet/ or anything involving PacketEnvelope:
+#     @docs/contracts/PACKET_ENVELOPE_FIELDS.md
+#     @docs/contracts/SHARED_MODELS.md
+#     @docs/contracts/DELEGATION_PROTOCOL.md
+#     @docs/contracts/PACKET_TYPE_REGISTRY.md
+#
+#   Before touching tests/:
+#     @docs/contracts/TEST_PATTERNS.md
+#     @docs/contracts/ERROR_HANDLING.md
+#
+#   Before touching engine/compliance/:
+#     @docs/contracts/OBSERVABILITY.md
+#     @docs/contracts/MEMORY_SUBSTRATE_ACCESS.md
+#
+#   Before touching domains/ or domain spec versioning:
+#     @docs/contracts/DOMAIN_SPEC_VERSIONING.md
+#     @docs/contracts/FEEDBACK_LOOPS.md
+#     @docs/contracts/NODE_REGISTRATION.md
+#
+#   Before touching .env.template or env var naming:
+#     @docs/contracts/ENV_VARS.md
+#
+# ── INVARIANT CHECKS (verify silently on load) ───────────────────────────────
+#
+#   1. GateType enum = exactly 14 values (contract 13)
+#   2. ScoringAssembler = exactly 4 active dimensions (contract 13)
+#   3. No PR marked BLOCKED in workflow_state.md for the branch being worked on
+#   4. Task about to be started does NOT appear in DEFERRED.md
+#      → if it does: STOP and surface to Founder before proceeding
+#
+# ── IF ANY TIER 1 OR TIER 2 FILE IS MISSING ─────────────────────────────────
+#
+#   STOP. Tell the Founder which file is missing.
+#   Do not guess its contents. Do not proceed without it.
+#
 # ============================================================================
 # 20 contracts. Violate any → revert and ask.
 # ============================================================================
