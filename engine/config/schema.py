@@ -674,6 +674,31 @@ class SemanticRegistrySpec(BaseModel):
     max_candidates: int = 20
 
 
+class CapabilitySpec(BaseModel):
+    """W3-02: A named capability token in the domain spec.
+
+    Each entry maps a set of actions to a list of allowed subjects (tenant IDs
+    or ``"*"`` for wildcard). Compiled into a ``CapabilitySet`` at load time.
+
+    Example YAML::
+
+        capabilities:
+          - name: match_read
+            actions: [match:read]
+            allowed_subjects: ["*"]
+          - name: sync_write
+            actions: [sync:write]
+            allowed_subjects: [acme, globex]
+          - name: admin_all
+            actions: [admin:write, admin:kge]
+            allowed_subjects: [acme]
+    """
+
+    name: str
+    actions: list[str]
+    allowed_subjects: list[str] = Field(default_factory=list)
+
+
 class PluginsSpec(BaseModel):
     """Plugin extension points."""
 
@@ -763,6 +788,7 @@ class DomainSpec(BaseModel):
     gdsjobs: list[GDSJobSpec] = Field(default_factory=list)
     kge: KGESpec | None = None
     compliance: ComplianceSpec | None = None
+    capabilities: list[CapabilitySpec] = Field(default_factory=list)
     plugins: PluginsSpec | None = None
     calibration: CalibrationSpec | None = None
     feedbackloop: FeedbackLoopSpec = Field(default_factory=FeedbackLoopSpec)
