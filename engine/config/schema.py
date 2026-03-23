@@ -617,6 +617,63 @@ class ComplianceSpec(BaseModel):
     retention: RetentionSpec | None = None
 
 
+class SignalWeightsSpec(BaseModel):
+    """Signal weight retraining configuration."""
+
+    model_config = {"frozen": True}
+
+    enabled: bool = False
+    min_weight: float = 0.1
+    max_weight: float = 5.0
+    lookback_days: int = 90
+    min_sample_size: int = 10
+
+
+class CausalEdgeTypeSpec(BaseModel):
+    """Declared causal edge type for runtime validation."""
+
+    model_config = {"frozen": True}
+
+    edge_type: str
+    confidence_threshold: float = 0.5
+
+
+class CausalSpec(BaseModel):
+    """Causal edge validation configuration."""
+
+    model_config = {"frozen": True}
+
+    enabled: bool = False
+    causal_edges: list[CausalEdgeTypeSpec] = Field(default_factory=list)
+    enforce_temporal_precedence: bool = True
+
+
+class CounterfactualSpec(BaseModel):
+    """Counterfactual scenario generation configuration."""
+
+    model_config = {"frozen": True}
+
+    enabled: bool = False
+    max_scenarios_per_outcome: int = 3
+    min_confidence: float = 0.3
+    comparison_pool_size: int = 10
+
+
+class SemanticRegistrySpec(BaseModel):
+    """Entity resolution / semantic registry configuration."""
+
+    model_config = {"frozen": True}
+
+    enabled: bool = False
+    entity_labels: list[str] = Field(default_factory=list)
+    similarity_threshold: float = 0.85
+    property_weight: float = 0.5
+    structural_weight: float = 0.3
+    behavioral_weight: float = 0.2
+    comparison_properties: list[str] = Field(default_factory=list)
+    max_candidates: int = 20
+
+
 class PluginsSpec(BaseModel):
     """Plugin extension points."""
 
@@ -710,6 +767,8 @@ class DomainSpec(BaseModel):
     calibration: CalibrationSpec | None = None
     feedbackloop: FeedbackLoopSpec = Field(default_factory=FeedbackLoopSpec)
     causal: CausalSubgraphSpec = Field(default_factory=CausalSubgraphSpec)
+    counterfactual: CounterfactualSpec = Field(default_factory=CounterfactualSpec)
+    semantic_registry: SemanticRegistrySpec = Field(default_factory=SemanticRegistrySpec)
 
     @model_validator(mode="after")
     def validate_cross_references(self) -> DomainSpec:

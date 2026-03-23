@@ -20,6 +20,7 @@ import re
 from typing import Any
 
 from engine.config.schema import ComputationType, DomainSpec, ScoringDimensionSpec
+from engine.graph.driver import GraphDriver
 from engine.utils.security import sanitize_label
 
 logger = logging.getLogger(__name__)
@@ -76,10 +77,52 @@ def _validate_custom_expression(expression: str, dim_name: str) -> str:
 class ScoringAssembler:
     """Assembles scoring dimensions into Cypher WITH clause."""
 
-    def __init__(self, domain_spec: DomainSpec) -> None:
+    def __init__(
+        self,
+        domain_spec: DomainSpec,
+        graph_driver: GraphDriver | None = None,
+    ) -> None:
         self.domain_spec = domain_spec
         self.scoring_spec = domain_spec.scoring
         self._last_active_dims: list[str] = []
+        self._graph_driver = graph_driver
+        self._learned_weights: dict[str, float] | None = None
+
+    async def load_learned_weights(self) -> dict[str, float]:
+        """Query DimensionWeight nodes from Neo4j for convergence loop.
+
+        Returns a mapping of dimension_name -> learned weight adjustment factor.
+        Falls back to empty dict if feedback loop is disabled or no weights exist.
+        """
+        if not self._graph_driver:
+            return {}
+
+        fl_spec = self.domain_spec.feedbackloop
+        if not fl_spec.enabled or not fl_spec.signal_weights.enabled:
+            return {}
+
+        domain_id = self.domain_spec.domain.id
+        dim_names = [dim.name for dim in self.scoring_spec.dimensions]
+        if not dim_names:
+            return {}
+
+        cypher = """
+        MATCH (dw:DimensionWeight)
+        WHERE dw.dimension_name IN $names AND dw.domain_id = $domain_id
+        RETURN dw.dimension_name AS name, dw.weight AS weight
+        """
+        results = await self._graph_driver.execute_query(
+            cypher=cypher,
+            parameters={"names": dim_names, "domain_id": domain_id},
+            database=domain_id,
+        )
+        self._learned_weights = {r["name"]: r["weight"] for r in results if r.get("name") and r.get("weight")}
+        logger.info(
+            "Loaded %d learned dimension weights for domain %s",
+            len(self._learned_weights),
+            domain_id,
+        )
+        return self._learned_weights
 
     def assemble_scoring_clause(
         self,
@@ -124,6 +167,8 @@ class ScoringAssembler:
         weight_exprs: list[str] = []
         active_dim_names: list[str] = []
 
+        learned = self._learned_weights or {}
+
         for dim in self.scoring_spec.dimensions:
             if dim.matchdirections and match_direction not in dim.matchdirections:
                 continue
@@ -133,6 +178,9 @@ class ScoringAssembler:
                 expr = self._clamp_expression(expr)
             dimension_exprs.append(f"{expr} AS {dim.name}")
             weight = weights.get(dim.weightkey, dim.defaultweight)
+            # Convergence loop: multiply spec weight by learned adjustment factor
+            if dim.name in learned:
+                weight = weight * learned[dim.name]
             weight_exprs.append(f"({weight} * {dim.name})")
             active_dim_names.append(dim.name)
 
