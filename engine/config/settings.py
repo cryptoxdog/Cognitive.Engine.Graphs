@@ -104,6 +104,13 @@ class Settings(BaseSettings):
     max_hop_hard_cap: int = 10               # W1-04: maximum hops for traversal patterns
     param_strict_mode: bool = True           # W1-05: raise on derived parameter resolution failures
 
+    # --- Wave 2: Refinement-Inspired Scoring ---
+    feedback_enabled: bool = False  # W2-02: outcome feedback loop (opt-in)
+    confidence_check_enabled: bool = True  # W2-03: ensemble confidence bounds
+    monoculture_threshold: float = 0.70  # W2-03: single-dimension dominance cap
+    ensemble_max_divergence: float = 0.30  # W2-03: GDS/KGE divergence cap (Wave 6)
+    score_normalize: bool = False  # W2-04: post-query min-max normalization (opt-in)
+
     @model_validator(mode="after")
     def _validate_production_secrets(self) -> "Settings":
         """Raise if default secrets are used in production environment."""
