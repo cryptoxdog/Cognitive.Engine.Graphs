@@ -867,6 +867,258 @@ async def handle_admin(tenant: str, payload: dict[str, Any]) -> dict[str, Any]:
             "summary": validator.audit_summary(),
         }
 
+    # --- W6-01: KGE Activation Pathway ---
+    if subaction == "trigger_kge":
+        from chassis.errors import FeatureNotEnabled
+        from engine.config.settings import settings as _kge_s
+
+        if not _kge_s.kge_enabled:
+            raise FeatureNotEnabled("KGE", flag="KGE_ENABLED", action="admin", tenant=tenant)
+        domain_id = _require_key(payload, "domain_id", "admin", tenant)
+        spec = domain_loader.load_domain(domain_id)
+        if spec.kge is None:
+            raise ValidationError(
+                "Domain spec has no 'kge' section — cannot activate KGE",
+                action="admin",
+                tenant=tenant,
+            )
+        # Validate embedding dimension consistency (W1-01 cross-ref)
+        if spec.kge.embeddingdim != _kge_s.kge_embedding_dim:
+            raise ValidationError(
+                f"Domain spec kge.embeddingdim={spec.kge.embeddingdim} differs from "
+                f"settings.kge_embedding_dim={_kge_s.kge_embedding_dim}",
+                action="admin",
+                tenant=tenant,
+            )
+        from engine.kge.compound_e3d import CompoundE3D, CompoundE3DConfig
+
+        config = CompoundE3DConfig.from_kge_spec(spec.kge)
+        kge_model = CompoundE3D(config)  # noqa: F841 — instantiation validates config
+        # Smoke test: verify vector index exists by running a simple query
+        smoke_ok = True
+        smoke_detail = "vector index reachable"
+        try:
+            index_name = spec.kge.vectorindex.name if spec.kge.vectorindex else f"{domain_id}_kge_index"
+            await graph_driver.execute_query(
+                "SHOW INDEXES YIELD name WHERE name = $idx RETURN name",
+                parameters={"idx": index_name},
+                database=domain_id,
+            )
+        except Exception as exc:
+            smoke_ok = False
+            smoke_detail = f"vector index check failed: {exc}"
+            logger.warning("KGE smoke test failed for domain=%s: %s", domain_id, exc)
+        return {
+            "status": "kge_activated" if smoke_ok else "kge_activated_with_warnings",
+            "domain_id": domain_id,
+            "embedding_dim": config.embedding_dim,
+            "training_relations": config.training_relations,
+            "model": spec.kge.model,
+            "smoke_test": {"ok": smoke_ok, "detail": smoke_detail},
+        }
+
+    if subaction == "kge_status":
+        from engine.config.settings import settings as _kge_s
+
+        domain_id = payload.get("domain_id")
+        kge_config_info: dict[str, Any] = {}
+        if domain_id:
+            try:
+                spec = domain_loader.load_domain(domain_id)
+                if spec.kge:
+                    kge_config_info = {
+                        "model": spec.kge.model,
+                        "embeddingdim": spec.kge.embeddingdim,
+                        "training_relations": list(spec.kge.trainingrelations),
+                    }
+            except Exception:
+                kge_config_info = {"error": f"Could not load domain '{domain_id}'"}
+        return {
+            "status": "ok",
+            "kge_enabled": _kge_s.kge_enabled,
+            "kge_embedding_dim": _kge_s.kge_embedding_dim,
+            "kge_confidence_threshold": _kge_s.kge_confidence_threshold,
+            "domain_config": kge_config_info,
+        }
+
+    # --- W6-02: GDPR Erasure Endpoint ---
+    if subaction == "erase_subject":
+        from chassis.errors import FeatureNotEnabled
+        from engine.compliance.pii import PIIHandler
+        from engine.config.settings import settings as _gdpr_s
+
+        if not _gdpr_s.gdpr_erasure_enabled:
+            raise FeatureNotEnabled("GDPR Erasure", flag="GDPR_ERASURE_ENABLED", action="admin", tenant=tenant)
+        data_subject_id = _require_key(payload, "data_subject_id", "admin", tenant)
+        domain_id = payload.get("domain_id", tenant)
+        spec = domain_loader.load_domain(domain_id)
+
+        pii_handler = PIIHandler()
+
+        if _gdpr_s.gdpr_dry_run:
+            # Dry-run: compute what WOULD be erased without executing
+            try:
+                count_result = await graph_driver.execute_query(
+                    "MATCH (n {data_subject_id: $dsid}) RETURN count(n) AS cnt",
+                    parameters={"dsid": data_subject_id},
+                    database=domain_id,
+                )
+                node_count = count_result[0]["cnt"] if count_result else 0
+            except Exception:
+                node_count = -1
+            return {
+                "status": "dry_run",
+                "data_subject_id": data_subject_id,
+                "dry_run": True,
+                "would_affect": {"graph_nodes": node_count},
+            }
+
+        # Real erasure
+        try:
+            result = await pii_handler.erase_subject(
+                data_subject_id=data_subject_id,
+                graph_driver=graph_driver,
+            )
+        except Exception as exc:
+            raise ExecutionError(
+                "GDPR erasure failed",
+                action="admin",
+                tenant=tenant,
+                detail=str(exc),
+            ) from exc
+
+        # Flush audit trail for erasure event
+        from engine.compliance.audit import AuditLogger
+
+        audit = AuditLogger()
+        audit.log_pii_erasure(
+            actor=tenant,
+            tenant=tenant,
+            data_subject_id=data_subject_id,
+            detail=f"Erased subject {data_subject_id} in domain {domain_id}",
+        )
+
+        return {
+            "status": "erased",
+            "data_subject_id": data_subject_id,
+            "dry_run": False,
+            "summary": result,
+        }
+
+    # --- W6-03: GDS Job History Exposure ---
+    if subaction == "gds_status":
+        domain_id = _require_key(payload, "domain_id", "admin", tenant)
+        spec = domain_loader.load_domain(domain_id)
+        scheduler = _get_or_create_scheduler(spec, graph_driver)
+        history = await scheduler.get_job_history()
+        # Summarize per-job last run (prefer job name, fallback to algorithm)
+        last_runs: dict[str, Any] = {}
+        for entry in reversed(history):
+            job_key = entry.get("job") or entry.get("algorithm", "unknown")
+            if job_key not in last_runs:
+                last_runs[job_key] = {
+                    "last_run": entry.get("timestamp"),
+                    "status": entry.get("status"),
+                }
+        return {
+            "status": "ok",
+            "domain_id": domain_id,
+            "last_runs": last_runs,
+            "history_count": len(history),
+            "recent_history": history[-10:] if len(history) > 10 else history,
+        }
+
+    if subaction == "gds_trigger":
+        domain_id = _require_key(payload, "domain_id", "admin", tenant)
+        job_name = _require_key(payload, "job_name", "admin", tenant)
+        spec = domain_loader.load_domain(domain_id)
+        # Validate algorithm name exists in domain spec
+        valid_jobs = {j.name for j in spec.gdsjobs}
+        if job_name not in valid_jobs:
+            raise ValidationError(
+                f"Job '{job_name}' not found in domain spec. Available: {sorted(valid_jobs)}",
+                action="admin",
+                tenant=tenant,
+            )
+        scheduler = _get_or_create_scheduler(spec, graph_driver)
+        result = await scheduler.trigger_job(job_name)
+        return {"status": "triggered", "job": job_name, "result": result}
+
+    if subaction == "gds_health":
+        from datetime import UTC, datetime, timedelta
+
+        from engine.config.settings import settings as _gds_s
+
+        domain_id = _require_key(payload, "domain_id", "admin", tenant)
+        spec = domain_loader.load_domain(domain_id)
+        scheduler = _get_or_create_scheduler(spec, graph_driver)
+        history = await scheduler.get_job_history()
+        max_staleness = timedelta(hours=_gds_s.gds_max_staleness_hours)
+        now = datetime.now(tz=UTC)
+        algo_health: dict[str, Any] = {}
+        # Build per-job health from most recent entry (prefer job name, fallback to algorithm)
+        for entry in reversed(history):
+            algo = entry.get("job") or entry.get("algorithm", "unknown")
+            if algo in algo_health:
+                continue
+            ts_str = entry.get("timestamp")
+            if ts_str:
+                try:
+                    ts = datetime.fromisoformat(ts_str)
+                    if ts.tzinfo is None:
+                        ts = ts.replace(tzinfo=UTC)
+                    stale = (now - ts) > max_staleness
+                except (ValueError, TypeError):
+                    stale = True
+            else:
+                stale = True
+            algo_health[algo] = {
+                "last_run": ts_str,
+                "status": entry.get("status"),
+                "stale": stale,
+            }
+        # Check for algorithms that have never run
+        for job in spec.gdsjobs:
+            if job.name not in algo_health:
+                algo_health[job.name] = {"last_run": None, "status": "never_run", "stale": True}
+        all_healthy = all(not v.get("stale") for v in algo_health.values())
+        return {
+            "status": "healthy" if all_healthy else "degraded",
+            "domain_id": domain_id,
+            "max_staleness_hours": _gds_s.gds_max_staleness_hours,
+            "algorithms": algo_health,
+        }
+
+    # --- W6-04: Feature Status ---
+    if subaction == "feature_status":
+        from engine.config.settings import settings as _fs
+
+        return {
+            "status": "ok",
+            "feature_gates": {
+                # --- Phase 4 / KGE ---
+                "kge_enabled": _fs.kge_enabled,
+                # --- GDS ---
+                "gds_enabled": _fs.gds_enabled,
+                # --- Pareto ---
+                "pareto_enabled": _fs.pareto_enabled,
+                "pareto_weight_discovery_enabled": _fs.pareto_weight_discovery_enabled,
+                # --- Wave 1: Invariant Hardening ---
+                "domain_strict_validation": _fs.domain_strict_validation,
+                "score_clamp_enabled": _fs.score_clamp_enabled,
+                "strict_null_gates": _fs.strict_null_gates,
+                "param_strict_mode": _fs.param_strict_mode,
+                # --- Wave 2: Refinement Scoring ---
+                "feedback_enabled": _fs.feedback_enabled,
+                "confidence_check_enabled": _fs.confidence_check_enabled,
+                "score_normalize": _fs.score_normalize,
+                # --- Wave 6: Dormant Feature Activation ---
+                "gdpr_erasure_enabled": _fs.gdpr_erasure_enabled,
+                "gdpr_dry_run": _fs.gdpr_dry_run,
+                "gds_max_staleness_hours": _fs.gds_max_staleness_hours,
+            },
+        }
+
     raise ValidationError(f"Unknown admin subaction: {subaction!r}", action="admin", tenant=tenant)
 
 

@@ -128,11 +128,15 @@ class ValidatedLLMClient:
 
         See DEFERRED.md: DEFERRED-002
         """
-        _slog.warning(
-            "llm_sdk_not_configured",
-            detail="LLM SDK integration point not yet wired",
+        from chassis.errors import FeatureNotEnabled
+
+        raise FeatureNotEnabled(
+            "LLM SDK",
+            flag="LLM_PROVIDER",
+            message="LLM SDK integration point not yet wired. "
+            "Configure an LLM provider to enable AI-assisted features. "
+            "See DEFERRED.md: DEFERRED-002.",
         )
-        return "{}"
 
     # ---- public API ------------------------------------------------
 

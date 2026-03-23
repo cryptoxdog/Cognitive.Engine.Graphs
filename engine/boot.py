@@ -133,7 +133,48 @@ class GraphLifecycle(LifecycleHook):
             settings.compliance_buffer_max,
         )
 
+        # W6-03: Register GDS health probe
+        if settings.gds_enabled and self._schedulers:
+            self._register_gds_health_probe()
+
         logger.info("GraphLifecycle.startup complete")
+
+    def _register_gds_health_probe(self) -> None:
+        """W6-03: Register a health probe that checks GDS algorithm staleness."""
+
+        async def gds_health_check() -> dict[str, Any]:
+            from datetime import UTC, datetime, timedelta
+
+            max_staleness = timedelta(hours=settings.gds_max_staleness_hours)
+            now = datetime.now(tz=UTC)
+            stale_jobs: list[str] = []
+            for scheduler in self._schedulers:
+                history = await scheduler.get_job_history()
+                # Group by algorithm, check most recent entry
+                seen: set[str] = set()
+                for entry in reversed(history):
+                    algo = entry.get("algorithm") or entry.get("job", "unknown")
+                    if algo in seen:
+                        continue
+                    seen.add(algo)
+                    ts_str = entry.get("timestamp")
+                    if ts_str:
+                        try:
+                            ts = datetime.fromisoformat(ts_str)
+                            if ts.tzinfo is None:
+                                ts = ts.replace(tzinfo=UTC)
+                            if (now - ts) > max_staleness:
+                                stale_jobs.append(algo)
+                        except (ValueError, TypeError):
+                            stale_jobs.append(algo)
+                    else:
+                        stale_jobs.append(algo)
+            if stale_jobs:
+                return {"gds": f"degraded: stale jobs: {', '.join(stale_jobs)}"}
+            return {"gds": "ok"}
+
+        self._gds_health_check = gds_health_check
+        logger.info("W6-03: GDS health probe registered")
 
     async def shutdown(self) -> None:
         logger.info("GraphLifecycle.shutdown → stopping schedulers and closing Neo4j pool")

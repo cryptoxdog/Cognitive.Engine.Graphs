@@ -104,6 +104,11 @@ class Settings(BaseSettings):
     max_hop_hard_cap: int = 10  # W1-04: maximum hops for traversal patterns
     param_strict_mode: bool = True  # W1-05: raise on derived parameter resolution failures
 
+    # --- Wave 6: Dormant Feature Activation ---
+    gdpr_erasure_enabled: bool = False  # W6-02: GDPR erasure endpoint (opt-in)
+    gdpr_dry_run: bool = True  # W6-02: when True, compute erasure scope without executing
+    gds_max_staleness_hours: int = 25  # W6-03: max hours before GDS job considered stale
+
     # --- Wave 2: Refinement-Inspired Scoring ---
     feedback_enabled: bool = False  # W2-02: outcome feedback loop (opt-in)
     confidence_check_enabled: bool = True  # W2-03: ensemble confidence bounds
