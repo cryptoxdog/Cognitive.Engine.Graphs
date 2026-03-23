@@ -537,6 +537,31 @@ class KGESpec(BaseModel):
     vectorindex: KGEVectorIndexSpec | None = None
 
 
+class CalibrationPair(BaseModel):
+    """A labeled calibration pair defining expected score range for two entities."""
+
+    node_a: str
+    node_b: str
+    expected_score_min: float = Field(ge=0.0, le=1.0)
+    expected_score_max: float = Field(ge=0.0, le=1.0)
+    label: str | None = None
+
+    @model_validator(mode="after")
+    def validate_range(self) -> CalibrationPair:
+        """Ensure min <= max."""
+        if self.expected_score_min > self.expected_score_max:
+            msg = f"Calibration pair: expected_score_min ({self.expected_score_min}) > expected_score_max ({self.expected_score_max})"
+            raise ValueError(msg)
+        return self
+
+
+class CalibrationSpec(BaseModel):
+    """Calibration configuration for forward simulation verification."""
+
+    pairs: list[CalibrationPair] = Field(default_factory=list)
+    weight_set: str | None = None
+
+
 class ComplianceRegimeSpec(BaseModel):
     """Compliance regime identifier."""
 
@@ -629,6 +654,7 @@ class DomainSpec(BaseModel):
     kge: KGESpec | None = None
     compliance: ComplianceSpec | None = None
     plugins: PluginsSpec | None = None
+    calibration: CalibrationSpec | None = None
 
     @model_validator(mode="after")
     def validate_cross_references(self) -> DomainSpec:

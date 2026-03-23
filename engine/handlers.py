@@ -416,12 +416,64 @@ async def handle_match(tenant: str, payload: dict[str, Any]) -> dict[str, Any]:
             )
 
     execution_time_ms = (time.monotonic() - start_time) * 1000
+
+    # --- W2-04: Score Normalization ---
+    from engine.config.settings import settings as _w2_settings
+
+    candidates_out = list(results)
+    scoring_meta: dict[str, Any] = {
+        "weights_used": weights,
+        "normalization_applied": False,
+    }
+
+    if candidates_out:
+        raw_scores = [c.get("score", 0.0) if isinstance(c, dict) else 0.0 for c in candidates_out]
+        scoring_meta["raw_max"] = max(raw_scores) if raw_scores else 0.0
+        scoring_meta["raw_min"] = min(raw_scores) if raw_scores else 0.0
+
+        if _w2_settings.score_normalize and len(candidates_out) > 0:
+            raw_max = scoring_meta["raw_max"]
+            raw_min = scoring_meta["raw_min"]
+            score_range = raw_max - raw_min
+            if score_range > 0:
+                for c in candidates_out:
+                    if isinstance(c, dict) and "score" in c:
+                        c["score"] = round((c["score"] - raw_min) / score_range, 6)
+            elif len(candidates_out) == 1 and isinstance(candidates_out[0], dict):
+                candidates_out[0]["score"] = 1.0
+            scoring_meta["normalization_applied"] = True
+    else:
+        scoring_meta["raw_max"] = 0.0
+        scoring_meta["raw_min"] = 0.0
+
+    # --- W2-03: Confidence Checking ---
+    if _w2_settings.confidence_check_enabled:
+        # Attach per-dimension scores to candidates and run monoculture check
+        dim_names = scoring_assembler.last_active_dimension_names
+        for c in candidates_out:
+            if isinstance(c, dict) and not c.get("dimension_scores"):
+                dim_scores: dict[str, float] = {}
+                for dn in dim_names:
+                    if dn in c:
+                        dim_scores[dn] = c[dn]
+                if dim_scores:
+                    c["dimension_scores"] = dim_scores
+
+        from engine.scoring.confidence import ConfidenceChecker
+
+        checker = ConfidenceChecker(
+            monoculture_threshold=_w2_settings.monoculture_threshold,
+            ensemble_max_divergence=_w2_settings.ensemble_max_divergence,
+        )
+        candidates_out = checker.annotate_candidates(candidates_out)
+
     response = {
-        "candidates": results,
+        "candidates": candidates_out,
         "query_id": f"q_{uuid.uuid4().hex[:12]}",
         "match_direction": match_direction,
-        "total_candidates": len(results),
+        "total_candidates": len(candidates_out),
         "execution_time_ms": round(execution_time_ms, 2),
+        "scoring_meta": scoring_meta,
     }
     if pareto_metadata:
         response["pareto"] = pareto_metadata
@@ -449,6 +501,50 @@ async def handle_sync(tenant: str, payload: dict[str, Any]) -> dict[str, Any]:
             action="sync",
             tenant=tenant,
         )
+
+    # --- W2-02: Outcome record type via sync ---
+    from engine.config.settings import settings as _sync_settings
+
+    if entity_type == "outcome" and _sync_settings.feedback_enabled:
+        domain_spec = domain_loader.load_domain(tenant)
+        synced = 0
+        for item in batch:
+            if not isinstance(item, dict):
+                continue
+            match_id = item.get("match_id")
+            candidate_id = item.get("chosen_candidate_id")
+            outcome_val = item.get("outcome")
+            if outcome_val not in ("positive", "negative", "neutral"):
+                continue
+            outcome_id = f"out_{uuid.uuid4().hex[:12]}"
+            cypher = """
+            CREATE (o:Outcome {
+                outcome_id: $outcome_id, match_id: $match_id,
+                candidate_id: $candidate_id, outcome: $outcome,
+                created_at: datetime(), tenant: $tenant
+            })
+            WITH o
+            OPTIONAL MATCH (c {entity_id: $candidate_id})
+            FOREACH (_ IN CASE WHEN c IS NOT NULL THEN [1] ELSE [] END |
+                CREATE (c)-[:HAS_OUTCOME]->(o)
+            )
+            """
+            try:
+                await graph_driver.execute_query(
+                    cypher=cypher,
+                    parameters={
+                        "outcome_id": outcome_id,
+                        "match_id": match_id,
+                        "candidate_id": candidate_id,
+                        "outcome": outcome_val,
+                        "tenant": tenant,
+                    },
+                    database=domain_spec.domain.id,
+                )
+                synced += 1
+            except Exception:
+                logger.warning("Failed to sync outcome for match_id=%s", match_id, exc_info=True)
+        return {"status": "success", "entity_type": "outcome", "synced_count": synced}
 
     domain_spec = domain_loader.load_domain(tenant)
     if not domain_spec.sync:
@@ -523,6 +619,65 @@ async def handle_admin(tenant: str, payload: dict[str, Any]) -> dict[str, Any]:
         scheduler = _get_or_create_scheduler(spec, graph_driver)
         result = await scheduler.trigger_job(job_name)
         return {"status": "triggered", "job": job_name, "result": result}
+
+    # --- W2-01: Score Calibration ---
+    if subaction == "calibration_run":
+        domain_id = _require_key(payload, "domain_id", "admin", tenant)
+        spec = domain_loader.load_domain(domain_id)
+        from engine.scoring.calibration import ScoreCalibrator
+
+        calibrator = ScoreCalibrator(spec)
+        report = calibrator.generate_calibration_report(domain_id)
+        return {"status": "calibration_report", **report}
+
+    # --- W2-02: Score Feedback ---
+    if subaction == "score_feedback":
+        from engine.config.settings import settings as _fb_settings
+
+        if not _fb_settings.feedback_enabled:
+            return {"status": "disabled", "message": "Feedback loop is disabled. Set FEEDBACK_ENABLED=True."}
+        domain_id = _require_key(payload, "domain_id", "admin", tenant)
+        spec = domain_loader.load_domain(domain_id)
+        # Read recent outcomes from Neo4j
+        outcome_cypher = """
+        MATCH (o:TransactionOutcome)
+        WHERE o.tenant = $tenant
+        RETURN o.outcome AS outcome, o.candidate_id AS candidate_id,
+               o.match_id AS match_id, o.value AS value
+        ORDER BY o.created_at DESC
+        LIMIT 500
+        """
+        try:
+            outcome_records = await graph_driver.execute_query(
+                cypher=outcome_cypher,
+                parameters={"tenant": tenant},
+                database=spec.domain.id,
+            )
+        except Exception as exc:
+            raise ExecutionError(
+                "Failed to read outcomes for feedback",
+                action="admin",
+                tenant=tenant,
+                detail=str(exc),
+            ) from exc
+
+        from engine.scoring.feedback import OutcomeFeedback
+
+        feedback = OutcomeFeedback(outcome_records)
+        result = feedback.compute_feedback()
+        return {"status": "feedback_computed", **result}
+
+    if subaction == "apply_weight_proposal":
+        from engine.config.settings import settings as _fb_settings
+
+        if not _fb_settings.feedback_enabled:
+            return {"status": "disabled", "message": "Feedback loop is disabled. Set FEEDBACK_ENABLED=True."}
+        proposed = _require_key(payload, "proposed_weights", "admin", tenant)
+        current = _require_key(payload, "current_weights", "admin", tenant)
+        from engine.scoring.feedback import OutcomeFeedback
+
+        new_weights = OutcomeFeedback.apply_weights(current, proposed)
+        return {"status": "weights_applied", "new_weights": new_weights}
 
     raise ValidationError(f"Unknown admin subaction: {subaction!r}", action="admin", tenant=tenant)
 

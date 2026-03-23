@@ -79,6 +79,7 @@ class ScoringAssembler:
     def __init__(self, domain_spec: DomainSpec) -> None:
         self.domain_spec = domain_spec
         self.scoring_spec = domain_spec.scoring
+        self._last_active_dims: list[str] = []
 
     def assemble_scoring_clause(
         self,
@@ -135,6 +136,7 @@ class ScoringAssembler:
             weight_exprs.append(f"({weight} * {dim.name})")
             active_dim_names.append(dim.name)
 
+        self._last_active_dims = list(active_dim_names)
         all_exprs = ", ".join(dimension_exprs)
         score_expr = self._build_score_expression(weight_exprs)
 
@@ -145,6 +147,11 @@ class ScoringAssembler:
             clause = f"WITH candidate, {score_expr} AS score"
 
         return clause, pareto_metadata
+
+    @property
+    def last_active_dimension_names(self) -> list[str]:
+        """Return dimension names from the most recent assemble_scoring_clause call."""
+        return list(self._last_active_dims)
 
     def _compile_dimension(self, dim: ScoringDimensionSpec) -> str:
         """Dispatch to computation-specific compiler."""
