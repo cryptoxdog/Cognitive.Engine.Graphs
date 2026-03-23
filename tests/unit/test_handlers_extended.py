@@ -49,6 +49,8 @@ def _mock_domain_spec():
     spec.matchentities.queryentity = []
     spec.compliance = None
     spec.sync = None
+    spec.feedbackloop.enabled = False
+    spec.causal.enabled = False
     spec.model_dump.return_value = {"domain": {"id": "test_db"}}
     return spec
 
