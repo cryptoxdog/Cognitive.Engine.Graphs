@@ -49,6 +49,9 @@ class ComplianceEngine:
         self._pii = PIIHandler(additional_pii_fields=additional_pii)
         self._audit = AuditLogger()  # Uses default retention policies
 
+        if self._db_pool is None:
+            logger.info("compliance.audit_persistence_disabled", extra={"reason": "db_pool not configured"})
+
         # Default to enabled for SOC2/HIPAA compliance.
         # Only disable if domain_spec.compliance.enabled is explicitly False.
         self._enabled = True

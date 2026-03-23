@@ -135,10 +135,13 @@ async def execute_action(
         responding_node="graph-engine",
     )
 
-    # DEFERRED: Persist request_packet + response_packet to packet_store via memory substrate
-    # Tracking: https://github.com/cryptoxdog/Cognitive.Engine.Graphs/issues/TBD
-    # Reason: Requires memory substrate integration (PostgreSQL + PacketStore schema)
-    # Priority: Post-MVP - audit trail enhancement
+    # Persist PacketEnvelope pair to audit trail (stub — no-op until DB wired)
+    try:
+        from engine.packet.packet_store import get_packet_store
+
+        await get_packet_store().persist(request_packet, _response_packet)
+    except Exception as store_exc:
+        logger.warning("PacketStore.persist failed (non-fatal): %s", store_exc)
 
     # Return outbound envelope as JSON
     return {

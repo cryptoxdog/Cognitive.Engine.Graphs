@@ -11,6 +11,13 @@ status: active
 
 Pareto-optimal scoring utilities for multi-objective candidate filtering
 and Dirichlet-sampled weight discovery.
+
+Planned extensions (post-MVP):
+- Tchebycheff scalarisation (replaces simple additive weighting)
+- Adaptive Dirichlet concentration (replaces uniform alpha=1)
+- Graph-space diversity metric
+- Two-level hierarchy for multi-objective optimization
+- Entropy-as-uncertainty signal (Shannon entropy computed but not used as uncertainty)
 """
 
 from __future__ import annotations

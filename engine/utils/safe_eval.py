@@ -48,6 +48,10 @@ _SAFE_FUNCS = {
 }
 
 
+_MAX_EVAL_DEPTH = 20
+_MAX_POW_EXPONENT = 100
+
+
 def safe_eval(expression: str, context: dict[str, Any]) -> Any:
     """
     Evaluate a simple algebraic expression with variable substitution.
@@ -59,33 +63,49 @@ def safe_eval(expression: str, context: dict[str, Any]) -> Any:
     return _eval_node(tree.body, context)
 
 
-def _eval_node(node: ast.AST, ctx: dict[str, Any]) -> Any:
+def _eval_node(node: ast.AST, ctx: dict[str, Any], depth: int = 0) -> Any:
+    if depth > _MAX_EVAL_DEPTH:
+        msg = f"Expression too deeply nested (max depth {_MAX_EVAL_DEPTH})"
+        raise ValueError(msg)
     if isinstance(node, ast.Constant):
         if not isinstance(node.value, (int, float)):
-            raise ValueError(f"Only numeric constants allowed, got {type(node.value).__name__}")
+            msg = f"Only numeric constants allowed, got {type(node.value).__name__}"
+            raise ValueError(msg)
         return node.value
     if isinstance(node, ast.Name):
         if node.id in _SAFE_FUNCS:
             return _SAFE_FUNCS[node.id]
         if node.id not in ctx:
-            raise ValueError(f"Unknown variable: {node.id!r}")
+            msg = f"Unknown variable: {node.id!r}"
+            raise ValueError(msg)
         return ctx[node.id]
     if isinstance(node, ast.BinOp):
         bin_op_type = type(node.op)
         if bin_op_type not in _SAFE_BINARY_OPS:
-            raise ValueError(f"Unsupported operator: {bin_op_type.__name__}")
+            msg = f"Unsupported operator: {bin_op_type.__name__}"
+            raise ValueError(msg)
+        if isinstance(node.op, ast.Pow):
+            base = _eval_node(node.left, ctx, depth + 1)
+            exp = _eval_node(node.right, ctx, depth + 1)
+            if abs(exp) > _MAX_POW_EXPONENT:
+                msg = f"Exponent too large: {exp} (max {_MAX_POW_EXPONENT})"
+                raise ValueError(msg)
+            return operator.pow(base, exp)
         bin_op_func = _SAFE_BINARY_OPS[bin_op_type]
-        return bin_op_func(_eval_node(node.left, ctx), _eval_node(node.right, ctx))
+        return bin_op_func(_eval_node(node.left, ctx, depth + 1), _eval_node(node.right, ctx, depth + 1))
     if isinstance(node, ast.UnaryOp):
         unary_op_type = type(node.op)
         if unary_op_type not in _SAFE_UNARY_OPS:
-            raise ValueError(f"Unsupported unary operator: {unary_op_type.__name__}")
+            msg = f"Unsupported unary operator: {unary_op_type.__name__}"
+            raise ValueError(msg)
         unary_op_func = _SAFE_UNARY_OPS[unary_op_type]
-        return unary_op_func(_eval_node(node.operand, ctx))
+        return unary_op_func(_eval_node(node.operand, ctx, depth + 1))
     if isinstance(node, ast.Call):
-        func = _eval_node(node.func, ctx)
+        func = _eval_node(node.func, ctx, depth + 1)
         if func not in _SAFE_FUNCS.values():
-            raise ValueError(f"Function not whitelisted: {ast.dump(node.func)}")
-        args = [_eval_node(a, ctx) for a in node.args]
+            msg = f"Function not whitelisted: {ast.dump(node.func)}"
+            raise ValueError(msg)
+        args = [_eval_node(a, ctx, depth + 1) for a in node.args]
         return func(*args)
-    raise ValueError(f"Disallowed expression node: {type(node).__name__}")
+    msg = f"Disallowed expression node: {type(node).__name__}"
+    raise ValueError(msg)

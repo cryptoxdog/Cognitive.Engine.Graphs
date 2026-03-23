@@ -38,8 +38,8 @@ print('Neo4j ready')
     done
 fi
 
-# Launch uvicorn — chassis.app:create_app resolves engine via L9_LIFECYCLE_HOOK
-exec uvicorn chassis.app:create_app \
+# Launch uvicorn — chassis.chassis_app:create_app resolves engine via L9_LIFECYCLE_HOOK
+exec uvicorn chassis.chassis_app:create_app \
     --factory \
     --host 0.0.0.0 \
     --port ${API_PORT:-8000} \
