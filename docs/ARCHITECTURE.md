@@ -38,6 +38,15 @@ The Graph Cognitive Engine is a multi-domain matching system that performs gate-
 ## Deployment
 [... Docker, Terraform, Railway/ArgoCD flow ...]
 
+## Intelligence Layer
+
+The engine includes an additive intelligence layer comprising outcome-based feedback loops, causal edge attribution, entity resolution, and counterfactual scenario generation. These subsystems learn from transaction outcomes to continuously refine matching quality — adjusting signal weights, surfacing causal relationships, deduplicating entities, and generating "what-if" insights.
+
+These subsystems are additive — they enhance but do not replace the gate-then-score architecture. Disabling any intelligence feature returns the engine to its base matching behavior with zero overhead.
+
+- **Full architecture:** [INTELLIGENCE_ARCHITECTURE.md](../INTELLIGENCE_ARCHITECTURE.md)
+- **Configuration & flag reference:** [FEATURE_FLAGS.md](FEATURE_FLAGS.md)
+
 ## References
 - L9 Platform Architecture: Single ingress contract, chassis modules
 - L9 Infrastructure Reference: PacketEnvelope schema, memory substrate
