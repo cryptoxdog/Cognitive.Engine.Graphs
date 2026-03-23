@@ -123,6 +123,7 @@ ontology:
 
     - label: PolymerFamily
       managedby: static
+      taxonomy: true
       description: Polymer type taxonomy
       properties:
         - name: code
@@ -135,6 +136,7 @@ ontology:
 
     - label: MaterialForm
       managedby: static
+      taxonomy: true
       description: Physical form of material (pellet, flake, regrind)
       properties:
         - name: form_id
@@ -271,15 +273,12 @@ gates:
       - intake_to_buyer
     description: Facility must have capacity for requested volume
 
-  # NOTE: Exclusion gate disabled - requires query entity node in graph
-  # to check for EXCLUDED_FROM edges. Will re-enable when buyer entity
-  # is passed as a node reference rather than just parameters.
-  # - name: exclusion_check
-  #   type: exclusion
-  #   edgetype: EXCLUDED_FROM
-  #   matchdirections:
-  #     - intake_to_buyer
-  #   description: Exclude facilities on buyer's blacklist
+  - name: exclusion_check
+    type: exclusion
+    edgetype: EXCLUDED_FROM
+    matchdirections:
+      - intake_to_buyer
+    description: Exclude facilities on buyer's blacklist
 
 scoring:
   dimensions:
@@ -287,7 +286,7 @@ scoring:
       source: candidateproperty
       computation: geodecay
       candidateprop: lat
-      queryprop: lat
+      queryprop: lon
       decayconstant: 800000.0
       weightkey: w_geo
       defaultweight: 0.25
@@ -331,6 +330,7 @@ scoring:
       source: candidateproperty
       computation: weightedrate
       candidateprop: rate_per_ton
+      queryprop: rate_confidence
       weightkey: w_rate
       defaultweight: 0.15
       matchdirections:
@@ -358,17 +358,17 @@ scoring:
 
 sync:
   endpoints:
-    - path: /sync/facility
+    - path: /v1/sync/facilities
       targetnode: Facility
       idproperty: facility_id
       batchstrategy: UNWINDMERGE
 
-    - path: /sync/polymerfamily
+    - path: /v1/sync/polymerfamilies
       targetnode: PolymerFamily
       idproperty: code
       batchstrategy: UNWINDMERGE
 
-    - path: /sync/materialform
+    - path: /v1/sync/materialforms
       targetnode: MaterialForm
       idproperty: form_id
       batchstrategy: UNWINDMERGE
@@ -399,23 +399,12 @@ gdsjobs:
     writeedge: SIMILAR_TO
 
 compliance:
-  regimes:
-    - name: general
-      description: General compliance for plastics recycling marketplace
+  regimes: []
   prohibitedfactors:
     enabled: true
     blockedfields: []
-    enforcement: compiletime
-    auditonviolation: true
   audit:
     enabled: true
-    logmatchrequests: true
-    logmatchresults: true
-    logsyncoperations: true
-    logadminoperations: true
-    retentiondays: 90
   pii:
-    enabled: false
     fields: []
     handling: redact
-    encryptionkeysource: env
