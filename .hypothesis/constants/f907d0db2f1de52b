@@ -1,0 +1,4 @@
+# file: /Users/ib-mac/Dropbox/Repo_Dropbox_IB/Graph Cognitive Engine/engine/health/gap_prioritizer.py
+# hypothesis_version: 6.151.6
+
+[0.0, 1.0, 100, 365, 400, 800, 1000, 'input_fields', 'output_field', 'rule_id']

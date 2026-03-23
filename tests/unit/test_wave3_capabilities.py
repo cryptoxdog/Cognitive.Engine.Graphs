@@ -23,14 +23,13 @@ from __future__ import annotations
 import base64
 import json
 import time
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
 from engine.auth.capabilities import (
     ACTION_PERMISSION_MAP,
     Capability,
-    CapabilityDerivation,
     CapabilitySet,
     CapabilityValidator,
     check_action_permission,
@@ -38,7 +37,6 @@ from engine.auth.capabilities import (
     reset_capability_validator,
 )
 from engine.config.schema import CapabilitySpec, DomainSpec
-
 
 # ═══════════════════════════════════════════════════════════════════
 #  Fixtures
@@ -121,9 +119,11 @@ class TestTenantAuthEnforcement:
         from chassis.auth.auth import _decode_jwt_payload
 
         header = base64.urlsafe_b64encode(json.dumps({"alg": "HS256"}).encode()).rstrip(b"=").decode()
-        payload = base64.urlsafe_b64encode(
-            json.dumps({"sub": "user1", "allowed_tenants": ["acme", "globex"]}).encode()
-        ).rstrip(b"=").decode()
+        payload = (
+            base64.urlsafe_b64encode(json.dumps({"sub": "user1", "allowed_tenants": ["acme", "globex"]}).encode())
+            .rstrip(b"=")
+            .decode()
+        )
         sig = base64.urlsafe_b64encode(b"signature").rstrip(b"=").decode()
         token = f"{header}.{payload}.{sig}"
 
@@ -148,7 +148,9 @@ class TestTenantAuthEnforcement:
         """_validate_tenant_access rejects tenant not in allowed_tenants."""
         from engine.handlers import ValidationError, _validate_tenant_access
 
-        with patch("engine.handlers._tenant_allowlist", None):
+        mock_state = MagicMock()
+        mock_state.tenant_allowlist = None
+        with patch("engine.handlers.get_state", return_value=mock_state):
             with patch("engine.config.settings.settings") as mock_settings:
                 mock_settings.tenant_auth_enabled = True
                 with pytest.raises(ValidationError, match="not in JWT allowed_tenants"):
@@ -158,7 +160,9 @@ class TestTenantAuthEnforcement:
         """_validate_tenant_access passes when tenant is in allowed_tenants."""
         from engine.handlers import _validate_tenant_access
 
-        with patch("engine.handlers._tenant_allowlist", None):
+        mock_state = MagicMock()
+        mock_state.tenant_allowlist = None
+        with patch("engine.handlers.get_state", return_value=mock_state):
             with patch("engine.config.settings.settings") as mock_settings:
                 mock_settings.tenant_auth_enabled = True
                 # Should not raise
@@ -168,7 +172,9 @@ class TestTenantAuthEnforcement:
         """Wildcard * in allowed_tenants allows any tenant."""
         from engine.handlers import _validate_tenant_access
 
-        with patch("engine.handlers._tenant_allowlist", None):
+        mock_state = MagicMock()
+        mock_state.tenant_allowlist = None
+        with patch("engine.handlers.get_state", return_value=mock_state):
             with patch("engine.config.settings.settings") as mock_settings:
                 mock_settings.tenant_auth_enabled = True
                 _validate_tenant_access("anything", "match", allowed_tenants=["*"])
@@ -177,7 +183,9 @@ class TestTenantAuthEnforcement:
         """When tenant_auth_enabled is False, skip JWT check."""
         from engine.handlers import _validate_tenant_access
 
-        with patch("engine.handlers._tenant_allowlist", None):
+        mock_state = MagicMock()
+        mock_state.tenant_allowlist = None
+        with patch("engine.handlers.get_state", return_value=mock_state):
             with patch("engine.config.settings.settings") as mock_settings:
                 mock_settings.tenant_auth_enabled = False
                 _validate_tenant_access("evil_corp", "match", allowed_tenants=["acme"])
@@ -284,14 +292,10 @@ class TestCapabilityValidator:
 
     def test_derive_monotonicity_domain(self, validator: CapabilityValidator):
         """Child cannot have a different domain than parent (unless parent is wildcard)."""
-        parent = Capability(
-            tenant_id="acme", domain_id="plasticos", allowed_actions=frozenset({"match:read"})
-        )
+        parent = Capability(tenant_id="acme", domain_id="plasticos", allowed_actions=frozenset({"match:read"}))
         validator.register(parent)
         with pytest.raises(PermissionError, match="Monotonicity violation"):
-            validator.derive_capability(
-                parent, scope_restriction={"domain_id": "other_domain"}
-            )
+            validator.derive_capability(parent, scope_restriction={"domain_id": "other_domain"})
 
     def test_derive_monotonicity_actions(self, validator: CapabilityValidator, root_capability: Capability):
         """Child cannot have actions not in parent."""
@@ -325,12 +329,8 @@ class TestCapabilityValidator:
     def test_revoke_recursive(self, validator: CapabilityValidator, root_capability: Capability):
         """Revoking parent also revokes all descendants."""
         validator.register(root_capability)
-        child = validator.derive_capability(
-            root_capability, scope_restriction={"allowed_actions": ["match:read"]}
-        )
-        grandchild = validator.derive_capability(
-            child, scope_restriction={"allowed_actions": ["match:read"]}
-        )
+        child = validator.derive_capability(root_capability, scope_restriction={"allowed_actions": ["match:read"]})
+        grandchild = validator.derive_capability(child, scope_restriction={"allowed_actions": ["match:read"]})
 
         assert child.is_active()
         assert grandchild.is_active()
@@ -347,12 +347,8 @@ class TestCapabilityValidator:
 
     def test_check_derivation_chain(self, validator: CapabilityValidator, root_capability: Capability):
         validator.register(root_capability)
-        child = validator.derive_capability(
-            root_capability, scope_restriction={"allowed_actions": ["match:read"]}
-        )
-        grandchild = validator.derive_capability(
-            child, scope_restriction={"allowed_actions": ["match:read"]}
-        )
+        child = validator.derive_capability(root_capability, scope_restriction={"allowed_actions": ["match:read"]})
+        grandchild = validator.derive_capability(child, scope_restriction={"allowed_actions": ["match:read"]})
 
         chain = validator.check_derivation_chain(grandchild)
         assert len(chain) == 3
@@ -362,9 +358,7 @@ class TestCapabilityValidator:
 
     def test_audit_summary(self, validator: CapabilityValidator, root_capability: Capability):
         validator.register(root_capability)
-        child = validator.derive_capability(
-            root_capability, scope_restriction={"allowed_actions": ["match:read"]}
-        )
+        child = validator.derive_capability(root_capability, scope_restriction={"allowed_actions": ["match:read"]})
 
         summary = validator.audit_summary()
         assert summary["total_registered"] == 2
@@ -535,12 +529,8 @@ class TestDelegationAudit:
     def test_revoke_parent_cascades(self, validator: CapabilityValidator, root_capability: Capability):
         """Revoking parent invalidates all descendants."""
         validator.register(root_capability)
-        c1 = validator.derive_capability(
-            root_capability, scope_restriction={"allowed_actions": ["match:read"]}
-        )
-        c2 = validator.derive_capability(
-            c1, scope_restriction={"allowed_actions": ["match:read"]}
-        )
+        c1 = validator.derive_capability(root_capability, scope_restriction={"allowed_actions": ["match:read"]})
+        c2 = validator.derive_capability(c1, scope_restriction={"allowed_actions": ["match:read"]})
 
         assert c1.is_active()
         assert c2.is_active()
@@ -553,20 +543,14 @@ class TestDelegationAudit:
     def test_derivation_recorded(self, validator: CapabilityValidator, root_capability: Capability):
         """Derivation is tracked for audit purposes."""
         validator.register(root_capability)
-        child = validator.derive_capability(
-            root_capability, scope_restriction={"allowed_actions": ["match:read"]}
-        )
+        child = validator.derive_capability(root_capability, scope_restriction={"allowed_actions": ["match:read"]})
         assert child.capability_id in validator._derivations
         derivation = validator._derivations[child.capability_id]
         assert derivation.parent_capability.capability_id == root_capability.capability_id
 
-    def test_audit_summary_after_revocation(
-        self, validator: CapabilityValidator, root_capability: Capability
-    ):
+    def test_audit_summary_after_revocation(self, validator: CapabilityValidator, root_capability: Capability):
         validator.register(root_capability)
-        child = validator.derive_capability(
-            root_capability, scope_restriction={"allowed_actions": ["match:read"]}
-        )
+        child = validator.derive_capability(root_capability, scope_restriction={"allowed_actions": ["match:read"]})
         validator.revoke_capability(root_capability.capability_id)
 
         summary = validator.audit_summary()

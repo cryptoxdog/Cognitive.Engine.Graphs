@@ -1,0 +1,4 @@
+# file: /Users/ib-mac/Dropbox/Repo_Dropbox_IB/Graph Cognitive Engine/engine/config/settings.py
+# hypothesis_version: 6.151.6
+
+[0.05, 0.1, 0.2, 0.25, 0.3, 0.6, 0.7, 0.92, 5.0, 90.0, 180.0, 365.0, 800.0, 256, 3600, 8000, './domains', '.env', 'INFO', 'Settings', 'after', 'dev', 'ignore', 'l9-engine', 'neo4j', 'password', 'prod', 'utf-8']

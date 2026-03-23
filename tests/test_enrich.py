@@ -267,9 +267,10 @@ class TestHandleHealthcheck:
     @pytest.mark.asyncio
     async def test_healthcheck_degraded_on_neo4j_failure(self) -> None:
         """healthcheck returns degraded when Neo4j fails."""
-        from engine.handlers import _graph_driver
+        from engine.state import get_state
 
-        _graph_driver.execute_query = AsyncMock(side_effect=ConnectionError("refused"))
+        state = get_state()
+        state.graph_driver.execute_query = AsyncMock(side_effect=ConnectionError("refused"))
         result = await handle_healthcheck("test_tenant", {})
         assert result["status"] == "degraded"
         assert "error" in result["checks"]["neo4j"]

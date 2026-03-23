@@ -1,0 +1,4 @@
+# file: /Users/ib-mac/Dropbox/Repo_Dropbox_IB/Graph Cognitive Engine/engine/kge/beam_search.py
+# hypothesis_version: 6.151.6
+
+[-1.0, -0.5, 0.0, 0.005, 0.1, 0.25, 0.3, 0.5, 0.7, 0.75, 0.8, 1.0, 1.25, 1.5, 2.0, 100, 'a', 'after_pruning', 'angle', 'audit_trail', 'axis', 'axis_x', 'axis_y', 'axis_z', 'b', 'beam_size', 'beam_width', 'c', 'combined', 'constraint', 'd', 'depth', 'depth_levels', 'diversity', 'factor', 'flip', 'generated', 'hyperplane', 'id', 'identity', 'kge_enabled=False', 'max_depth', 'offset_x', 'offset_y', 'offset_z', 'params', 'parent_id', 'prune_strategy', 'pruned', 'reason', 'rotation', 'scale', 'score', 'score_threshold', 'search_config', 'skipped', 'status', 'top_score', 'translation', 'type', 'variants']

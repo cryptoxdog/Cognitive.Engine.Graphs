@@ -234,9 +234,10 @@ async def test_health_ok() -> None:
 
 @pytest.mark.asyncio
 async def test_health_degraded() -> None:
-    from engine.handlers import _graph_driver
+    from engine.state import get_state
 
-    _graph_driver.execute_query = AsyncMock(side_effect=ConnectionError("refused"))
+    state = get_state()
+    state.graph_driver.execute_query = AsyncMock(side_effect=ConnectionError("refused"))
     result = await handle_health("t", {})
     assert result["status"] == "degraded"
 
@@ -245,11 +246,12 @@ async def test_health_degraded() -> None:
 async def test_health_neo4j_ok_domain_missing_tenant_but_packs_available() -> None:
     """Health is degraded (not errored) when tenant spec is absent but other packs exist."""
     from engine.config.loader import DomainNotFoundError
-    from engine.handlers import _domain_loader, _graph_driver
+    from engine.state import get_state
 
-    _graph_driver.execute_query = AsyncMock(return_value=None)
-    _domain_loader.load_domain = MagicMock(side_effect=DomainNotFoundError("not found"))
-    _domain_loader.list_domains = MagicMock(return_value=["plasticos"])
+    state = get_state()
+    state.graph_driver.execute_query = AsyncMock(return_value=None)
+    state.domain_loader.load_domain = MagicMock(side_effect=DomainNotFoundError("not found"))
+    state.domain_loader.list_domains = MagicMock(return_value=["plasticos"])
 
     result = await handle_health("unknown-tenant", {})
 
@@ -264,11 +266,12 @@ async def test_health_neo4j_ok_domain_missing_tenant_but_packs_available() -> No
 async def test_health_neo4j_ok_no_domains_at_all() -> None:
     """Health is degraded when no domain packs are configured."""
     from engine.config.loader import DomainNotFoundError
-    from engine.handlers import _domain_loader, _graph_driver
+    from engine.state import get_state
 
-    _graph_driver.execute_query = AsyncMock(return_value=None)
-    _domain_loader.load_domain = MagicMock(side_effect=DomainNotFoundError("not found"))
-    _domain_loader.list_domains = MagicMock(return_value=[])
+    state = get_state()
+    state.graph_driver.execute_query = AsyncMock(return_value=None)
+    state.domain_loader.load_domain = MagicMock(side_effect=DomainNotFoundError("not found"))
+    state.domain_loader.list_domains = MagicMock(return_value=[])
 
     result = await handle_health("plasticos", {})
 
@@ -279,9 +282,10 @@ async def test_health_neo4j_ok_no_domains_at_all() -> None:
 @pytest.mark.asyncio
 async def test_health_neo4j_connection_failed() -> None:
     """Neo4j unreachable reports degraded with connection_failed check."""
-    from engine.handlers import _graph_driver
+    from engine.state import get_state
 
-    _graph_driver.execute_query = AsyncMock(side_effect=OSError("refused"))
+    state = get_state()
+    state.graph_driver.execute_query = AsyncMock(side_effect=OSError("refused"))
 
     result = await handle_health("plasticos", {})
 

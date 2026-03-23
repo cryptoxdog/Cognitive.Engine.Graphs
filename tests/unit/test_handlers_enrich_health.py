@@ -177,15 +177,22 @@ class TestHandleHealthcheck:
     @pytest.mark.asyncio
     async def test_healthcheck_returns_status(self) -> None:
         """handle_healthcheck should return health status dict."""
-        from unittest.mock import AsyncMock, MagicMock, patch
+        from unittest.mock import AsyncMock, MagicMock
 
+        from engine.state import get_state, _reset_singleton
+
+        _reset_singleton()
         mock_driver = MagicMock()
         mock_driver.execute_query = AsyncMock(return_value=[{"ping": 1}])
 
         mock_loader = MagicMock()
         mock_loader.load_domain.return_value = MagicMock()
 
-        with patch("engine.handlers._graph_driver", mock_driver), patch("engine.handlers._domain_loader", mock_loader):
+        state = get_state()
+        state._graph_driver = mock_driver
+        state._domain_loader = mock_loader
+        state._initialized = True
+        try:
             from engine.handlers import handle_healthcheck
 
             result = await handle_healthcheck("test_tenant", {})
@@ -194,6 +201,8 @@ class TestHandleHealthcheck:
             assert result["status"] == "healthy"
             assert "checks" in result
             assert "neo4j" in result["checks"]
+        finally:
+            _reset_singleton()
 
 
 class TestHandleEnrich:
@@ -202,28 +211,44 @@ class TestHandleEnrich:
     @pytest.mark.asyncio
     async def test_enrich_requires_entity_type(self) -> None:
         """handle_enrich should require entity_type in payload."""
-        from unittest.mock import MagicMock, patch
+        from unittest.mock import MagicMock
 
+        from engine.state import get_state, _reset_singleton
+
+        _reset_singleton()
         mock_driver = MagicMock()
         mock_loader = MagicMock()
         mock_loader.load_domain.return_value = MagicMock()
 
-        with patch("engine.handlers._graph_driver", mock_driver), patch("engine.handlers._domain_loader", mock_loader):
+        state = get_state()
+        state._graph_driver = mock_driver
+        state._domain_loader = mock_loader
+        state._initialized = True
+        try:
             from engine.handlers import handle_enrich
 
             with pytest.raises(ValidationError, match="entity_type required"):
                 await handle_enrich("test_tenant", {})
+        finally:
+            _reset_singleton()
 
     @pytest.mark.asyncio
     async def test_enrich_returns_zero_for_empty_enrichments(self) -> None:
         """handle_enrich should return 0 count for empty enrichments."""
-        from unittest.mock import MagicMock, patch
+        from unittest.mock import MagicMock
 
+        from engine.state import get_state, _reset_singleton
+
+        _reset_singleton()
         mock_driver = MagicMock()
         mock_loader = MagicMock()
         mock_loader.load_domain.return_value = MagicMock()
 
-        with patch("engine.handlers._graph_driver", mock_driver), patch("engine.handlers._domain_loader", mock_loader):
+        state = get_state()
+        state._graph_driver = mock_driver
+        state._domain_loader = mock_loader
+        state._initialized = True
+        try:
             from engine.handlers import handle_enrich
 
             result = await handle_enrich(
@@ -236,17 +261,26 @@ class TestHandleEnrich:
 
             assert result["enriched_count"] == 0
             assert result["entity_type"] == "Facility"
+        finally:
+            _reset_singleton()
 
     @pytest.mark.asyncio
     async def test_enrich_validates_expressions(self) -> None:
         """handle_enrich should validate expressions before execution."""
-        from unittest.mock import MagicMock, patch
+        from unittest.mock import MagicMock
 
+        from engine.state import get_state, _reset_singleton
+
+        _reset_singleton()
         mock_driver = MagicMock()
         mock_loader = MagicMock()
         mock_loader.load_domain.return_value = MagicMock()
 
-        with patch("engine.handlers._graph_driver", mock_driver), patch("engine.handlers._domain_loader", mock_loader):
+        state = get_state()
+        state._graph_driver = mock_driver
+        state._domain_loader = mock_loader
+        state._initialized = True
+        try:
             from engine.handlers import handle_enrich
 
             with pytest.raises(ValidationError, match="Forbidden keyword 'call'"):
@@ -259,12 +293,17 @@ class TestHandleEnrich:
                         ],
                     },
                 )
+        finally:
+            _reset_singleton()
 
     @pytest.mark.asyncio
     async def test_enrich_executes_valid_enrichment(self) -> None:
         """handle_enrich should execute valid enrichments."""
-        from unittest.mock import AsyncMock, MagicMock, patch
+        from unittest.mock import AsyncMock, MagicMock
 
+        from engine.state import get_state, _reset_singleton
+
+        _reset_singleton()
         mock_driver = MagicMock()
         mock_driver.execute_query = AsyncMock(return_value=[{"enriched_count": 5}])
 
@@ -274,7 +313,11 @@ class TestHandleEnrich:
         mock_loader = MagicMock()
         mock_loader.load_domain.return_value = mock_spec
 
-        with patch("engine.handlers._graph_driver", mock_driver), patch("engine.handlers._domain_loader", mock_loader):
+        state = get_state()
+        state._graph_driver = mock_driver
+        state._domain_loader = mock_loader
+        state._initialized = True
+        try:
             from engine.handlers import handle_enrich
 
             result = await handle_enrich(
@@ -290,3 +333,5 @@ class TestHandleEnrich:
             assert result["enriched_count"] == 5
             assert result["entity_type"] == "Facility"
             mock_driver.execute_query.assert_called_once()
+        finally:
+            _reset_singleton()

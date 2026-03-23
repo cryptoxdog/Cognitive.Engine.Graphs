@@ -1,0 +1,4 @@
+# file: /Users/ib-mac/Dropbox/Repo_Dropbox_IB/Graph Cognitive Engine/engine/config/loader.py
+# hypothesis_version: 6.151.6
+
+[1024, '\x00', '100', '30', 'DOMAIN_SPECS_PATH', '_async_locks', 'domains', 'spec.yaml', 'utf-8']

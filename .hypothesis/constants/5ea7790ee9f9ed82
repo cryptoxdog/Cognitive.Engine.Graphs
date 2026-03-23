@@ -1,0 +1,4 @@
+# file: /Users/ib-mac/Dropbox/Repo_Dropbox_IB/Graph Cognitive Engine/engine/health/readiness_scorer.py
+# hypothesis_version: 6.151.6
+
+[0.0, 0.05, 0.1, 0.25, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 100, 365, 'A', 'B', 'C', 'D', 'F', 'enrich_gates_first', 'input_fields']

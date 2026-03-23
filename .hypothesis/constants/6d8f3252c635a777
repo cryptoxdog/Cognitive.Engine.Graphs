@@ -1,0 +1,4 @@
+# file: /Users/ib-mac/Dropbox/Repo_Dropbox_IB/Graph Cognitive Engine/engine/causal/edge_taxonomy.py
+# hypothesis_version: 6.151.6
+
+[0.0, 1.0, 'ACCELERATED_BY', 'BLOCKED_BY', 'CAUSED_BY', 'CONTRIBUTED_TO', 'DROVE', 'ENABLED_BY', 'INFLUENCED_BY', 'PREVENTED_BY', 'RESULTED_IN', 'TRIGGERED', 'confidence', 'mechanism']
