@@ -1,0 +1,619 @@
+# ============================================================================
+# DORA META - AUTO-GENERATED
+# ============================================================================
+# component_name: "Gmp-Contract"
+# module_version: "1.0.0"
+# created_by: "Igor Beylin"
+# created_at: "2026-01-18T17:12:30Z"
+# updated_at: "2026-01-20T22:37:42Z"
+# layer: "intelligence"
+# domain: "agent_execution"
+# file_name: "gmp-contract"
+# type: "utility"
+# status: "active"
+# ============================================================================
+
+# ============================================================================
+# GMP CONTRACT v3.2.0 — L9 CANONICAL ENFORCEMENT SPECIFICATION
+# ============================================================================
+# Purpose: Machine-readable contract for enforcing GMP phase compliance
+# Status: PRODUCTION READY
+# Updated: 2026-01-18
+# ============================================================================
+
+contract:
+  name: "L9 GMP Contract"
+  version: "3.2.0"
+  status: "active"
+  created: "2026-01-18T00:00:00Z"
+  author: "L9 Governance System"
+
+# ============================================================================
+# PHASE DEFINITIONS (0-6)
+# ============================================================================
+
+phases:
+  - id: 0
+    name: "PLANNING"
+    emoji: "⚙️"
+    required: true
+    time_budget: "5-10 minutes"
+    purpose: "Lock TODO plan, establish scope"
+
+    inputs:
+      - "User request or task description"
+      - "Relevant codebase files"
+      - "Relevant ADRs from readme/adr/ (MANDATORY - per ADR-0035)"
+
+    outputs:
+      required:
+        - "TODO_PLAN_LOCKED"
+        - "SCOPE_BOUNDARIES"
+        - "FORBIDDEN_AREAS"
+        - "ADRS_CONSULTED"
+      optional:
+        - "RISK_ASSESSMENT"
+        - "DEPENDENCY_MAP"
+
+    actions:
+      - "Read relevant ADRs (readme/adr/*.md) for patterns and constraints"
+      - "Extract copy-paste templates from ADRs (per config/schemas/adr_schema.yaml)"
+      - "Analyze problem statement"
+      - "Read relevant codebase files (no changes)"
+      - "Identify dependencies"
+      - "Decompose into atomic TODO items"
+      - "Document constraints and risks"
+      - "Create locked TODO list"
+
+    checklist:
+      - id: "P0-01"
+        check: "Plan is written in detail"
+        required: true
+      - id: "P0-02"
+        check: "No ambiguity remains"
+        required: true
+      - id: "P0-03"
+        check: "Every TODO item is observable"
+        required: true
+      - id: "P0-04"
+        check: "User has approved the plan"
+        required: true
+      - id: "P0-05"
+        check: "Each TODO has: file, operation, anchor, description"
+        required: true
+      - id: "P0-06"
+        check: "No protected files in scope (or explicit approval)"
+        required: true
+      - id: "P0-07"
+        check: "Relevant ADRs read and listed (readme/adr/)"
+        required: true
+      - id: "P0-08"
+        check: "Code templates extracted from ADRs for reuse"
+        required: true
+
+    fail_rule: "If any checkpoint fails: STOP. Re-run Phase 0."
+    next_phase: 1
+
+  - id: 1
+    name: "BASELINE"
+    emoji: "✓"
+    required: true
+    time_budget: "2-5 minutes"
+    purpose: "Verify assumptions, establish ground truth"
+
+    inputs:
+      - "TODO_PLAN_LOCKED from Phase 0"
+      - "Target files"
+
+    outputs:
+      required:
+        - "BASELINE_VERIFIED"
+        - "ASSUMPTIONS_CHECKLIST"
+      optional:
+        - "DEVIATIONS_LOG"
+
+    actions:
+      - "Read all target files exactly as they exist"
+      - "Verify every assumption from Phase 0"
+      - "Note actual state"
+      - "Document any deviations"
+
+    checklist:
+      - id: "P1-01"
+        check: "All TODO targets exist at exact paths"
+        required: true
+      - id: "P1-02"
+        check: "Line numbers or sections match reality"
+        required: true
+      - id: "P1-03"
+        check: "No blocking dependencies"
+        required: true
+      - id: "P1-04"
+        check: "All assumptions verified"
+        required: true
+
+    fail_rule: "If ANY assumption fails: STOP. Report. Re-run Phase 0."
+    next_phase: 2
+
+  - id: 2
+    name: "IMPLEMENTATION"
+    emoji: "🔧"
+    required: true
+    time_budget: "10-30 minutes"
+    purpose: "Execute locked TODO plan"
+
+    inputs:
+      - "TODO_PLAN_LOCKED from Phase 0"
+      - "BASELINE_VERIFIED from Phase 1"
+
+    outputs:
+      required:
+        - "IMPLEMENTATION_COMPLETE"
+        - "FILE_MODIFICATIONS_LOG"
+        - "TODO_COMPLETION_MAP"
+
+    actions:
+      - "Execute exact TODO changes only"
+      - "Record file paths + line ranges for all changes"
+      - "Verify each change immediately"
+      - "No changes outside TODO scope"
+
+    constraints:
+      forbidden:
+        - "Refactoring code not in plan"
+        - "Improvements to unrelated sections"
+        - "New design patterns or abstractions"
+        - "Changing code in Forbidden Areas"
+      required:
+        - "Preserve indentation, style, structure"
+        - "Use exact same coding style as surrounding code"
+
+    checklist:
+      - id: "P2-01"
+        check: "All TODO items complete"
+        required: true
+      - id: "P2-02"
+        check: "All changes match Phase 0 plan exactly"
+        required: true
+      - id: "P2-03"
+        check: "No forbidden areas modified"
+        required: true
+      - id: "P2-04"
+        check: "File structure preserved"
+        required: true
+      - id: "P2-05"
+        check: "No new imports added that weren't planned"
+        required: true
+
+    fail_rule: "If implementation deviates: STOP. Revert. Re-run Phase 0."
+    next_phase: 3
+
+  - id: 3
+    name: "ENFORCEMENT"
+    emoji: "🛡️"
+    required: true
+    time_budget: "10-20 minutes"
+    purpose: "Add guards, fail-fast conditions, validation"
+
+    inputs:
+      - "IMPLEMENTATION_COMPLETE from Phase 2"
+
+    outputs:
+      required:
+        - "GUARDS_ADDED"
+        - "FAIL_FAST_CONDITIONS"
+      optional:
+        - "ERROR_MESSAGES_IMPROVED"
+        - "TYPE_HINTS_ADDED"
+
+    actions:
+      - "Add assertions that would fail if behavior regressed"
+      - "Add comments explaining 'why' for future maintainers"
+      - "Add fail-fast conditions"
+      - "Add meaningful error messages"
+      - "Add defensive checks"
+
+    guards:
+      code_changes:
+        - "Assertions for regression prevention"
+        - "Comments documenting 'why'"
+        - "Type hints if applicable"
+      config_changes:
+        - "Validation for required values"
+        - "Health checks or sanity assertions"
+      api_changes:
+        - "Input validation"
+        - "Error messages that guide users"
+        - "Logging for debugging"
+
+    checklist:
+      - id: "P3-01"
+        check: "Every fixed behavior has a guard or assertion"
+        required: true
+      - id: "P3-02"
+        check: "Removing the fix would cause visible failure"
+        required: true
+      - id: "P3-03"
+        check: "Comments explain the 'why' for future devs"
+        required: true
+      - id: "P3-04"
+        check: "Weak inputs fail predictably with good error message"
+        required: true
+      - id: "P3-05"
+        check: "Missing requirements fail early with guidance"
+        required: true
+      - id: "P3-06"
+        check: "All errors are meaningful (point to cause and fix)"
+        required: true
+
+    fail_rule: "If enforcement incomplete: STOP. Add guards. Re-run."
+    next_phase: 4
+
+  - id: 4
+    name: "VALIDATION"
+    emoji: "🔄"
+    required: true
+    time_budget: "10-15 minutes"
+    purpose: "Tests, edge cases, regression verification"
+
+    inputs:
+      - "GUARDS_ADDED from Phase 3"
+      - "TODO_PLAN_LOCKED from Phase 0"
+
+    outputs:
+      required:
+        - "TESTS_PASSED"
+        - "EDGE_CASES_HANDLED"
+        - "REGRESSION_VERIFIED"
+
+    actions:
+      - "Re-read entire Phase 0 plan"
+      - "Verify implementation matches plan exactly"
+      - "Test edge cases"
+      - "Check for unintended side effects"
+      - "Perform negative tests"
+      - "Perform regression tests"
+
+    tests:
+      positive:
+        - "Happy path works as expected"
+      negative:
+        - "Bad input fails gracefully"
+        - "Removing fix causes visible failure"
+      regression:
+        - "Original problem no longer exists"
+        - "All guards work correctly"
+        - "System functions normally"
+
+    checklist:
+      - id: "P4-01"
+        check: "Plan implementation is 100% complete"
+        required: true
+      - id: "P4-02"
+        check: "No TODO items are partially done"
+        required: true
+      - id: "P4-03"
+        check: "Edge cases handled or documented"
+        required: true
+      - id: "P4-04"
+        check: "Negative tests show expected failures"
+        required: true
+      - id: "P4-05"
+        check: "Regression tests pass"
+        required: true
+      - id: "P4-06"
+        check: "No new bugs detected"
+        required: true
+
+    fail_rule: "If ANY test fails: STOP. Fix issue. Re-run Phase 4."
+    next_phase: 5
+
+  - id: 5
+    name: "RECURSION"
+    emoji: "🔁"
+    required: true
+    time_budget: "5-10 minutes"
+    purpose: "Verify no scope drift, check invariants"
+
+    inputs:
+      - "TODO_PLAN_LOCKED from Phase 0"
+      - "FILE_MODIFICATIONS_LOG from Phase 2"
+      - "TESTS_PASSED from Phase 4"
+
+    outputs:
+      required:
+        - "SCOPE_VERIFIED"
+        - "INVARIANTS_PRESERVED"
+        - "NO_DRIFT_CONFIRMED"
+
+    actions:
+      - "Compare modified files to Phase 0 plan"
+      - "Check for scope creep"
+      - "Verify L9 invariants"
+      - "Consistency check"
+
+    invariants:
+      l9_core:
+        - "Protected files untouched"
+        - "Kernel entry points preserved"
+        - "Memory substrate intact"
+      architecture:
+        - "Naming conventions consistent"
+        - "Error handling matches codebase style"
+        - "Patterns align with L9 standards"
+
+    checklist:
+      - id: "P5-01"
+        check: "All changes align with Phase 0 plan"
+        required: true
+      - id: "P5-02"
+        check: "No additional changes beyond the plan"
+        required: true
+      - id: "P5-03"
+        check: "Only TODO-listed files modified"
+        required: true
+      - id: "P5-04"
+        check: "L9 invariants preserved"
+        required: true
+      - id: "P5-05"
+        check: "No protected systems modified"
+        required: true
+      - id: "P5-06"
+        check: "No scope drift detected"
+        required: true
+
+    fail_rule: "If scope drift detected: STOP. Fix. Re-run Phase 5."
+    next_phase: 6
+
+  - id: 6
+    name: "FINALIZATION"
+    emoji: "🏁"
+    required: true
+    time_budget: "5-10 minutes"
+    purpose: "Evidence report, final declaration"
+
+    inputs:
+      - "All outputs from Phases 0-5"
+
+    outputs:
+      required:
+        - "EVIDENCE_REPORT"
+        - "TODO_CHANGE_MAP"
+        - "FINAL_DECLARATION"
+      optional:
+        - "GMP_REPORT_FILE"
+
+    actions:
+      - "Generate evidence report"
+      - "Create TODO ID → Change mapping"
+      - "Document test results"
+      - "Write final declaration"
+      - "Save report (if applicable)"
+
+    report_sections:
+      - "Task description"
+      - "Status"
+      - "Phases executed"
+      - "Phase summaries"
+      - "Definition of Done checklist"
+      - "Explicit declaration"
+      - "Changes at a glance"
+      - "Verification instructions"
+
+    checklist:
+      - id: "P6-01"
+        check: "Evidence report generated"
+        required: true
+      - id: "P6-02"
+        check: "All TODOs mapped to changes"
+        required: true
+      - id: "P6-03"
+        check: "Test results documented"
+        required: true
+      - id: "P6-04"
+        check: "Final declaration written"
+        required: true
+
+    final_declaration: |
+      All phases (0–6) complete.
+      No assumptions. No drift.
+      Implementation matches locked Phase 0 plan exactly.
+      System is ready for deployment.
+
+    fail_rule: "If evidence incomplete: Complete report before declaring done."
+    next_phase: null # Terminal phase
+
+# ============================================================================
+# DEFINITION OF DONE
+# ============================================================================
+
+definition_of_done:
+  description: "The task is ONLY complete if ALL items are true"
+
+  required_conditions:
+    - id: "DOD-01"
+      condition: "Phase 0 plan created and locked"
+      phase: 0
+    - id: "DOD-02"
+      condition: "Phase 1 baseline confirmed (all assumptions pass)"
+      phase: 1
+    - id: "DOD-03"
+      condition: "Phase 2 implementation complete (matches plan exactly)"
+      phase: 2
+    - id: "DOD-04"
+      condition: "Phase 3 enforcement added (guards + fail-fast in place)"
+      phase: 3
+    - id: "DOD-05"
+      condition: "Phase 4 validation complete (all tests pass)"
+      phase: 4
+    - id: "DOD-06"
+      condition: "Phase 5 recursive verification complete (no scope drift)"
+      phase: 5
+    - id: "DOD-07"
+      condition: "Phase 6 finalization complete (evidence report generated)"
+      phase: 6
+    - id: "DOD-08"
+      condition: "All checklists passed (100%)"
+      phase: null
+    - id: "DOD-09"
+      condition: "No further changes justified"
+      phase: null
+    - id: "DOD-10"
+      condition: "System is deterministic and complete"
+      phase: null
+
+# ============================================================================
+# MODIFICATION LOCK
+# ============================================================================
+
+modification_lock:
+  description: "Absolute constraints on what may and may not be modified"
+
+  forbidden:
+    - "Modify files not in locked TODO plan"
+    - "Create files outside project scope"
+    - "Alter docker-compose.yml without explicit TODO"
+    - "Modify kernel_loader.py entry points without explicit TODO"
+    - "Modify memory substrate connections without explicit TODO"
+    - "Invent new abstractions or redesign unsolicited"
+    - "Add logging/comments/refactoring outside TODO scope"
+    - "Skip phases or assume partial completion"
+
+  allowed:
+    - "Implement exact changes in locked TODO plan"
+    - "Operate within phases 0–6 as defined"
+    - "Stop immediately if ambiguity detected"
+    - "Report results in canonical format"
+
+  violation_response: "If change requires violating MODIFICATION LOCK → It MUST fail at Phase 0"
+
+# ============================================================================
+# TIER CLASSIFICATION
+# ============================================================================
+
+tier_classification:
+  KERNEL_TIER:
+    description: "Kernels, executor, websocket orchestrator, memory substrate core"
+    gmp_modules: ["GMP-System", "GMP-Action", "GMP-Audit Canonical"]
+    examples:
+      - "kernel_loader.py"
+      - "executor.py"
+      - "websocket_orchestrator.py"
+      - "memory_substrate_service.py"
+
+  RUNTIME_TIER:
+    description: "Task queue, Redis client, rate limiter, tool registry, agents"
+    gmp_modules: ["GMP-Action", "Integration-Tests"]
+    examples:
+      - "task_queue.py"
+      - "redis_client.py"
+      - "tool_registry.py"
+      - "long_plan_graph.py"
+
+  INFRA_TIER:
+    description: "Docker-compose, infra, deploy, k8s, helm"
+    gmp_modules:
+      ["DEPLOYMENT_MANIFEST", "Wire-Orchestrators", "Critical-Path Tests"]
+    examples:
+      - "docker-compose.yml"
+      - "infra/**"
+      - "deploy/**"
+
+  UX_TIER:
+    description: "React/Next UI, TS client, docs, non-critical scripts"
+    gmp_modules: ["Unit-Test-Quality", "Generator"]
+    examples:
+      - "frontend/**"
+      - "docs/**"
+      - "scripts/**"
+
+# ============================================================================
+# PROTECTED FILES
+# ============================================================================
+
+protected_files:
+  description: "Files that require explicit approval before modification"
+
+  critical:
+    - path: "kernel_loader.py"
+      reason: "Kernel YAML loading - breaks all agent identity"
+    - path: "executor.py"
+      reason: "Core agent execution loop - must preserve packet logging"
+    - path: "websocket_orchestrator.py"
+      reason: "Real-time connection management - async safety required"
+    - path: "docker-compose.yml"
+      reason: "Infrastructure wiring - requires full stack testing"
+    - path: "memory_substrate_service.py"
+      reason: "Packet ingestion and memory DAG - mission critical"
+
+  modification_requirement: "Separate Phase 0 plan and dedicated GMP run required"
+
+# ============================================================================
+# FAIL RULES (GLOBAL)
+# ============================================================================
+
+fail_rules:
+  global:
+    - trigger: "Any checklist item cannot be marked with evidence"
+      action: "STOP immediately"
+      response: "Report exact gap + recovery options. User chooses next action."
+
+    - trigger: "Ambiguity detected in TODO plan"
+      action: "STOP immediately"
+      response: "Request clarification before proceeding"
+
+    - trigger: "Protected file in scope without approval"
+      action: "FAIL at Phase 0"
+      response: "User must provide explicit approval or revise scope"
+
+    - trigger: "Implementation deviates from locked plan"
+      action: "STOP immediately"
+      response: "Revert changes. Report deviation. Re-run Phase 0 if needed."
+
+# ============================================================================
+# ENFORCEMENT SIGNATURE
+# ============================================================================
+
+enforcement:
+  signature: |
+    By executing under this contract, the agent agrees:
+    ✓ TODO plans control scope (user locks changes before edits)
+    ✓ Phases control execution (0–6 mandatory sequence)
+    ✓ Evidence is mandatory (all checklist items require proof)
+    ✓ Quality gates upfront (production-grade guaranteed)
+    ✓ Ground truth per-query (re-verify files each response)
+    ✓ Drift is impossible (Phase 5 + MODIFICATION LOCK prevent it)
+    ✓ Failures are explicit (no silent partial success)
+
+  user_obligations:
+    - "Provide clear change requests"
+    - "Supply necessary context files"
+    - "Wait for locked TODO plan before approving edits"
+    - "Trust FINAL DECLARATION when all phases complete"
+
+# ============================================================================
+# METADATA
+# ============================================================================
+
+metadata:
+  schema_version: "1.0"
+  compatible_templates:
+    - "cursor-gmp-template.md v3.2.0"
+    - "cursor-phase-*.md v3.1.0+"
+  related_files:
+    - "cursor-gmp-template.md"
+    - "cursor-gmp-runbook.md"
+    - "cursor-phase-0-planning.md"
+    - "cursor-phase-1-baseline.md"
+    - "cursor-phase-2-implementation.md"
+    - "cursor-phase-3-enforcement.md"
+    - "cursor-phase-4-validation.md"
+    - "cursor-phase-5-recursion.md"
+    - "cursor-phase-6-finalization.md"
+# ============================================================================
+# DORA FOOTER - AUTO-GENERATED
+# ============================================================================
+# tags: ["agent-config", "agent-execution", "api-config", "configuration", "intelligence", "kernel", "redis-config", "schema"]
+# keywords: ["contract", "definition_of_done", "enforcement", "fail_rules", "gmp", "metadata"]
+# last_modified: "2026-01-20T22:37:42Z"
+# ============================================================================

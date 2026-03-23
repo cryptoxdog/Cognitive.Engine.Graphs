@@ -15,6 +15,16 @@
 # 20 contracts. Violate any → revert and ask.
 # ============================================================================
 
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# SESSION CONTEXT — EVERY CHAT / WINDOW (same workspace)
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# At the start of substantive work, read (or @-attach) both files so CEG identity,
+# engine boundaries, and governance stay aligned across Composer windows:
+#   - agents/cursor/cursor_system_prompt.md
+#   - agents/cursor/governance-reference.md
+# Memory CLI (health/search/write): requires MCP_API_KEY_C or L9_EXECUTOR_API_KEY in
+# repo-root .env and/or .env.local (loaded by agents/cursor/cursor_memory_client.py).
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # LAYER 1 — CHASSIS BOUNDARY (contracts 1–5)

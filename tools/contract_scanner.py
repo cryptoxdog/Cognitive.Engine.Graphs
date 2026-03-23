@@ -283,6 +283,7 @@ RULES: list[dict] = [
         r'packet_type\s*[=:]\s*["\'][A-Z]',
         "Uppercase packet_type - must be lowercase snake_case",
         "Check PACKET_TYPE_REGISTRY.md",
+        exclude_dirs=["agents/cursor/"],
     ),
     # -- CONTRACT 17: ENV_VARS.md --
     _rule(

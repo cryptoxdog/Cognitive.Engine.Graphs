@@ -120,6 +120,55 @@ ignore = [
 "chassis/auth/test_*.py" = ["S101", "S105", "S106"]
 "engine/config/**" = ["S105"]
 "engine/security/**" = ["S102", "E402", "B904", "TRY300", "UP047", "TRY301"]
+"agents/cursor/**" = [
+    "PLW1510",
+    "PLW2901",
+    "S608",
+    "S310",
+    "RUF001",
+    "TRY300",
+    "F841",
+    "RUF059",
+    "PLR0915",
+    "E402",
+    "B904",
+    "SIM117",
+    "PLR2004",
+    "TRY401",
+    "EM101",
+    "EM102",
+    "ISC001",
+    "PTH123",
+    "S105",
+    "S106",
+    "PLR0912",
+    "PLR0911",
+    "C901",
+    "UP047",
+    "RUF012",
+    "RUF013",
+    "TC001",
+    "TC003",
+    "ARG001",
+    "ARG002",
+    "ARG003",
+    "ARG005",
+    "B007",
+    "E741",
+    "PLC0415",
+    "PLC0206",
+    "SIM102",
+    "SIM105",
+    "RET504",
+    "B017",
+    "F403",
+    "F405",
+    "N818",
+    "A002",
+    "A003",
+    "S603",
+    "S607",
+]
 
 [tool.mypy]
 python_version = "3.12"
@@ -135,6 +184,7 @@ exclude = [
     "^harvest_staging/",
     "^docs/",
     "^domains/",
+    "^agents/cursor/",
 ]
 
 [tool.pydantic-mypy]

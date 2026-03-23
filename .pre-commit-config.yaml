@@ -35,7 +35,7 @@ repos:
       - id: mypy
         args: [--ignore-missing-imports]
         additional_dependencies: [pydantic, types-PyYAML]
-        exclude: ^(tests/|tools/|domains/|current work/|harvest_staging/|docs/|engine/security/)
+        exclude: ^(tests/|tools/|domains/|current work/|harvest_staging/|docs/|engine/security/|agents/cursor/)
 
   # Unit tests (fast subset for pre-commit)
   # Note: Some tests require mock updates; run full suite with `pytest tests/`

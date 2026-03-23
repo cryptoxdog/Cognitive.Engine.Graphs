@@ -1,0 +1,713 @@
+# ============================================================================
+# L9_META
+# ============================================================================
+# l9_schema: 1
+# origin: l9-template
+# engine: graph
+# layer: [agent-rules, kernel]
+# tags: [cursor, kernel, ceg, governance, workflow]
+# owner: Founder
+# status: active
+# ============================================================================
+
+# ============================================================================
+# CEG CURSOR WORKFLOW KERNEL — BINDING CONTRACT
+# ============================================================================
+# Repo:    cryptoxdog/Cognitive.Engine.Graphs
+# Node:    Layer 3 — Analysis (Graph Cognitive Engine)
+# Stack:   Python 3.12 / FastAPI chassis / Neo4j GDS / PostgreSQL-pgvector
+# Load at session startup. Enforce always. Violate any contract → revert and ask.
+# ============================================================================
+
+id: ceg_cursor_workflow_kernel
+name: CEG Cursor Workflow Kernel
+version: "1.0.0"
+type: kernel
+status: active
+scope: cursor_agent
+owner: Founder
+author: Cursor
+
+description: >
+  Governs Cursor agent behavior within the Cognitive.Engine.Graphs repository.
+  Binds Cursor to the 20 contracts in .cursorrules, the CEG file structure,
+  the enforcement pipeline, and confidence-based decision logic.
+  This is a BINDING CONTRACT — load at session startup and enforce throughout.
+
+# ============================================================================
+# INITIALIZATION
+# ============================================================================
+init:
+  on_load:
+    adopt_behavior_immediately: true
+    lock_in_for_session: true
+    announce_on_load: false
+
+  required_context:
+    - path: workflow_state.md
+      load_method: file_read
+      optional: false
+      purpose: >
+        Live record of PR decisions, deferred items, audit state.
+        Read-only for Cursor. Founder writes. Cursor never modifies.
+
+    - path: DEFERRED.md
+      load_method: file_read
+      optional: false
+      purpose: >
+        Items deferred from previous sessions. Do not re-implement
+        anything listed here without explicit Founder instruction.
+
+    - path: TODO.md
+      load_method: file_read
+      optional: false
+      purpose: >
+        Active work queue. Track progress. Update only via Founder instruction.
+
+    - path: CLAUDE.md
+      load_method: file_read
+      optional: false
+      purpose: >
+        Claude Code agent conventions that Cursor must align with.
+        Both agents must produce code that passes the same enforcement pipeline.
+
+    - path: .cursorrules
+      load_method: file_read
+      optional: false
+      purpose: >
+        20 binding contracts. Cursor reads these before generating any code.
+        This file is NEVER modified by Cursor.
+
+  session_checks:
+    - verify: ".cursorrules is loaded and all 20 contracts are in context"
+    - verify: "GateType enum count = 14 (contract 13)"
+    - verify: "ScoringAssembler has exactly 4 dimensions in scope"
+    - verify: "No open PRs marked BLOCKED in workflow_state.md"
+
+# ============================================================================
+# AUTHORITY MODEL
+# ============================================================================
+authority:
+  roles:
+    founder:
+      authority: full
+      can_do:
+        - Approve/reject/merge any PR
+        - Modify protected files (.cursorrules, chassis/, docker-compose.prod.yml)
+        - Override safety constraints with explicit instruction
+        - Write to workflow_state.md
+        - Grant permanent approvals
+        - Deploy (make deploy ENV=staging/prod)
+
+    cursor_agent:
+      authority: build_envelope
+      can_do:
+        - Generate/modify engine/ code within .cursorrules constraints
+        - Write tests/unit/ co-delivered with engine changes
+        - Append to DEFERRED.md and CHANGELOG.md
+        - Read all files in repo
+        - Open PRs (never self-merge)
+      cannot_do:
+        - Modify .cursorrules
+        - Modify chassis/ without explicit Founder instruction
+        - Modify docker-compose.prod.yml or Dockerfile.prod
+        - Modify .github/workflows/
+        - Merge any PR
+        - Write to workflow_state.md
+        - Redefine PacketEnvelope, TenantContext, or ExecuteRequest
+
+    claude_code_agent:
+      authority: pr_envelope
+      note: >
+        Opens PRs via Claude Code CLI. Must pass same enforcement pipeline
+        (ruff, mypy, contract_scanner.py, verify_contracts.py). Cannot merge.
+
+    dependabot:
+      authority: dependency_scope
+      note: >
+        Patch/minor bumps only. Auto-merge only if all CI checks pass.
+
+    coderabbit:
+      authority: review_only
+      note: Review comments only. No merge authority.
+
+# ============================================================================
+# CONTRACT REGISTRY (from .cursorrules — 20 contracts)
+# ============================================================================
+contracts:
+  layer_1_chassis_boundary:
+    - id: C1
+      name: SINGLE INGRESS
+      rule: >
+        Engine NEVER imports FastAPI, Starlette, or any HTTP library.
+        Engine NEVER creates routes, APIRouter, or app factories.
+        Only surface: POST /v1/execute and GET /v1/health.
+      scanner_ids: [ARCH-001, ARCH-002, ARCH-003, DI-001]
+
+    - id: C2
+      name: HANDLER INTERFACE
+      rule: >
+        Engine exposes: async def handle_<action>(tenant: str, payload: dict) -> dict
+        Register ONLY in engine/handlers.py via chassis.router.register_handler().
+        handlers.py is the ONLY file that imports chassis modules.
+      scanner_ids: []
+
+    - id: C3
+      name: TENANT ISOLATION
+      rule: >
+        Engine receives tenant as string argument. Engine NEVER resolves tenant.
+        Every Neo4j query scopes to tenant database. No cross-tenant reads.
+      scanner_ids: [SHARED-002]
+
+    - id: C4
+      name: OBSERVABILITY IS INHERITED
+      rule: >
+        Engine NEVER configures structlog, Prometheus, or logging handlers.
+        Engine uses: structlog.get_logger(__name__) — nothing else.
+      scanner_ids: [OBS-001, OBS-002]
+
+    - id: C5
+      name: INFRASTRUCTURE IS TEMPLATE
+      rule: >
+        Engine NEVER creates Dockerfile, docker-compose, CI pipeline, or Terraform.
+        Engine adds engine-specific env vars to .env.template only.
+      scanner_ids: []
+
+  layer_2_packet_protocol:
+    - id: C6
+      name: PACKETENVELOPE IS THE ONLY DATA CONTAINER
+      rule: >
+        inflate_ingress() at boundary entry. deflate_egress() at boundary exit.
+        Engine code between boundaries works with typed dicts/Pydantic only.
+      scanner_ids: [MEM-001, MEM-002]
+
+    - id: C7
+      name: IMMUTABILITY + CONTENT HASH
+      rule: >
+        PacketEnvelope is frozen. Mutations use .derive(). content_hash is a UNIQUE DB constraint.
+        Design all writes for idempotency.
+      scanner_ids: [SHARED-001, PKT-001]
+
+    - id: C8
+      name: LINEAGE + AUDIT
+      rule: >
+        Every derived packet sets parent_id, root_id, increments generation.
+        hop_trace is append-only. Engine NEVER bypasses lineage.
+        All new packets come from .derive() or PacketEnvelope.create().
+      scanner_ids: [DEL-001, DEL-002]
+
+  layer_3_security:
+    - id: C9
+      name: CYPHER INJECTION PREVENTION
+      rule: >
+        ALL Neo4j labels/relationship types MUST pass sanitize_label() before interpolation.
+        Cypher VALUES always use parameterized queries ($batch, $query).
+        eval(), exec(), pickle.load(), yaml.load() without SafeLoader are BANNED.
+      scanner_ids: [SEC-001, SEC-002, SEC-003, SEC-004, SEC-005, SEC-006, SEC-007]
+
+    - id: C10
+      name: PROHIBITED FACTORS
+      rule: >
+        Compliance fields (race, ethnicity, religion, gender, age, disability,
+        familial_status, national_origin) blocked at compile-time. Not runtime.
+        audit_on_violation: true.
+      scanner_ids: []
+
+    - id: C11
+      name: PII HANDLING
+      rule: >
+        PII fields declared in domain spec compliance.pii.fields.
+        Handling mode: hash | encrypt | redact | tokenize.
+        Engine NEVER logs PII values. Key source: env | vault | kms — never hardcoded.
+      scanner_ids: []
+
+  layer_4_engine_architecture:
+    - id: C12
+      name: DOMAIN SPEC IS SOURCE OF TRUTH
+      rule: >
+        All matching behavior from {domain_id}_domain_spec.yaml.
+        DomainPackLoader reads YAML → DomainConfig (Pydantic).
+        Domain specs are untrusted input — validate everything.
+      scanner_ids: []
+
+    - id: C13
+      name: GATE-THEN-SCORE ARCHITECTURE
+      rule: >
+        Gates (hard filter) compile to Cypher WHERE clauses — zero Python post-filtering.
+        Scoring dimensions compile to a single WITH/ORDER BY clause.
+        GateType enum = exactly 14 values. Registry = exactly 14 handlers.
+        10 gate types: range, threshold, boolean, composite, enum_map, exclusion,
+          self_range, freshness, temporal_range, traversal.
+        9 scoring computations: geo_decay, log_normalized, community_match, inverse_linear,
+          candidate_property, weighted_rate, price_alignment, temporal_proximity, custom_cypher.
+      scanner_ids: []
+      invariant: "GateType enum count MUST equal 14 at all times"
+
+    - id: C14
+      name: NULL SEMANTICS ARE DETERMINISTIC
+      rule: >
+        Every gate declares null_behavior: pass | fail.
+        Compiler handles null wrapping — callers don't.
+      scanner_ids: []
+
+    - id: C15
+      name: BIDIRECTIONAL MATCHING
+      rule: >
+        Gates with invertible: true swap candidate_prop ↔ query_param on direction reversal.
+        Compiler handles inversion — gate implementations are direction-unaware.
+      scanner_ids: []
+
+    - id: C16
+      name: FILE STRUCTURE IS FIXED
+      rule: >
+        engine/handlers.py      → ONLY chassis bridge (register_all)
+        engine/config/           → Domain spec schema + loader + settings + units
+        engine/gates/            → Gate compiler + null semantics + registry + types/
+        engine/scoring/          → Scoring assembler
+        engine/traversal/        → Traversal assembler + resolver
+        engine/sync/             → Sync generator
+        engine/gds/              → GDS scheduler (APScheduler from spec.gds_jobs)
+        engine/graph/            → Neo4j async driver wrapper
+        engine/compliance/       → Prohibited factors + PII + audit
+        engine/packet/           → PacketEnvelope bridge (chassis_contract.py)
+        engine/utils/            → safe_eval, security (sanitize_label)
+        chassis/                 → Thin chassis adapter (actions.py)
+        domains/                 → {domain_id}_domain_spec.yaml per vertical
+        Do NOT create new top-level directories without Founder approval.
+      scanner_ids: []
+
+  layer_5_testing_quality:
+    - id: C17
+      name: TEST REQUIREMENTS
+      rule: >
+        Unit tests: gate compilation, scoring math, parameter resolution, null semantics per gate.
+        Integration tests: testcontainers-neo4j — do NOT mock the Neo4j driver.
+        Compliance tests: verify prohibited factors blocked at compile time.
+        Performance: <200ms p95 match latency.
+        Validation: compiled Cypher for plasticos_spec.yaml matches hand-verified reference.
+      scanner_ids: []
+
+    - id: C18
+      name: L9_META ON EVERY FILE
+      rule: >
+        Every tracked file carries an L9_META header (schema version 1).
+        Fields: l9_schema, origin, engine, layer, tags, owner, status.
+        Injected by tools/l9_meta_injector.py — not manually.
+      scanner_ids: []
+
+  layer_6_graph_intelligence:
+    - id: C19
+      name: GDS JOBS ARE DECLARATIVE
+      rule: >
+        GDS algorithms declared in spec.gds_jobs. Schedule: cron | manual.
+        Scheduler reads spec → creates APScheduler jobs. No hardcoded algorithm calls.
+      scanner_ids: []
+
+    - id: C20
+      name: KGE EMBEDDINGS (CompoundE3D)
+      rule: >
+        Model: CompoundE3D, 256-dim. Beam search width=10, depth=3.
+        KGE scores feed into the same WITH clause as all other scoring dimensions.
+        Vector index in Neo4j (cosine similarity). Embeddings are domain-specific, never shared cross-tenant.
+      scanner_ids: []
+
+# ============================================================================
+# BANNED PATTERNS (scanner IDs from contract_scanner.py)
+# ============================================================================
+banned_patterns:
+  critical_merge_blocked:
+    - id: SEC-001
+      pattern: "f-string Cypher MATCH without sanitize_label()"
+      contract: C9
+    - id: SEC-002
+      pattern: "eval()"
+      contract: C9
+    - id: SEC-003
+      pattern: "exec()"
+      contract: C9
+    - id: SEC-004
+      pattern: "f-string LIMIT interpolation in Cypher"
+      contract: C9
+    - id: SEC-005
+      pattern: "f-string SQL interpolation"
+      contract: C9
+    - id: SEC-006
+      pattern: "pickle.load(s)"
+      contract: C9
+    - id: SEC-007
+      pattern: "yaml.load() without SafeLoader"
+      contract: C9
+    - id: ARCH-001
+      pattern: "from fastapi import (in engine/)"
+      contract: C1
+    - id: ARCH-002
+      pattern: "from starlette import (in engine/)"
+      contract: C1
+    - id: ARCH-003
+      pattern: "import uvicorn (in engine/)"
+      contract: C1
+    - id: DEL-001
+      pattern: "httpx.post/get/etc (in engine/)"
+      contract: C8
+    - id: DEL-002
+      pattern: "requests.post/get/etc (in engine/)"
+      contract: C8
+    - id: MEM-001
+      pattern: "INSERT INTO packetstore (in engine/)"
+      contract: C7
+    - id: MEM-002
+      pattern: "INSERT INTO memory_embeddings (in engine/)"
+      contract: C7
+    - id: STUB-001
+      pattern: "raise NotImplementedError (outside tests/)"
+      contract: zero_stub_protocol
+
+  high_merge_blocked:
+    - id: ERR-001
+      pattern: "bare except:"
+    - id: ERR-002
+      pattern: "except + pass (swallowed exception)"
+    - id: DI-001
+      pattern: "from fastapi import Depends (in engine/)"
+      contract: C1
+    - id: OBS-001
+      pattern: "structlog.configure() (in engine/)"
+      contract: C4
+    - id: OBS-002
+      pattern: "logging.basicConfig() (in engine/)"
+      contract: C4
+    - id: NAME-001
+      pattern: "Pydantic Field(alias=...)"
+    - id: SHARED-001
+      pattern: "class PacketEnvelope (redefining)"
+      contract: C7
+    - id: SHARED-002
+      pattern: "class TenantContext (redefining)"
+      contract: C3
+    - id: SHARED-003
+      pattern: "class ExecuteRequest (redefining)"
+      contract: C1
+    - id: STUB-002
+      pattern: "# TODO comment in engine/"
+      fix: "Move to DEFERRED.md with reason. Delete the comment."
+    - id: STUB-003
+      pattern: "# PLACEHOLDER comment"
+      fix: "Move to DEFERRED.md with reason. Delete the comment."
+    - id: PKT-001
+      pattern: "uppercase packet_type value"
+      contract: C7
+    - id: ENV-001
+      pattern: "non-L9_ env var name for infra vars"
+
+# ============================================================================
+# DEFERRED PROTOCOL
+# ============================================================================
+deferred_protocol:
+  rule: >
+    Anything not fully implemented ships to DEFERRED.md, not as a stub.
+    DEFERRED.md format:
+      ## DEFERRED-XXX: <title>
+      Status: deferred
+      Reason: <why it cannot be implemented now>
+      Unblocked by: <what needs to happen first>
+      Added: <ISO8601 date>
+  cursor_can: append_only
+  founder_can: add, remove, prioritize
+  never: raise NotImplementedError, # TODO, # PLACEHOLDER in engine/ code
+
+# ============================================================================
+# ENFORCEMENT PIPELINE (all 5 must pass to merge)
+# ============================================================================
+enforcement_pipeline:
+  layer_1_precommit:
+    tools: [ruff, "mypy --strict engine/", contract_scanner.py, verify_contracts.py]
+    trigger: before every commit
+
+  layer_2_ci_lint:
+    tools: [ruff, mypy, contract_scanner.py]
+    trigger: on PR open/push
+    scope: repo-wide
+
+  layer_3_ci_tests:
+    command: "make test"
+    covers: [unit, integration, compliance, performance]
+    note: "testcontainers-neo4j — do NOT mock driver in integration tests"
+
+  layer_4_ci_audit:
+    tool: verify_contracts.py
+    checks: "all 20 contract docs exist in docs/contracts/ and are wired"
+
+  layer_5_llm_review:
+    tools: [CodeRabbit, Qodo, Claude]
+    note: "contract-aware instructions. Review comments are advisory; Founder decides merge."
+
+  branch_protection: "all 5 required status checks. No bypass."
+
+# ============================================================================
+# TODO / GMP TRACKING
+# ============================================================================
+todo_tracking:
+  source_of_truth: TODO.md
+  update_trigger: Founder instruction only
+  cursor_role: read and execute, never rewrite
+  gmp_required_when:
+    - touching more than 3 files
+    - modifying engine/handlers.py
+    - modifying engine/config/schema.py
+    - modifying chassis/
+    - modifying any domain YAML in domains/
+
+  gmp_phases:
+    0: "PLAN LOCK — define TODOs, files in scope, acceptance criteria"
+    1: "BASELINE — pytest tests/ -x passes before any change"
+    2: "IMPLEMENTATION — execute TODOs one file at a time"
+    3: "ENFORCEMENT — write tests for every changed module"
+    4: "VALIDATION — ruff + mypy + pytest. Zero new failures."
+    5: "RECURSION — trace every new handler end-to-end"
+    6: "FINALIZATION — CHANGELOG.md + DEFERRED.md + open PR with evidence block"
+
+  sequential_only: true
+  note: "Phase 2 cannot start until Phase 1 passes. PR cannot open until Phase 6 evidence block is complete."
+
+# ============================================================================
+# PR EVIDENCE BLOCK (required in every PR description)
+# ============================================================================
+pr_evidence_block:
+  template: |
+    ## Evidence
+    - [ ] ruff check engine/ chassis/ tests/             → passes (0 errors)
+    - [ ] ruff format --check engine/ chassis/           → passes
+    - [ ] mypy --strict engine/                          → no NEW errors (pre-existing: N)
+    - [ ] pytest tests/ -x                               → [N] passed, [N] skipped
+    - [ ] grep -rn "NotImplementedError" engine/         → empty
+    - [ ] grep -rn "eval(" engine/                       → empty (or only safeeval.py dispatch)
+    - [ ] make cypher-lint                               → 0 injection vectors
+    - [ ] GateType enum count                            → 14
+    - [ ] ScoringAssembler dimension count               → 4
+    - [ ] All new engine/*.py have tests/unit/test_*.py  → confirmed
+    - [ ] L9_META header on all new files                → confirmed
+
+  missing_evidence_block: "PR is INCOMPLETE — send back, do not review"
+
+# ============================================================================
+# EXECUTION STYLE (BINDING)
+# ============================================================================
+execution_style:
+  voice:
+    tone: direct
+    verbosity: minimal
+    no_sycophancy: true
+    never_say: ["Great question", "Certainly!", "Of course!", "I'll help you with that"]
+
+  structure:
+    deliverables_first: true
+    headings: short
+    bullets: true
+
+  rules:
+    - surgical_edits_only          # Change only what the task requires
+    - never_claim_fixed_without_proof  # Show the test or the diff
+    - search_before_creating       # Check engine/ for existing implementation
+    - never_fabricate_data         # No invented import paths, field names, or APIs
+    - run_commands_not_show_them   # Execute make lint, not echo make lint
+    - ask_before_new_directories   # New top-level dir requires Founder approval (C16)
+
+  code_style:
+    language: "Python 3.12+"
+    async_everywhere: true         # All I/O: Neo4j, PostgreSQL, Redis
+    type_hints: every_signature
+    models: "Pydantic v2 BaseModel (frozen where appropriate)"
+    formatter: "ruff format (120-char line length)"
+    linter: "ruff check + mypy --strict engine/"
+    logging: "structlog.get_logger(__name__) — include tenant, trace_id, action"
+    naming: "snake_case everywhere. No Field(alias=...). YAML keys = Python field names."
+
+  ruff_patterns:
+    exceptions: >
+      msg = f"invalid {x}"; raise ValueError(msg)
+      NOT: raise ValueError(f"invalid {x}")
+    nullable_params: >
+      def f(x: str | None = None)
+      NOT: def f(x: str = None)
+    mutable_defaults: >
+      items: ClassVar[list[str]] = []
+      NOT: items = []
+    datetime: >
+      datetime.now(tz=UTC)
+      NOT: datetime.now()
+    singletons: >
+      _driver: GraphDriver | None = None  (module-level)
+      NOT: global _driver
+
+# ============================================================================
+# CONFIDENCE-BASED BRANCHING (BINDING)
+# ============================================================================
+confidence_logic:
+  thresholds:
+    execute_directly: 0.80
+    single_question_band: [0.50, 0.79]
+    full_clarification_below: 0.50
+
+  behavior:
+    gte_0_80:
+      ask_questions: false
+      execute: true
+      note: "If a contract is violated at this confidence level, STOP anyway — contracts override confidence"
+
+    between_0_50_and_0_79:
+      ask_questions: true
+      max_questions: 1
+      style: high_leverage_multiple_choice
+
+    lte_0_50:
+      ask_questions: true
+      max_questions: 5
+      style: multi_pass_all_at_once
+      include_suggestions: true
+
+  contract_override: >
+    Confidence threshold is OVERRIDDEN by contract violations.
+    Even at confidence=0.95, if executing would trigger a banned pattern
+    (SEC-001 through STUB-003), STOP and surface to Founder.
+
+# ============================================================================
+# QUICK DECISION MATRIX
+# ============================================================================
+decision_matrix:
+  - scenario: "About to modify .cursorrules, chassis/, docker-compose.prod.yml, .github/workflows/"
+    action: "STOP — protected file. Surface to Founder with specific request."
+
+  - scenario: "About to use eval(), exec(), pickle.load(), yaml.load() without SafeLoader"
+    action: "STOP — SEC-002/003/006/007. Implement operator dispatch in engine/utils/safeeval.py."
+
+  - scenario: "About to f-string a value into a Cypher string"
+    action: "STOP — SEC-001/004. Convert to $param in params dict."
+
+  - scenario: "About to define class PacketEnvelope / TenantContext / ExecuteRequest in engine/"
+    action: "STOP — SHARED-001/002/003. Import from l9.core.*"
+
+  - scenario: "Test suite fails before my change"
+    action: "STOP — document as pre-existing failure in GMP Phase 1. Do not mask with skip."
+
+  - scenario: "Cannot fully implement something"
+    action: "Remove it entirely. Add to DEFERRED.md with DEFERRED-XXX format."
+
+  - scenario: "New engine file has no tests"
+    action: "STOP — write tests/unit/test_*.py before opening PR. C17 requires co-delivery."
+
+  - scenario: "GateType enum count != 14"
+    action: "STOP — CRITICAL invariant violation (C13). Do not open PR."
+
+  - scenario: "ScoringAssembler dimension count != 4"
+    action: "STOP — CRITICAL invariant violation (C13). Do not open PR."
+
+  - scenario: "About to create a new top-level directory"
+    action: "STOP — C16. Requires Founder architectural approval."
+
+  - scenario: "New risky feature flag defaults to True"
+    action: "STOP — risky features (feedback loops, weight mutation, external calls) default False."
+
+  - scenario: "Scope drifting beyond GMP Phase 0 plan"
+    action: "STOP — revise GMP Phase 0. Get Founder acknowledgment before continuing."
+
+  - scenario: "PR #54 and #56 both touch feedback loops / causal edges"
+    action: "STOP — run overlap check on engine/feedback/, engine/causal/, schema.py before either merges."
+
+# ============================================================================
+# MAKE COMMANDS (canonical — use these, don't reinvent)
+# ============================================================================
+make_commands:
+  setup: "Install deps, pre-commit hooks, verify Neo4j"
+  dev: "docker-compose (app + Neo4j + Redis + Prometheus + Grafana)"
+  test: "Full pytest suite (unit + integration + compliance)"
+  test_unit: "Gate compilation, scoring math, parameter resolution"
+  test_integration: "testcontainers-neo4j full pipeline"
+  lint: "ruff check + ruff format --check + mypy --strict engine/"
+  lint_fix: "ruff check --fix + ruff format ."
+  cypher_lint: "Scan generated Cypher for injection vectors"
+  gds_trigger: "make gds-trigger JOB=louvain DOMAIN=plasticos"
+  build: "Docker image"
+  deploy: "make deploy ENV=staging|prod (Founder only)"
+
+# ============================================================================
+# ERROR RECOVERY
+# ============================================================================
+error_recovery:
+  test_failure_before_change:
+    behavior: document_as_preexisting
+    log_in: "GMP Phase 1 baseline notes"
+    never: skip the test to make CI green
+
+  lint_failure:
+    behavior: fix_before_proceeding
+    never: add noqa without a comment explaining why
+
+  mypy_new_error:
+    behavior: fix_or_surface_to_founder
+    never: "add type: ignore without a comment"
+
+  contract_violation_detected:
+    behavior: revert_and_ask
+    message: "Contract [ID] violated in [file]:[line]. Reverting. Surfacing to Founder."
+
+  scope_drift_detected:
+    behavior: stop_and_revise_gmp
+    message: "Current work exceeds GMP Phase 0 scope. Stopping. Revising plan."
+
+# ============================================================================
+# INTROSPECTION
+# ============================================================================
+introspection:
+  triggers:
+    - name: summarize_session_state
+      condition: on_user_request("summarize workflow")
+      action:
+        - report active GMP phase
+        - report open PRs from workflow_state.md
+        - report deferred items from DEFERRED.md
+        - report gate count (must be 14)
+        - report any banned patterns detected this session
+
+    - name: contract_check
+      condition: before_any_code_generation
+      action:
+        - identify which contracts apply to the planned change
+        - verify no banned pattern IDs will be triggered
+        - confirm GateType count invariant is preserved
+
+# ============================================================================
+# CONTRACT DOCS (read before writing engine code)
+# ============================================================================
+contract_docs:
+  engine_internal:
+    - docs/contracts/FIELD_NAMES.md
+    - docs/contracts/METHOD_SIGNATURES.md
+    - docs/contracts/CYPHER_SAFETY.md
+    - docs/contracts/BANNED_PATTERNS.md
+    - docs/contracts/ERROR_HANDLING.md
+    - docs/contracts/HANDLER_PAYLOADS.md
+    - docs/contracts/PYDANTIC_YAML_MAPPING.md
+    - docs/contracts/DEPENDENCY_INJECTION.md
+    - docs/contracts/TEST_PATTERNS.md
+    - docs/contracts/RETURN_VALUES.md
+
+  constellation:
+    - docs/contracts/PACKET_ENVELOPE_FIELDS.md
+    - docs/contracts/DELEGATION_PROTOCOL.md
+    - docs/contracts/PACKET_TYPE_REGISTRY.md
+    - docs/contracts/DOMAIN_SPEC_VERSIONING.md
+    - docs/contracts/FEEDBACK_LOOPS.md
+    - docs/contracts/NODE_REGISTRATION.md
+    - docs/contracts/ENV_VARS.md
+    - docs/contracts/OBSERVABILITY.md
+    - docs/contracts/MEMORY_SUBSTRATE_ACCESS.md
+    - docs/contracts/SHARED_MODELS.md
+
+  enforced_by: [tools/contract_scanner.py, tools/verify_contracts.py]
+
+# ============================================================================
+# FOOTER
+# ============================================================================
+# tags: [cursor, kernel, ceg, governance, contracts, graph-cognitive-engine]
+# last_modified: "2026-03-23"
+# ============================================================================

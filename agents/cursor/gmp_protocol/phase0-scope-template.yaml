@@ -1,0 +1,170 @@
+# ============================================================================
+# DORA META - AUTO-GENERATED
+# ============================================================================
+# component_name: "Phase0-Scope-Template"
+# module_version: "1.0.0"
+# created_by: "Igor Beylin"
+# created_at: "2026-01-20T14:03:16Z"
+# updated_at: "2026-01-20T22:37:42Z"
+# layer: "intelligence"
+# domain: "agent_execution"
+# file_name: "phase0-scope-template"
+# type: "utility"
+# status: "active"
+# ============================================================================
+
+# ============================================================================
+# PHASE 0 SCOPE TEMPLATE v1.0.0
+# ============================================================================
+# Purpose: Template for defining GMP Phase 0 scope
+# Usage: Copy this file, fill in values, use with /gmp --scope-file
+# Schema: config/gmp/phase0-scope-schema.yaml
+# Created: 2026-01-19
+# ============================================================================
+#
+# INSTRUCTIONS:
+# 1. Copy this template to your working directory
+# 2. Fill in all required fields (marked with # REQUIRED)
+# 3. Remove example values and comments
+# 4. Run: /gmp --scope-file your-scope.yaml
+#
+# ============================================================================
+
+# -----------------------------------------------------------------------------
+# PHASE METADATA (REQUIRED)
+# -----------------------------------------------------------------------------
+phase_metadata:
+  gmp_id: "GMP-XXX" # REQUIRED: GMP identifier
+  feature_name: "your-feature-name" # REQUIRED: Descriptive name
+  risk_tier: "RUNTIME" # KERNEL | RUNTIME | INFRA | UX
+  owner: "L=CTO" # Responsible party
+  created_at: "2026-01-19T00:00:00Z" # ISO 8601 timestamp
+
+# -----------------------------------------------------------------------------
+# SCOPE ITEMS (REQUIRED) - What will be changed
+# -----------------------------------------------------------------------------
+# Each item must have: id, file, action, description
+# Optional: lines, target, dependencies
+# -----------------------------------------------------------------------------
+scope_items:
+  - id: "T1"
+    file: "path/to/file.py"
+    lines: "44-52" # Line range or "NEW" for new files
+    action: "Replace" # Insert | Replace | Delete | Wrap | Create
+    target: "function_name()" # Function/class/section being modified
+    description: "Clear description of what this TODO does"
+    dependencies: [] # List of TODO IDs this depends on
+
+  - id: "T2"
+    file: "path/to/other.py"
+    lines: "10-12"
+    action: "Insert"
+    target: "imports"
+    description: "Add required import statement"
+    dependencies: ["T1"] # T2 depends on T1
+
+# -----------------------------------------------------------------------------
+# NON-GOALS (REQUIRED) - What is OUT OF SCOPE
+# -----------------------------------------------------------------------------
+# Be explicit about what this GMP will NOT do
+# Prevents scope creep and drift
+# -----------------------------------------------------------------------------
+non_goals:
+  - "No changes to websocket_orchestrator.py"
+  - "No changes to docker-compose.yml"
+  - "No changes to kernel files"
+  - "No database migrations"
+  - "No performance optimizations"
+
+# -----------------------------------------------------------------------------
+# TARGET DIRECTORIES (Optional) - Where changes are allowed
+# -----------------------------------------------------------------------------
+target_directories:
+  - "core/tools/"
+  - "tests/core/tools/"
+
+# -----------------------------------------------------------------------------
+# PROTECTED FILES (Optional) - Inherits L9 defaults if omitted
+# -----------------------------------------------------------------------------
+# These files CANNOT be modified. If you need to modify one,
+# route to a KERNEL GMP with explicit Igor approval.
+# -----------------------------------------------------------------------------
+# protected_files:
+#   - "runtime/websocket_orchestrator.py"
+#   - "core/kernels/kernel_loader.py"
+#   - "core/agents/executor.py"
+#   - "memory/substrate_service.py"
+#   - "docker-compose.yml"
+
+# -----------------------------------------------------------------------------
+# VALIDATION (Optional) - Override default validation gates
+# -----------------------------------------------------------------------------
+validation:
+  py_compile: true
+  ruff_check: true
+  ruff_format: true
+  pytest: false # Set to true if tests modified
+  test_paths: [] # Specific test files to run
+
+# -----------------------------------------------------------------------------
+# NEXT STEPS (Optional) - Checklist for Phases 1-6
+# -----------------------------------------------------------------------------
+next_steps:
+  - "Verify baseline (Phase 1)"
+  - "Implement TODO items (Phase 2)"
+  - "Add guards/assertions (Phase 3)"
+  - "Run validation (Phase 4)"
+  - "Verify no scope drift (Phase 5)"
+  - "Generate report (Phase 6)"
+# ============================================================================
+# EXAMPLE: Complete scope file for a real GMP
+# ============================================================================
+#
+# phase_metadata:
+#   gmp_id: "GMP-102"
+#   feature_name: "scope-yaml-schema"
+#   risk_tier: "UX"
+#   owner: "L=CTO"
+#   created_at: "2026-01-19T22:00:00Z"
+#
+# scope_items:
+#   - id: "T1"
+#     file: "config/gmp/phase0-scope-schema.yaml"
+#     lines: "NEW"
+#     action: "Create"
+#     target: "schema"
+#     description: "JSON Schema for validating Phase 0 scope YAML files"
+#     dependencies: []
+#
+#   - id: "T2"
+#     file: "agents/cursor/gmp_protocol/phase0-scope-template.yaml"
+#     lines: "NEW"
+#     action: "Create"
+#     target: "template"
+#     description: "Example template with all fields documented"
+#     dependencies: []
+#
+# non_goals:
+#   - "No changes to runtime files"
+#   - "No changes to protected files"
+#   - "No Python code changes"
+#
+# target_directories:
+#   - "config/gmp/"
+#   - "agents/cursor/gmp_protocol/"
+#
+# validation:
+#   py_compile: false  # YAML only
+#   ruff_check: false
+#   ruff_format: false
+#   pytest: false
+#
+# ============================================================================
+
+# ============================================================================
+# DORA FOOTER - AUTO-GENERATED
+# ============================================================================
+# tags: ["agent-config", "agent-execution", "configuration", "database-config", "intelligence", "kernel", "schema", "tool-config"]
+# keywords: ["next_steps", "non_goals", "phase0", "phase_metadata", "scope", "scope_items"]
+# last_modified: "2026-01-20T22:37:42Z"
+# ============================================================================

@@ -1,0 +1,355 @@
+# ============================================================================
+# DORA META - AUTO-GENERATED
+# ============================================================================
+# component_name: "Gmp-Report-Contract"
+# module_version: "1.0.0"
+# created_by: "Igor Beylin"
+# created_at: "2026-01-18T17:12:30Z"
+# updated_at: "2026-01-20T23:27:23Z"
+# layer: "intelligence"
+# domain: "agent_execution"
+# file_name: "gmp-report-contract"
+# type: "repository"
+# status: "active"
+# ============================================================================
+
+# ============================================================================
+# GMP REPORT CONTRACT v3.3.0 — L9 CANONICAL REPORT SPECIFICATION
+# ============================================================================
+# Purpose: Machine-readable contract for GMP report structure and validation
+# Status: PRODUCTION READY
+# Updated: 2026-01-20
+# ============================================================================
+
+contract:
+  name: "L9 GMP Report Contract"
+  version: "3.3.0"
+  status: "active"
+  created: "2026-01-20T00:00:00Z"
+
+# ============================================================================
+# FILE NAMING
+# ============================================================================
+
+naming:
+  pattern: "GMP-Report-{ID}-{Description}.md"
+  format:
+    id: "###" # 3-digit zero-padded (e.g., 074, 095, 097)
+    description: "Kebab-Case-Description" # No spaces, capitalize each word
+
+  # CRITICAL: ID must be NEXT SEQUENTIAL number
+  # Before creating report: check highest existing ID in reports/ and reports/GMP Reports/
+  # Never reuse an ID, always increment
+  id_rules:
+    - "Check: ls reports/GMP-Report-*.md reports/'GMP Reports'/GMP*Report*.md"
+    - "Find highest number"
+    - "Use: highest + 1"
+    - "Zero-pad to 3 digits"
+
+  examples:
+    valid:
+      - "GMP-Report-097-Example-Feature.md"
+      - "GMP-Report-098-Another-Task.md"
+    invalid:
+      - "GMP_Report_GMP-74-Retention-Engine.md" # Old format
+      - "GMP-Report-96-Missing-Zero.md" # Not zero-padded
+      - "GMP-Report-095-Reused-Number.md" # Reused existing number
+
+# ============================================================================
+# REQUIRED SECTIONS
+# ============================================================================
+
+sections:
+  - id: "HEADER"
+    required: true
+    description: "Multi-line header with each field on its own line"
+    format: |
+      **ID:** GMP-###
+      **Task:** ...
+      **Tier:** ..._TIER
+      **Date:** YYYY-MM-DD
+      **Time:** HH:MM EST
+      **Status:** ✅
+    fields:
+      - name: "ID"
+        format: "GMP-{###}"
+        required: true
+        notes: "3-digit zero-padded, MUST be next sequential number"
+      - name: "Task"
+        format: "string"
+        required: true
+        max_length: 80
+      - name: "Tier"
+        format: "enum"
+        values: ["KERNEL_TIER", "RUNTIME_TIER", "INFRA_TIER", "UX_TIER"]
+        required: true
+      - name: "Date"
+        format: "YYYY-MM-DD"
+        required: true
+        notes: "ISO 8601 date format, e.g., 2026-01-20"
+      - name: "Time"
+        format: "HH:MM EST"
+        required: true
+        notes: "Eastern Standard Time, 24-hour format"
+      - name: "Status"
+        format: "enum"
+        values: ["✅ COMPLETE", "⚠️ PARTIAL", "❌ FAILED"]
+        required: true
+
+  - id: "PLAN"
+    required: true
+    description: "Locked TODO items from Phase 0"
+    format: "table"
+    columns:
+      - name: "ID"
+        format: "T{#}"
+        required: true
+      - name: "File"
+        format: "path"
+        required: true
+      - name: "Lines"
+        format: "L{###}[-{###}]"
+        required: false
+      - name: "Action"
+        format: "enum"
+        values: ["CREATE", "INSERT", "REPLACE", "DELETE", "WRAP"]
+        required: true
+      - name: "Status"
+        format: "enum"
+        values: ["✅", "❌", "⚠️"]
+        required: true
+    hash:
+      required: true
+      format: "{N} TODOs | {key_files}"
+
+  - id: "CHANGES"
+    required: true
+    description: "Files modified with line ranges"
+    format: "table"
+    columns:
+      - name: "File"
+        format: "path"
+        required: true
+      - name: "Lines"
+        format: "{###}[-{###}]"
+        required: true
+      - name: "Action"
+        format: "enum"
+        values: ["CREATE", "INSERT", "REPLACE", "DELETE", "WRAP"]
+        required: true
+      - name: "Description"
+        format: "string"
+        required: true
+        max_length: 80
+
+  - id: "TODO_CHANGE_MAP"
+    required: true
+    description: "Mapping from TODO IDs to actual changes"
+    format: "table"
+    columns:
+      - name: "TODO"
+        format: "T{#}"
+        required: true
+      - name: "File"
+        format: "filename"
+        required: true
+      - name: "Change"
+        format: "string"
+        required: true
+
+  - id: "VALIDATION"
+    required: true
+    description: "Test and validation results"
+    format: "table"
+    columns:
+      - name: "Gate"
+        format: "string"
+        required: true
+      - name: "Result"
+        format: "enum"
+        values: ["✅", "✅ PASS", "❌", "❌ FAIL", "⚠️ SKIP", "N/A"]
+        required: true
+    minimum_gates:
+      - "py_compile"
+      - "import test"
+
+  - id: "DECLARATION"
+    required: true
+    description: "Final declaration of completion"
+    format: "text"
+    must_contain:
+      - "Phases 0-6 complete"
+      - "No assumptions"
+      - "No drift"
+
+# ============================================================================
+# OPTIONAL SECTIONS
+# ============================================================================
+
+optional_sections:
+  - id: "SUMMARY"
+    description: "Executive summary for complex GMPs"
+    when: "GMP modifies > 5 files or involves root cause analysis"
+    max_length: 200
+
+  - id: "ROOT_CAUSE"
+    description: "Root cause analysis for bug fixes"
+    when: "GMP is a bug fix"
+    format: "Issue → Why → Fix"
+
+  - id: "BREAKING_CHANGES"
+    description: "Document any breaking changes"
+    when: "API or behavior changes"
+    values: ["None", "description of breaking change"]
+
+  - id: "FEATURES"
+    description: "Features implemented (for CREATE actions)"
+    when: "GMP creates new module/component"
+    format: "bullet list"
+
+# ============================================================================
+# FORBIDDEN SECTIONS
+# ============================================================================
+
+forbidden_sections:
+  - id: "YNP_RECOMMENDATION"
+    reason: "Recommendations belong in workflow_state.md, not reports"
+
+  - id: "NEXT_STEPS"
+    reason: "Next steps tracked elsewhere"
+
+  - id: "VERBOSE_EXPLANATIONS"
+    reason: "Reports are for AI consumption - keep dense and token-conscious"
+
+# ============================================================================
+# VALIDATION RULES
+# ============================================================================
+
+validation_rules:
+  completeness:
+    - rule: "All required sections present"
+      severity: "error"
+    - rule: "All TODO IDs have matching CHANGE entries"
+      severity: "error"
+    - rule: "All phases have status"
+      severity: "error"
+    - rule: "Declaration section exists"
+      severity: "error"
+
+  consistency:
+    - rule: "TODO count matches hash"
+      severity: "error"
+    - rule: "File paths in CHANGES match TODO PLAN"
+      severity: "warning"
+    - rule: "Status is COMPLETE only if all phases ✅"
+      severity: "error"
+
+  format:
+    - rule: "ID matches GMP-{###} pattern"
+      severity: "error"
+    - rule: "Date is valid YYYY-MM-DD"
+      severity: "error"
+    - rule: "Tier is valid enum value"
+      severity: "error"
+
+  density:
+    - rule: "No section exceeds 500 words"
+      severity: "warning"
+    - rule: "Tables preferred over prose"
+      severity: "info"
+    - rule: "No redundant information"
+      severity: "info"
+
+# ============================================================================
+# REPORT STATUS DEFINITIONS
+# ============================================================================
+
+status_definitions:
+  COMPLETE:
+    symbol: "✅ COMPLETE"
+    conditions:
+      - "All phases 0-6 passed"
+      - "All TODOs implemented"
+      - "All validation gates passed"
+      - "No scope drift"
+    allows_merge: true
+
+  PARTIAL:
+    symbol: "⚠️ PARTIAL"
+    conditions:
+      - "Some phases incomplete"
+      - "Some TODOs pending"
+      - "Validation partially passed"
+    allows_merge: false
+    requires: "Follow-up GMP"
+
+  FAILED:
+    symbol: "❌ FAILED"
+    conditions:
+      - "Critical phase failed"
+      - "Validation gates failed"
+      - "Scope drift detected"
+    allows_merge: false
+    requires: "Corrective GMP"
+
+# ============================================================================
+# TIER REQUIREMENTS
+# ============================================================================
+
+tier_requirements:
+  KERNEL_TIER:
+    additional_validation:
+      - "Integration test results"
+      - "Protected file approval documented"
+    requires_approval: true
+
+  RUNTIME_TIER:
+    additional_validation:
+      - "Unit test results"
+    requires_approval: false
+
+  INFRA_TIER:
+    additional_validation:
+      - "Docker build verification"
+      - "Deployment smoke test"
+    requires_approval: true
+
+  UX_TIER:
+    additional_validation:
+      - "Build verification"
+    requires_approval: false
+
+# ============================================================================
+# FILE LOCATIONS
+# ============================================================================
+
+locations:
+  active:
+    path: "reports/"
+    description: "New/active GMP reports"
+    pattern: "GMP-Report-###-*.md"
+
+  archived:
+    path: "reports/GMP Reports/"
+    description: "Completed/historical GMP reports"
+    pattern: "GMP-Report-###-*.md"
+
+  archive_trigger: "Manual move after GMP completion verified"
+
+# ============================================================================
+# METADATA
+# ============================================================================
+
+metadata:
+  schema_version: "1.0"
+  compatible_with:
+    - "gmp-contract.yaml v3.2.0"
+    - "cursor-gmp-template.md v3.2.0"
+  template_file: "gmp-report-template.md"
+# ============================================================================
+# DORA FOOTER - AUTO-GENERATED
+# ============================================================================
+# tags: ["agent-execution", "api-config", "intelligence", "kernel", "repository", "schema", "workflow"]
+# keywords: ["contract", "forbidden_sections", "gmp", "locations", "metadata", "naming"]
+# last_modified: "2026-01-20T23:27:23Z"
+# ============================================================================
