@@ -207,7 +207,7 @@ class TestParseQuestions:
 
     def test_truncates_excess(self) -> None:
         """Should truncate to expected count."""
-        response = "1. Q1?\n2. Q2?\n3. Q3?\n4. Q4?\n5. Q5?"
+        response = "1. What is question one?\n2. What is question two?\n3. What is question three?\n4. What is question four?\n5. What is question five?"
         questions = PseudoQueryGenerator._parse_questions(response, 3)
         assert len(questions) == 3
 
