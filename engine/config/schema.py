@@ -118,27 +118,55 @@ class ScoringSource(StrEnum):
     EXTERNAL = "external"
 
 
+class NullStrategy(StrEnum):
+    """Null score handling strategy for scoring dimensions (HGKR S2-01).
+
+    Controls behavior when a scoring dimension cannot compute for a candidate.
+    Inspired by HGKR Equation 4: non-participant embedding inheritance.
+    """
+
+    ZERO = "zero"  # Current default: score 0.0 when dimension can't compute
+    INHERIT_PRIOR = "inherit_prior"  # Carry forward last successful score
+    POPULATION_MEAN = "population_mean"  # Substitute population mean for dimension
+
+
+class AggregationStrategy(StrEnum):
+    """GDS aggregation strategy (HGKR S2-03).
+
+    Controls how neighbor signals are aggregated during graph computation.
+    Paper: GAT for item-tailed graphs, GraphSAGE for entity-tailed graphs.
+    Maps HGKR aggregator types to CEG equivalents:
+    - auto: Auto-select based on edge category and node role
+    - mean: GraphSAGE-style mean aggregation (default safe baseline)
+    - attention_weighted: GAT-style attention (for item-tailed relations)
+    - max: Max-pool aggregation
+    - sample_aggregate: Sample + aggregate (context/temporal)
+    """
+
+    AUTO = "auto"  # Auto-select based on edge category and node role
+    MEAN = "mean"  # Equal neighbor treatment (entity/taxonomy endpoints)
+    ATTENTION_WEIGHTED = "attention_weighted"  # Attention-based (candidate endpoints)
+    MAX_POOL = "max"  # Max-pool aggregation
+    SAMPLE_AGGREGATE = "sample_aggregate"  # Sample + aggregate (context/temporal)
+
+
+class ColdStartFallback(StrEnum):
+    """Cold-start fallback strategy for preference_attention (HGKR S2-20).
+
+    Controls scoring when a candidate has zero historical outcomes.
+    Paper motivation: KGs solve cold-start via graph-structural signals.
+    """
+
+    ZERO = "zero"  # Score 0.0 for cold-start entities
+    STRUCTURAL_SIMILARITY = "structural_similarity"  # Adamic-Adar / shared neighbors
+    POPULATION_MEAN = "population_mean"  # Average score across all candidates
+
+
 class ScoringAggregation(StrEnum):
     """Score combination method."""
 
     ADDITIVE = "additive"
     MULTIPLICATIVE = "multiplicative"
-
-
-class AggregationStrategy(StrEnum):
-    """Neighborhood aggregation method for iterative GDS algorithms.
-
-    Maps HGKR aggregator types to CEG equivalents:
-    - mean: GraphSAGE-style mean aggregation (default safe baseline)
-    - attention_weighted: GAT-style attention (for item-tailed relations)
-    - max: Max-pool aggregation
-    - sample_aggregate: Sample + aggregate (GraphSAGE sampling variant)
-    """
-
-    MEAN = "mean"
-    ATTENTION_WEIGHTED = "attention_weighted"
-    MAX_POOL = "max"
-    SAMPLE_AGGREGATE = "sample_aggregate"
 
 
 class SyncStrategy(StrEnum):
@@ -420,18 +448,36 @@ class ScoringDimensionSpec(BaseModel):
         default_factory=dict,
         description="Per-edge-type computation overrides",
     )
+    # --- HGKR Pass 2 extensions ---
+    null_strategy: NullStrategy = NullStrategy.ZERO  # S2-01: null inheritance
+    entity_types: list[str] = Field(default_factory=list)  # S2-12: entity type tracking
+    cold_start_fallback: ColdStartFallback = ColdStartFallback.ZERO  # S2-20: cold-start
+    soft_match: bool = False  # S2-17: graduated community scoring (communitymatch only)
+
+
+class AdaptiveSampleSizeSpec(BaseModel):
+    """Adaptive K-parameter configuration (HGKR S2-13).
+
+    Auto-tunes preference_sample_size based on graph density.
+    Paper: K=24 for sparse (ml-latest), K=32 for dense (MOOCCube).
+    """
+
+    enabled: bool = False
+    min_k: int = 16
+    max_k: int = 48
+    density_metric: str = "avg_edges_per_node"  # or "total_interactions"
 
 
 class ScoringSpec(BaseModel):
     """Scoring configuration."""
 
     dimensions: list[ScoringDimensionSpec]
-    preference_sample_size: int = Field(
+    preference_sample_size: int | str = Field(
         default=28,
-        ge=1,
-        le=100,
-        description="Historical preference sample size for attention scoring",
+        description="Historical preference sample size for attention scoring (int or 'auto')",
     )
+    adaptive_sample_size: AdaptiveSampleSizeSpec = Field(default_factory=AdaptiveSampleSizeSpec)
+    preference_attention_feedback_blend: float = 0.7  # S2-06: alpha for feedback fusion
 
 
 class SoftSignalSpec(BaseModel):
@@ -520,6 +566,7 @@ class GDSJobSpec(BaseModel):
     ratedenominatorfilter: str | None = None
     recencydecay: bool = False
     recencyhalflifedays: int | None = None
+    # --- HGKR Pass 2 extensions ---
     depends_on: list[str] = Field(
         default_factory=list,
         description="Job algorithm names that must complete before this job runs (DAG ordering)",
@@ -531,13 +578,14 @@ class GDSJobSpec(BaseModel):
         description="L-hop propagation depth for iterative algorithms",
     )
     aggregation_strategy: AggregationStrategy = Field(
-        default=AggregationStrategy.MEAN,
+        default=AggregationStrategy.AUTO,
         description="Neighborhood aggregation method",
     )
     per_relation_params: dict[str, dict[str, Any]] = Field(
         default_factory=dict,
         description="Per-relation-type algorithm parameter overrides",
     )
+    stability_runs: int = 1  # S2-15: multi-run averaging for non-deterministic algos
 
 
 class GDSSpec(BaseModel):
@@ -948,5 +996,23 @@ class DomainSpec(BaseModel):
                 if etype not in edge_types:
                     msg = f"GDS job '{job.name}' references unknown edge type '{etype}'"
                     raise ValueError(msg)
+
+        # S2-04: Ablation-backed aggregation strategy validation
+        # HGKR Table 3 shows mixed strategies outperform uniform by +0.3-0.5% AUC
+        if settings.domain_strict_validation and len(self.gdsjobs) > 1:
+            strategies = {
+                j.aggregation_strategy for j in self.gdsjobs if j.aggregation_strategy != AggregationStrategy.AUTO
+            }
+            if len(strategies) == 1 and strategies != set():
+                import logging
+
+                _agg_logger = logging.getLogger(__name__)
+                _agg_logger.warning(
+                    "All GDS jobs use uniform aggregation strategy '%s'. "
+                    "HGKR research shows mixed strategies outperform uniform "
+                    "by +0.3-0.5%% AUC. Consider using 'auto' or varying "
+                    "strategies per edge category.",
+                    strategies.pop(),
+                )
 
         return self

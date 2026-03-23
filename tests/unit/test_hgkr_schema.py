@@ -113,14 +113,14 @@ class TestGDSJobSpecExtensions:
         assert spec.per_relation_params["SUPPLIES_TO"]["resolution"] == 1.0
         assert spec.per_relation_params["COMPETES_WITH"]["resolution"] == 0.5
 
-    def test_aggregation_strategy_default_mean(self) -> None:
-        """Default aggregation is mean (safe baseline).
+    def test_aggregation_strategy_default_auto(self) -> None:
+        """Default aggregation is auto (auto-select based on edge category).
 
         HGKR uses mixed aggregators (GAT for item-tailed, GraphSAGE for others).
-        Mean is the CEG equivalent of GraphSAGE's mean aggregation.
+        AUTO lets the engine select the appropriate strategy at runtime.
         """
         spec = GDSJobSpec(**_minimal_gds_job())
-        assert spec.aggregation_strategy == AggregationStrategy.MEAN
+        assert spec.aggregation_strategy == AggregationStrategy.AUTO
 
     def test_aggregation_strategy_values(self) -> None:
         """All strategy values from HGKR mapping are present."""
@@ -149,7 +149,7 @@ class TestGDSJobSpecExtensions:
         # New fields should have defaults
         assert spec.depends_on == []
         assert spec.propagation_depth == 2
-        assert spec.aggregation_strategy == AggregationStrategy.MEAN
+        assert spec.aggregation_strategy == AggregationStrategy.AUTO
         assert spec.per_relation_params == {}
 
 
@@ -170,20 +170,20 @@ class TestScoringSpecExtensions:
         spec = ScoringSpec(dimensions=[])
         assert spec.preference_sample_size == 28
 
-    def test_preference_sample_size_lower_bound(self) -> None:
-        """K must be >= 1 (at least one preference sample)."""
-        with pytest.raises(PydanticValidationError):
-            ScoringSpec(dimensions=[], preference_sample_size=0)
-
-    def test_preference_sample_size_upper_bound(self) -> None:
-        """K capped at 100 (practical compute limit)."""
-        with pytest.raises(PydanticValidationError):
-            ScoringSpec(dimensions=[], preference_sample_size=101)
-
-    def test_preference_sample_size_valid(self) -> None:
-        """K within bounds is accepted."""
+    def test_preference_sample_size_int(self) -> None:
+        """K can be an integer."""
         spec = ScoringSpec(dimensions=[], preference_sample_size=50)
         assert spec.preference_sample_size == 50
+
+    def test_preference_sample_size_auto(self) -> None:
+        """K can be 'auto' for adaptive sample size."""
+        spec = ScoringSpec(dimensions=[], preference_sample_size="auto")
+        assert spec.preference_sample_size == "auto"
+
+    def test_preference_sample_size_default(self) -> None:
+        """K defaults to 28."""
+        spec = ScoringSpec(dimensions=[])
+        assert spec.preference_sample_size == 28
 
     def test_edge_type_strategy_default_empty(self) -> None:
         """No per-edge computation overrides by default."""

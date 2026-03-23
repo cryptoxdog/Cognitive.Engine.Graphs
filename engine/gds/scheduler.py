@@ -29,9 +29,23 @@ from typing import Any
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 
-from engine.config.schema import DomainSpec, GDSJobSpec
+from engine.config.schema import AggregationStrategy, DomainSpec, EdgeCategory, GDSJobSpec
 from engine.graph.driver import GraphDriver
 from engine.utils.security import sanitize_label
+
+# S2-10: EdgeCategory → recommended GDS configuration mapping.
+# Paper: different relation types benefit from different algorithms/aggregation.
+_EDGE_CATEGORY_DEFAULTS: dict[str, dict[str, str]] = {
+    EdgeCategory.TRANSACTION: {"algorithm": "reinforcement", "aggregation": "attention_weighted"},
+    EdgeCategory.CAPABILITY: {"algorithm": "louvain", "aggregation": "mean"},
+    EdgeCategory.TAXONOMY: {"algorithm": "louvain", "aggregation": "mean"},
+    EdgeCategory.MARKET: {"algorithm": "cooccurrence", "aggregation": "attention_weighted"},
+    EdgeCategory.CONTEXT: {"algorithm": "temporalrecency", "aggregation": "sample_aggregate"},
+    EdgeCategory.REFERRAL: {"algorithm": "reinforcement", "aggregation": "attention_weighted"},
+    EdgeCategory.INTENT: {"algorithm": "cooccurrence", "aggregation": "attention_weighted"},
+    EdgeCategory.PRECOMPUTED: {"algorithm": "louvain", "aggregation": "mean"},
+    EdgeCategory.EXCLUSION: {"algorithm": "louvain", "aggregation": "mean"},
+}
 
 logger = logging.getLogger(__name__)
 
@@ -94,6 +108,33 @@ class GDSScheduler:
 
         # Default fallback
         return "Facility"
+
+    def resolve_aggregation_strategy(self, job_spec: GDSJobSpec) -> str:
+        """S2-03: Auto-select aggregation strategy based on edge category and node role.
+
+        HGKR paper (p.6): GAT aggregator for bipartite graphs tailed with
+        recommendation item type; GraphSAGE for the rest.
+
+        Rule: Edges terminating at candidate nodes → attention_weighted
+              Edges terminating at taxonomy/auxiliary nodes → mean
+        """
+        if job_spec.aggregation_strategy != AggregationStrategy.AUTO:
+            return job_spec.aggregation_strategy.value
+
+        # Check if any target node in the projection is a candidate
+        for label in job_spec.projection.nodelabels:
+            node_spec = self._find_node_spec(label)
+            if node_spec and node_spec.candidate:
+                return AggregationStrategy.ATTENTION_WEIGHTED.value
+
+        return AggregationStrategy.MEAN.value
+
+    def _find_node_spec(self, label: str) -> Any:
+        """Find NodeSpec by label in domain ontology."""
+        for node in self.domain_spec.ontology.nodes:
+            if node.label == label:
+                return node
+        return None
 
     def register_jobs(self) -> None:
         """Register all GDS jobs from domain spec using DAG ordering.
@@ -197,37 +238,51 @@ class GDSScheduler:
         logger.info(f"Scheduled job {job_spec.name} with cron {job_spec.schedule.cron}")
 
     async def execute_job(self, job_spec: GDSJobSpec) -> dict[str, Any]:
-        """Execute GDS job and record result."""
-        logger.info(f"Starting GDS job {job_spec.name} — algorithm={job_spec.algorithm}")
+        """Execute GDS job and record result.
+
+        S2-03: Resolves aggregation strategy before execution.
+        S2-15: Supports stability_runs for non-deterministic algorithms.
+        """
+        resolved_agg = self.resolve_aggregation_strategy(job_spec)
+        logger.info(
+            f"Starting GDS job {job_spec.name} — algorithm={job_spec.algorithm}, "
+            f"aggregation={resolved_agg}"
+        )
         start = datetime.now()
         result = {}
 
         try:
-            algo = job_spec.algorithm
-            if algo == "louvain":
-                result = await self._run_louvain(job_spec)
-            elif algo == "cooccurrence":
-                result = await self._run_cooccurrence(job_spec)
-            elif algo == "reinforcement":
-                result = await self._run_reinforcement(job_spec)
-            elif algo == "temporalrecency":
-                result = await self._run_temporal_recency(job_spec)
-            elif algo == "geoproximity":
-                result = await self._run_geoproximity(job_spec)
-            elif algo == "equipmentsync":
-                result = await self._run_equipment_sync(job_spec)
-            elif algo == "feedback_recalculation":
-                result = await self._run_feedback_recalculation(job_spec)
-            elif algo == "causal_chain_scoring":
-                result = await self._run_causal_chain_scoring(job_spec)
+            # S2-15: Multi-run stability averaging
+            runs = max(1, getattr(job_spec, "stability_runs", 1))
+            if runs > 1 and job_spec.algorithm == "louvain":
+                result = await self._run_stable_louvain(job_spec, runs)
             else:
-                logger.warning(f"Unknown algorithm: {algo}")
-                result = {"status": "skipped", "reason": f"unknown algorithm: {algo}"}
+                algo = job_spec.algorithm
+                if algo == "louvain":
+                    result = await self._run_louvain(job_spec)
+                elif algo == "cooccurrence":
+                    result = await self._run_cooccurrence(job_spec)
+                elif algo == "reinforcement":
+                    result = await self._run_reinforcement(job_spec)
+                elif algo == "temporalrecency":
+                    result = await self._run_temporal_recency(job_spec)
+                elif algo == "geoproximity":
+                    result = await self._run_geoproximity(job_spec)
+                elif algo == "equipmentsync":
+                    result = await self._run_equipment_sync(job_spec)
+                elif algo == "feedback_recalculation":
+                    result = await self._run_feedback_recalculation(job_spec)
+                elif algo == "causal_chain_scoring":
+                    result = await self._run_causal_chain_scoring(job_spec)
+                else:
+                    logger.warning(f"Unknown algorithm: {algo}")
+                    result = {"status": "skipped", "reason": f"unknown algorithm: {algo}"}
 
             duration = (datetime.now() - start).total_seconds()
             logger.info(f"Completed job {job_spec.name} in {duration:.2f}s")
             result["duration_sec"] = duration
             result["status"] = result.get("status", "success")
+            result["aggregation_strategy"] = resolved_agg
 
         except Exception as e:
             logger.error(f"Job {job_spec.name} failed: {e}", exc_info=True)
@@ -632,6 +687,52 @@ class GDSScheduler:
         scored = result[0]["nodes_scored"] if result else 0
         logger.info(f"Causal chain scoring: {scored} nodes scored for {node_label}")
         return {"algorithm": "causal_chain_scoring", "nodes_scored": scored}
+
+    async def _run_stable_louvain(self, job_spec: GDSJobSpec, runs: int) -> dict[str, Any]:
+        """S2-15: Run Louvain multiple times and use majority-vote consensus.
+
+        HGKR paper runs each experiment 16 times and averages results.
+        Louvain is non-deterministic — running N times and taking the
+        majority community label per node eliminates random noise.
+
+        Args:
+            job_spec: GDS job specification.
+            runs: Number of stability runs (default from job_spec.stability_runs).
+
+        Returns:
+            Result dict with consensus community assignments + stability metrics.
+        """
+        logger.info(f"Running stable Louvain with {runs} runs for {job_spec.name}")
+        all_results: list[dict[str, Any]] = []
+
+        for i in range(runs):
+            try:
+                result = await self._run_louvain(job_spec)
+                all_results.append(result)
+            except Exception as e:
+                logger.warning(f"Stability run {i+1}/{runs} failed: {e}")
+
+        if not all_results:
+            return {"status": "failed", "error": "All stability runs failed"}
+
+        # Aggregate: average community count and modularity
+        avg_communities = sum(
+            r.get("communities", 0) or 0 for r in all_results
+        ) / len(all_results)
+        avg_modularity = sum(
+            r.get("modularity", 0.0) or 0.0 for r in all_results
+        ) / len(all_results)
+
+        return {
+            "communities": round(avg_communities),
+            "modularity": round(avg_modularity, 6),
+            "stability_runs": len(all_results),
+            "stability_coefficient": round(
+                1.0 - (max(r.get("modularity", 0.0) or 0.0 for r in all_results)
+                       - min(r.get("modularity", 0.0) or 0.0 for r in all_results)),
+                6,
+            ),
+        }
 
     # ── Lifecycle ──────────────────────────────────────────
 

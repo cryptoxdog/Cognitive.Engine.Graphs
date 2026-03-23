@@ -59,3 +59,4 @@ secrets.json
 .env.local
 .env.vps
 *.bak.*
+.hypothesis/

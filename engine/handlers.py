@@ -846,7 +846,11 @@ async def handle_admin(tenant: str, payload: dict[str, Any]) -> dict[str, Any]:
             compliance_engine.log_admin(tenant=tenant, subaction="delegate_capability")
         logger.info(
             "Capability delegated: %s → %s (domain=%s, actions=%s, cap_id=%s)",
-            source_tenant, target_tenant, domain_id, actions, child_cap.capability_id,
+            source_tenant,
+            target_tenant,
+            domain_id,
+            actions,
+            child_cap.capability_id,
         )
         return {
             "status": "delegated",
@@ -1141,6 +1145,119 @@ async def handle_admin(tenant: str, payload: dict[str, Any]) -> dict[str, Any]:
     if subaction == "evaluate":
         return await _handle_evaluate(tenant, payload, graph_driver, domain_loader)
 
+    # --- S2-08: Auto-generate calibration pairs from outcomes ---
+    if subaction == "generate_calibration_pairs":
+        domain_id = _require_key(payload, "domain_id", "admin", tenant)
+        spec = domain_loader.load_domain(domain_id)
+
+        # Read recent outcomes with scores
+        outcome_cypher = """
+        MATCH (o:TransactionOutcome)
+        WHERE o.tenant = $tenant AND o.outcome IN ['success', 'failure']
+        RETURN o.match_id AS match_id, o.candidate_id AS candidate_id,
+               o.outcome AS outcome, o.value AS score
+        ORDER BY o.created_at DESC
+        LIMIT 500
+        """
+        try:
+            outcome_records = await graph_driver.execute_query(
+                cypher=outcome_cypher,
+                parameters={"tenant": tenant},
+                database=spec.domain.id,
+            )
+        except Exception as exc:
+            raise ExecutionError(
+                "Failed to read outcomes for calibration pair generation",
+                action="admin",
+                tenant=tenant,
+                detail=str(exc),
+            ) from exc
+
+        from engine.scoring.hgkr_utils import generate_calibration_pairs
+
+        pairs = generate_calibration_pairs(list(outcome_records))
+        return {
+            "status": "calibration_pairs_generated",
+            "total_pairs": len(pairs),
+            "pairs": [
+                {
+                    "node_a": p.node_a,
+                    "node_b": p.node_b,
+                    "expected_range": [p.expected_score_min, p.expected_score_max],
+                    "label": p.label,
+                }
+                for p in pairs
+            ],
+        }
+
+    # --- S2-21: Domain density report ---
+    if subaction == "domain_density_report":
+        domain_id = _require_key(payload, "domain_id", "admin", tenant)
+        spec = domain_loader.load_domain(domain_id)
+
+        # Query graph statistics
+        stats_cypher = """
+        MATCH (n)
+        WITH count(n) AS total_nodes
+        OPTIONAL MATCH ()-[r]-()
+        WITH total_nodes, count(r) / 2 AS total_edges
+        RETURN total_nodes, total_edges
+        """
+        try:
+            stats = await graph_driver.execute_query(
+                cypher=stats_cypher,
+                parameters={},
+                database=spec.domain.id,
+            )
+        except Exception as exc:
+            raise ExecutionError(
+                "Failed to read graph statistics",
+                action="admin",
+                tenant=tenant,
+                detail=str(exc),
+            ) from exc
+
+        total_nodes = stats[0]["total_nodes"] if stats else 0
+        total_edges = stats[0]["total_edges"] if stats else 0
+
+        from engine.scoring.hgkr_utils import DensityReport, generate_density_report
+
+        density_report: DensityReport = generate_density_report(
+            domain_id=domain_id,
+            total_nodes=total_nodes,
+            total_edges=total_edges,
+        )
+        return {
+            "status": "density_report",
+            "domain_id": density_report.domain_id,
+            "total_nodes": density_report.total_nodes,
+            "total_edges": density_report.total_edges,
+            "avg_degree": density_report.avg_degree,
+            "density_class": density_report.density_class,
+            "recommended_sample_size": density_report.recommended_sample_size,
+            "recommendations": density_report.recommendations,
+        }
+
+    # --- S2-23: Auto-tune aggregation strategies ---
+    if subaction == "auto_tune":
+        domain_id = _require_key(payload, "domain_id", "admin", tenant)
+        spec = domain_loader.load_domain(domain_id)
+
+        from engine.scoring.hgkr_utils import build_ablation_configs
+
+        configs = build_ablation_configs(spec.gdsjobs)
+        return {
+            "status": "auto_tune_configs_generated",
+            "domain_id": domain_id,
+            "total_configs": len(configs),
+            "configs": configs,
+            "instructions": (
+                "Run 'evaluate' subaction with each config's gds_overrides "
+                "to compare AUC across aggregation strategies. Select the "
+                "config with highest AUC and apply to domain spec."
+            ),
+        }
+
     raise ValidationError(f"Unknown admin subaction: {subaction!r}", action="admin", tenant=tenant)
 
 
@@ -1238,14 +1355,16 @@ async def _handle_evaluate(
         total_recall += recall
         total_ndcg += ndcg
 
-        per_case_results.append({
-            "case_index": case_idx,
-            "precision_at_k": round(precision, 4),
-            "recall_at_k": round(recall, 4),
-            "ndcg_at_k": round(ndcg, 4),
-            "returned_count": len(returned_ids),
-            "relevant_returned": relevant_returned,
-        })
+        per_case_results.append(
+            {
+                "case_index": case_idx,
+                "precision_at_k": round(precision, 4),
+                "recall_at_k": round(recall, 4),
+                "ndcg_at_k": round(ndcg, 4),
+                "returned_count": len(returned_ids),
+                "relevant_returned": relevant_returned,
+            }
+        )
 
     evaluated_count = sum(1 for r in per_case_results if "precision_at_k" in r)
     avg_precision = total_precision / evaluated_count if evaluated_count > 0 else 0.0
@@ -1303,7 +1422,8 @@ def _get_or_create_scheduler(spec: DomainSpec, driver: GraphDriver) -> GDSSchedu
         scheduler.register_jobs()
         scheduler.start()
         state.gds_schedulers[domain_id] = scheduler
-    return state.gds_schedulers[domain_id]
+    result: GDSScheduler = state.gds_schedulers[domain_id]
+    return result
 
 
 async def handle_outcomes(tenant: str, payload: dict[str, Any]) -> dict[str, Any]:

@@ -1,0 +1,331 @@
+# --- L9_META ---
+# l9_schema: 1
+# origin: domain-specific
+# engine: graph
+# layer: [test, fixture]
+# tags: [test, fixture, hgkr, benchmark, heterogeneous-graph, knowledge-graph]
+# owner: engine-team
+# status: active
+# --- /L9_META ---
+#
+# ═══════════════════════════════════════════════════════════════════════════════
+# S2-16: HGKR Benchmark Domain Fixture
+# ═══════════════════════════════════════════════════════════════════════════════
+#
+# Purpose: Benchmark test fixture that encodes the HGKR heterogeneous graph
+# topology from Liu et al. (2023), "Iterative heterogeneous graph learning for
+# knowledge graph-based recommendation", Scientific Reports 13:6987.
+#
+# This domain spec exercises ALL 19 Pass 2 enhancements:
+#   S2-01: null_strategy on dimensions (inherit_prior, population_mean)
+#   S2-02: LeakyReLU activation (via scoring pipeline)
+#   S2-03: auto aggregation selection (AggregationStrategy.AUTO on GDS jobs)
+#   S2-04: aggregation validation (mixed strategies trigger validator)
+#   S2-06: preference_attention_feedback_blend on scoring spec
+#   S2-07: dimensional agreement (multi-dimension scoring for agreement checks)
+#   S2-08: calibration pair generation (feedback loop with transaction edges)
+#   S2-09: drift detection (stability_runs > 1 enables drift checks)
+#   S2-10: EdgeCategory-driven GDS config (diverse edge categories)
+#   S2-12: entity_types on dimensions
+#   S2-13: adaptive_sample_size enabled with min/max bounds
+#   S2-14: ablation harness (multiple GDS jobs with mixed aggregation)
+#   S2-15: stability_runs > 1 on non-deterministic algorithms
+#   S2-16: This fixture itself
+#   S2-17: soft_match on community match dimension
+#   S2-19: negative sampling (test_set format with expected_non_matches)
+#   S2-20: cold_start_fallback: structural_similarity on new-entity dimensions
+#   S2-21: sparsity guidance (domain density analysis)
+#   S2-23: auto-tune (ablation + selection pipeline)
+# ═══════════════════════════════════════════════════════════════════════════════
+---
+domain:
+  id: hgkr-benchmark
+  name: "HGKR Knowledge Graph Recommendation Benchmark"
+  description: >
+    Heterogeneous knowledge graph recommendation benchmark domain modeled
+    after the HGKR architecture. Contains user, item, and knowledge entities
+    with multiple relation types to exercise all HGKR Pass 2 enhancements.
+  version: "2.0.0"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# ONTOLOGY — Heterogeneous node and edge types (HGKR §3.1)
+# ─────────────────────────────────────────────────────────────────────────────
+ontology:
+  nodes:
+    # User node — query entity in recommendation
+    - label: User
+      managedby: sync
+      queryentity: true
+      properties:
+        - {name: user_id, type: string, required: true}
+        - {name: age_group, type: enum, values: [young, middle, senior]}
+        - {name: activity_score, type: float, nullable: true}
+        - {name: signup_date, type: datetime}
+
+    # Item node — candidate entity in recommendation
+    - label: Item
+      managedby: sync
+      candidate: true
+      properties:
+        - {name: item_id, type: string, required: true}
+        - {name: title, type: string}
+        - {name: popularity, type: float, nullable: true}
+        - {name: embedding_score, type: float, nullable: true, managedby: gds}
+        - {name: community_id, type: int, nullable: true, managedby: gds}
+        - {name: pagerank, type: float, nullable: true, managedby: gds}
+        - {name: freshness_days, type: int, nullable: true}
+
+    # Knowledge entity — auxiliary taxonomy node
+    - label: KnowledgeEntity
+      managedby: sync
+      taxonomy: true
+      properties:
+        - {name: entity_id, type: string, required: true}
+        - {name: entity_type, type: enum, values: [genre, director, actor, tag]}
+        - {name: salience, type: float, nullable: true}
+        - {name: community_id, type: int, nullable: true, managedby: gds}
+
+    # Attribute node — auxiliary contextual node
+    - label: Attribute
+      managedby: sync
+      auxiliary: true
+      properties:
+        - {name: attr_id, type: string, required: true}
+        - {name: attr_value, type: string}
+
+  edges:
+    # User-Item interaction — transaction (HGKR interaction matrix)
+    - type: INTERACTED_WITH
+      from: User
+      to: Item
+      direction: DIRECTED
+      category: transaction
+      managedby: sync
+      properties:
+        - {name: rating, type: float}
+        - {name: timestamp, type: datetime}
+
+    # User-Item rejection — transaction (negative signal)
+    - type: REJECTED
+      from: User
+      to: Item
+      direction: DIRECTED
+      category: transaction
+      managedby: sync
+
+    # Item-KnowledgeEntity — capability (knowledge graph triple)
+    - type: HAS_KNOWLEDGE
+      from: Item
+      to: KnowledgeEntity
+      direction: DIRECTED
+      category: capability
+      managedby: sync
+
+    # KnowledgeEntity-KnowledgeEntity — taxonomy (knowledge graph relation)
+    - type: RELATED_TO
+      from: KnowledgeEntity
+      to: KnowledgeEntity
+      direction: UNDIRECTED
+      category: taxonomy
+      managedby: sync
+
+    # Item-Attribute — spatial (contextual attributes)
+    - type: HAS_ATTRIBUTE
+      from: Item
+      to: Attribute
+      direction: DIRECTED
+      category: spatial
+      managedby: sync
+
+    # User-User — social similarity
+    - type: SIMILAR_TO
+      from: User
+      to: User
+      direction: UNDIRECTED
+      category: social
+      managedby: gds
+
+# ─────────────────────────────────────────────────────────────────────────────
+# MATCH ENTITIES
+# ─────────────────────────────────────────────────────────────────────────────
+matchentities:
+  candidate:
+    - {label: Item, matchdirection: user_to_item}
+  queryentity:
+    - {label: User, matchdirection: user_to_item}
+
+# ─────────────────────────────────────────────────────────────────────────────
+# QUERY SCHEMA
+# ─────────────────────────────────────────────────────────────────────────────
+queryschema:
+  matchdirections: [user_to_item]
+  fields:
+    - {name: user_id, type: string, required: true}
+    - {name: preferred_genres, type: string}
+    - {name: min_rating, type: float}
+    - {name: community_id, type: int}
+
+# ─────────────────────────────────────────────────────────────────────────────
+# GATES
+# ─────────────────────────────────────────────────────────────────────────────
+gates:
+  - name: min_popularity
+    type: threshold
+    candidateprop: popularity
+    operator: ">="
+    value: 0.01
+
+# ─────────────────────────────────────────────────────────────────────────────
+# SCORING — Exercises S2-01, S2-02, S2-06, S2-12, S2-13, S2-17, S2-20
+# ─────────────────────────────────────────────────────────────────────────────
+scoring:
+  # S2-13: Adaptive K-parameter for preference sampling
+  preference_sample_size: 28
+  adaptive_sample_size:
+    enabled: true
+    min_k: 16
+    max_k: 48
+    multiplier: 1.5
+
+  # S2-06: Preference attention × feedback fusion blend
+  preference_attention_feedback_blend: 0.65
+
+  dimensions:
+    # Dimension 1: Embedding similarity — uses S2-01 inherit_prior
+    - name: embedding_similarity
+      source: candidateproperty
+      computation: candidateproperty
+      candidateprop: embedding_score
+      weightkey: w_embedding
+      defaultweight: 0.35
+      null_strategy: inherit_prior          # S2-01
+      entity_types: [Item]                  # S2-12
+      cold_start_fallback: structural_similarity  # S2-20
+
+    # Dimension 2: Community match — uses S2-17 soft match
+    - name: community_affinity
+      source: computed
+      computation: communitymatch
+      candidateprop: community_id
+      queryprop: community_id
+      weightkey: w_community
+      defaultweight: 0.25
+      soft_match: true                      # S2-17
+      null_strategy: zero                   # S2-01 (default)
+      entity_types: [Item, KnowledgeEntity] # S2-12
+
+    # Dimension 3: PageRank authority — uses S2-01 population_mean
+    - name: authority_score
+      source: candidateproperty
+      computation: candidateproperty
+      candidateprop: pagerank
+      weightkey: w_authority
+      defaultweight: 0.20
+      null_strategy: population_mean        # S2-01
+      entity_types: [Item]                  # S2-12
+      cold_start_fallback: population_mean  # S2-20
+
+    # Dimension 4: Freshness decay — exercises geodecay with null handling
+    - name: freshness
+      source: candidateproperty
+      computation: candidateproperty
+      candidateprop: freshness_days
+      weightkey: w_freshness
+      defaultweight: 0.10
+      decayconstant: 30
+      null_strategy: zero
+      entity_types: [Item]
+
+    # Dimension 5: Knowledge-based similarity — exercises multi-type scoring
+    - name: knowledge_similarity
+      source: computed
+      computation: candidateproperty
+      candidateprop: salience
+      weightkey: w_knowledge
+      defaultweight: 0.10
+      null_strategy: inherit_prior
+      entity_types: [KnowledgeEntity]
+      cold_start_fallback: zero
+
+# ─────────────────────────────────────────────────────────────────────────────
+# GDS JOBS — Exercises S2-03, S2-04, S2-10, S2-15
+# ─────────────────────────────────────────────────────────────────────────────
+gdsjobs:
+  # Job 1: Community detection — auto aggregation, stability runs
+  - name: item_communities
+    algorithm: louvain
+    schedule: {type: periodic, interval: "PT6H"}
+    projection:
+      nodelabels: [Item, KnowledgeEntity]
+      edgetypes: [HAS_KNOWLEDGE, RELATED_TO]
+    writeback:
+      - {property: community_id, target: Item}
+      - {property: community_id, target: KnowledgeEntity}
+    aggregation_strategy: auto              # S2-03
+    stability_runs: 3                       # S2-15
+
+  # Job 2: Item embedding via node2vec — attention_weighted aggregation
+  - name: item_embeddings
+    algorithm: node2vec
+    schedule: {type: periodic, interval: "PT12H"}
+    projection:
+      nodelabels: [Item, KnowledgeEntity, Attribute]
+      edgetypes: [HAS_KNOWLEDGE, HAS_ATTRIBUTE, RELATED_TO]
+    writeback:
+      - {property: embedding_score, target: Item}
+    aggregation_strategy: attention_weighted # S2-04 — mixed with auto above
+    depends_on: [item_communities]           # S2-10 — dependency chain
+    stability_runs: 1
+
+  # Job 3: PageRank authority scoring
+  - name: authority_pagerank
+    algorithm: pagerank
+    schedule: {type: periodic, interval: "PT24H"}
+    projection:
+      nodelabels: [Item]
+      edgetypes: [INTERACTED_WITH]
+    writeback:
+      - {property: pagerank, target: Item}
+    aggregation_strategy: mean              # S2-04 — third strategy for ablation
+    depends_on: []
+    stability_runs: 1
+
+  # Job 4: User similarity graph
+  - name: user_similarity
+    algorithm: nodeSimilarity
+    schedule: {type: periodic, interval: "PT24H"}
+    projection:
+      nodelabels: [User, Item]
+      edgetypes: [INTERACTED_WITH]
+    writeback:
+      - {property: similarity_score, target: User}
+    aggregation_strategy: auto              # S2-03
+    stability_runs: 2                       # S2-15
+
+# ─────────────────────────────────────────────────────────────────────────────
+# FEEDBACK LOOP — Exercises S2-08 (calibration pairs), S2-19 (negative sampling)
+# ─────────────────────────────────────────────────────────────────────────────
+feedbackloop:
+  enabled: true
+  signal_weights:
+    enabled: true
+    click: 0.2
+    bookmark: 0.5
+    purchase: 1.0
+    dismiss: -0.3
+  calibration:
+    enabled: true
+    auto_generate: true                     # S2-08
+    min_outcomes: 50
+    outcome_window_days: 90
+
+# ─────────────────────────────────────────────────────────────────────────────
+# COMPLIANCE
+# ─────────────────────────────────────────────────────────────────────────────
+compliance:
+  regimes:
+    - {name: GDPR, description: "General Data Protection Regulation"}
+  audit:
+    enabled: true
+    logmatchrequests: true
+    retentiondays: 365
