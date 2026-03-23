@@ -215,6 +215,8 @@ class ScoringAssembler:
             ComputationType.KGE: self._compile_kge,
             ComputationType.VARIANTDISCOVERY: self._compile_variantdiscovery,
             ComputationType.ENSEMBLECONFIDENCE: self._compile_ensembleconfidence,
+            ComputationType.PREFERENCEATTENTION: self._compile_preference_attention,
+            ComputationType.COMMUNITYBRIDGE: self._compile_community_bridge,
         }
 
         if dim.computation == ComputationType.CANDIDATEPROPERTY:
@@ -381,6 +383,94 @@ class ScoringAssembler:
             alias = sanitize_label(dim.alias)
             return f"coalesce({alias}.{prop}, {default})"
         return f"coalesce(candidate.{prop}, {default})"
+
+    def _compile_preference_attention(self, dim: ScoringDimensionSpec) -> str:
+        """Preference-attention scoring inspired by HGKR knowledge-perceiving filter.
+
+        Traverses from query_entity through configurable outcome relationship,
+        finds successful outcomes, samples top-K by recency, computes
+        community-overlap between candidate and each outcome, and returns
+        normalized weighted score.
+
+        Properties from domain spec YAML (via dim.metadata or defaults):
+        - outcome_relation (default: "RESULTED_IN")
+        - outcome_node (default: "TransactionOutcome")
+        - success_property (default: "outcome_type")
+        - success_value (default: "closed_won")
+
+        Ref: Liu et al., Scientific Reports (2023) 13:6987, §3.2 preference attention.
+        """
+        default = float(dim.defaultwhennull)  # nosemgrep: float-requires-try-except
+        sample_k = self.scoring_spec.preference_sample_size if hasattr(self.scoring_spec, "preference_sample_size") else 28
+
+        # Configurable properties with safe defaults
+        metadata = dim.metadata if hasattr(dim, "metadata") and dim.metadata else {}
+        outcome_rel = sanitize_label(metadata.get("outcome_relation", "RESULTED_IN"))
+        outcome_node = sanitize_label(metadata.get("outcome_node", "TransactionOutcome"))
+        success_prop = sanitize_label(metadata.get("success_property", "outcome_type"))
+        success_value = sanitize_label(metadata.get("success_value", "closed_won"))
+
+        cand_community_prop = sanitize_label(dim.candidateprop or "community_id")
+
+        return (
+            f"CASE "
+            f"  WHEN size([(qe)-[:{outcome_rel}]->(o:{outcome_node}) "
+            f"    WHERE o.{success_prop} = '{success_value}' | o]) = 0 THEN {default} "
+            f"  ELSE toFloat("
+            f"    size([(qe)-[:{outcome_rel}]->(o:{outcome_node}) "
+            f"      WHERE o.{success_prop} = '{success_value}' "
+            f"      AND o.community_id = candidate.{cand_community_prop} | o][0..{sample_k}])"
+            f"  ) / toFloat("
+            f"    size([(qe)-[:{outcome_rel}]->(o:{outcome_node}) "
+            f"      WHERE o.{success_prop} = '{success_value}' | o][0..{sample_k}])"
+            f"  ) "
+            f"END"
+        )
+
+    def _compile_community_bridge(self, dim: ScoringDimensionSpec) -> str:
+        """Multi-community bridge scoring for cross-graph overlap.
+
+        Reads multiple community_id properties (from different per-relation
+        Louvain runs), counts how many match between candidate and query_entity,
+        and returns score = matching / total community properties.
+
+        NULL-safe: NULL community values treated as non-match.
+
+        Properties from domain spec YAML (via dim.metadata or defaults):
+        - community_properties: list[str] (e.g., ["community_id_supply", "community_id_geo"])
+
+        Ref: Liu et al., Scientific Reports (2023) 13:6987, §3.3 cross-graph propagation.
+        """
+        default = float(dim.defaultwhennull)  # nosemgrep: float-requires-try-except
+
+        # Extract community properties from metadata or use sensible defaults
+        metadata = dim.metadata if hasattr(dim, "metadata") and dim.metadata else {}
+        community_props = metadata.get("community_properties", [])
+        if not community_props:
+            # Fall back to candidateprop if set, else default single community_id
+            if dim.candidateprop:
+                community_props = [dim.candidateprop]
+            else:
+                community_props = ["community_id"]
+
+        # Build CASE expressions for each community property
+        match_cases = []
+        for prop in community_props:
+            safe_prop = sanitize_label(prop)
+            match_cases.append(
+                f"CASE "
+                f"WHEN candidate.{safe_prop} IS NOT NULL "
+                f"AND $query_{safe_prop} IS NOT NULL "
+                f"AND candidate.{safe_prop} = $query_{safe_prop} "
+                f"THEN 1 ELSE 0 END"
+            )
+
+        total = len(community_props)
+        if total == 0:
+            return str(default)
+
+        sum_expr = " + ".join(match_cases)
+        return f"CASE WHEN {total} = 0 THEN {default} ELSE toFloat({sum_expr}) / {total}.0 END"
 
     @staticmethod
     def _clamp_expression(expr: str) -> str:

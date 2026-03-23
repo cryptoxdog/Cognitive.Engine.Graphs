@@ -19,6 +19,11 @@ All imports gated behind settings.kge_enabled.
 
 from engine.kge.beam_search import BeamSearchConfig, BeamSearchEngine, CascadeVariant
 from engine.kge.compound_e3d import CompoundE3D, CompoundE3DConfig
+from engine.kge.cross_dimensional_ensemble import (
+    CrossDimensionalEnsemble,
+    CrossDimensionalResult,
+    DimensionalScore,
+)
 from engine.kge.ensemble import EnsembleController, VariantScore
 from engine.kge.pareto_ensemble import ParetoEnsembleController, ParetoEnsembleResult
 from engine.kge.transformations import (
@@ -37,6 +42,9 @@ __all__ = [
     "CascadeVariant",
     "CompoundE3D",
     "CompoundE3DConfig",
+    "CrossDimensionalEnsemble",
+    "CrossDimensionalResult",
+    "DimensionalScore",
     "EnsembleController",
     "Flip",
     "Hyperplane",
