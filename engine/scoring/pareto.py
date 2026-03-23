@@ -18,6 +18,7 @@ from __future__ import annotations
 import logging
 import math
 from dataclasses import dataclass
+from typing import Any
 
 import numpy as np
 
@@ -187,7 +188,7 @@ def _ndcg(relevances: list[float]) -> float:
 
 def _evaluate_weight_vector(
     w: dict[str, float],
-    outcome_history: list[dict] | None,
+    outcome_history: list[dict[str, Any]] | None,
     ema_alpha: float,
 ) -> tuple[float, float, float]:
     """Return (ndcg_score, diversity_score, coverage_score) for a weight vector."""
@@ -215,7 +216,7 @@ def _evaluate_weight_vector(
 def discover_pareto_weights(
     dimension_names: list[str],
     current_weights: dict[str, float],
-    outcome_history: list[dict] | None = None,
+    outcome_history: list[dict[str, Any]] | None = None,
     n_samples: int = 50,
     seed: int = 42,
 ) -> list[WeightVector]:

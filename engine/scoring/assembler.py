@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import logging
 import re
+from typing import Any
 
 from engine.config.schema import ComputationType, DomainSpec, ScoringDimensionSpec
 from engine.utils.security import sanitize_label
@@ -83,8 +84,8 @@ class ScoringAssembler:
         self,
         match_direction: str,
         weights: dict[str, float],
-        pareto_candidates: list | None = None,
-    ) -> tuple[str, dict | None]:
+        pareto_candidates: list[Any] | None = None,
+    ) -> tuple[str, dict[str, Any] | None]:
         """Assemble WITH clause for scoring.
 
         Args:
@@ -99,7 +100,7 @@ class ScoringAssembler:
         """
         from engine.config.settings import settings
 
-        pareto_metadata: dict | None = None
+        pareto_metadata: dict[str, Any] | None = None
 
         # Pareto pre-filter (lazy import to avoid circular deps)
         if settings.pareto_enabled and pareto_candidates is not None and len(pareto_candidates) > 1:
