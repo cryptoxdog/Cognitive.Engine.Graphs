@@ -103,8 +103,7 @@ class GateCompiler:
                 prop_type = prop_types.get(gate.candidateprop, "")
                 if gate.operator in numeric_operators and prop_type and prop_type not in numeric_types:
                     msg = (
-                        f"Gate '{gate.name}': operator '{gate.operator}' "
-                        f"incompatible with property type '{prop_type}'"
+                        f"Gate '{gate.name}': operator '{gate.operator}' incompatible with property type '{prop_type}'"
                     )
                     warnings.append(msg)
                     logger.warning(msg)

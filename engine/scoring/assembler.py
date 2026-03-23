@@ -341,11 +341,7 @@ class ScoringAssembler:
         Prevents unbounded scores from propagating through the scoring pipeline.
         Mirrors seL4's invariant enforcement on all capability-transfer outputs.
         """
-        return (
-            f"CASE WHEN ({expr}) < 0.0 THEN 0.0"
-            f" WHEN ({expr}) > 1.0 THEN 1.0"
-            f" ELSE ({expr}) END"
-        )
+        return f"CASE WHEN ({expr}) < 0.0 THEN 0.0 WHEN ({expr}) > 1.0 THEN 1.0 ELSE ({expr}) END"
 
     def _build_score_expression(self, weight_exprs: list[str]) -> str:
         if not weight_exprs:

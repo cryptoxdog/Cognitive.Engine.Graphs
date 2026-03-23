@@ -51,10 +51,13 @@ class TestCalibrationRunSubaction:
         loader = _make_domain_loader()
         init_dependencies(driver, loader)
 
-        result = await handle_admin("test_tenant", {
-            "subaction": "calibration_run",
-            "domain_id": "test_domain",
-        })
+        result = await handle_admin(
+            "test_tenant",
+            {
+                "subaction": "calibration_run",
+                "domain_id": "test_domain",
+            },
+        )
 
         assert result["status"] == "no_calibration_spec"
         assert result["total_pairs"] == 0
@@ -76,10 +79,13 @@ class TestCalibrationRunSubaction:
         loader = _make_domain_loader(spec)
         init_dependencies(driver, loader)
 
-        result = await handle_admin("test_tenant", {
-            "subaction": "calibration_run",
-            "domain_id": "test_domain",
-        })
+        result = await handle_admin(
+            "test_tenant",
+            {
+                "subaction": "calibration_run",
+                "domain_id": "test_domain",
+            },
+        )
 
         assert result["status"] == "calibration_spec_loaded"
         assert result["total_pairs"] == 1
@@ -97,10 +103,13 @@ class TestScoreFeedbackSubaction:
 
         with patch("engine.handlers._fb_settings", create=True):
             with patch("engine.config.settings.Settings") as mock_cls:
-                result = await handle_admin("test_tenant", {
-                    "subaction": "score_feedback",
-                    "domain_id": "test_domain",
-                })
+                result = await handle_admin(
+                    "test_tenant",
+                    {
+                        "subaction": "score_feedback",
+                        "domain_id": "test_domain",
+                    },
+                )
                 # By default feedback_enabled=False
                 assert result["status"] == "disabled"
 
@@ -112,10 +121,13 @@ class TestScoreFeedbackSubaction:
 
         with patch("engine.config.settings.settings") as mock_settings:
             mock_settings.feedback_enabled = True
-            result = await handle_admin("test_tenant", {
-                "subaction": "score_feedback",
-                "domain_id": "test_domain",
-            })
+            result = await handle_admin(
+                "test_tenant",
+                {
+                    "subaction": "score_feedback",
+                    "domain_id": "test_domain",
+                },
+            )
 
             assert result["status"] == "feedback_computed"
             assert "sample_count" in result
@@ -131,11 +143,14 @@ class TestApplyWeightProposal:
         loader = _make_domain_loader()
         init_dependencies(driver, loader)
 
-        result = await handle_admin("test_tenant", {
-            "subaction": "apply_weight_proposal",
-            "proposed_weights": {"geo": 0.02},
-            "current_weights": {"geo": 0.25},
-        })
+        result = await handle_admin(
+            "test_tenant",
+            {
+                "subaction": "apply_weight_proposal",
+                "proposed_weights": {"geo": 0.02},
+                "current_weights": {"geo": 0.25},
+            },
+        )
         # Default: feedback_enabled=False
         assert result["status"] == "disabled"
 
@@ -147,11 +162,14 @@ class TestApplyWeightProposal:
 
         with patch("engine.config.settings.settings") as mock_settings:
             mock_settings.feedback_enabled = True
-            result = await handle_admin("test_tenant", {
-                "subaction": "apply_weight_proposal",
-                "proposed_weights": {"geo": 0.02},
-                "current_weights": {"geo": 0.25},
-            })
+            result = await handle_admin(
+                "test_tenant",
+                {
+                    "subaction": "apply_weight_proposal",
+                    "proposed_weights": {"geo": 0.02},
+                    "current_weights": {"geo": 0.25},
+                },
+            )
 
             assert result["status"] == "weights_applied"
             assert result["new_weights"]["geo"] == pytest.approx(0.27, abs=0.001)
@@ -176,10 +194,13 @@ class TestOutcomeSyncType:
         from engine.handlers import ValidationError
 
         with pytest.raises(ValidationError, match="No sync endpoints configured"):
-            await handle_sync("test_tenant", {
-                "entity_type": "outcome",
-                "batch": [{"match_id": "m1", "chosen_candidate_id": "c1", "outcome": "positive"}],
-            })
+            await handle_sync(
+                "test_tenant",
+                {
+                    "entity_type": "outcome",
+                    "batch": [{"match_id": "m1", "chosen_candidate_id": "c1", "outcome": "positive"}],
+                },
+            )
 
     @pytest.mark.asyncio
     async def test_outcome_sync_enabled(self):
@@ -189,13 +210,16 @@ class TestOutcomeSyncType:
 
         with patch("engine.config.settings.settings") as mock_settings:
             mock_settings.feedback_enabled = True
-            result = await handle_sync("test_tenant", {
-                "entity_type": "outcome",
-                "batch": [
-                    {"match_id": "m1", "chosen_candidate_id": "c1", "outcome": "positive"},
-                    {"match_id": "m2", "chosen_candidate_id": "c2", "outcome": "negative"},
-                ],
-            })
+            result = await handle_sync(
+                "test_tenant",
+                {
+                    "entity_type": "outcome",
+                    "batch": [
+                        {"match_id": "m1", "chosen_candidate_id": "c1", "outcome": "positive"},
+                        {"match_id": "m2", "chosen_candidate_id": "c2", "outcome": "negative"},
+                    ],
+                },
+            )
 
             assert result["status"] == "success"
             assert result["entity_type"] == "outcome"
@@ -209,12 +233,15 @@ class TestOutcomeSyncType:
 
         with patch("engine.config.settings.settings") as mock_settings:
             mock_settings.feedback_enabled = True
-            result = await handle_sync("test_tenant", {
-                "entity_type": "outcome",
-                "batch": [
-                    {"match_id": "m1", "chosen_candidate_id": "c1", "outcome": "invalid"},
-                    {"match_id": "m2", "chosen_candidate_id": "c2", "outcome": "positive"},
-                ],
-            })
+            result = await handle_sync(
+                "test_tenant",
+                {
+                    "entity_type": "outcome",
+                    "batch": [
+                        {"match_id": "m1", "chosen_candidate_id": "c1", "outcome": "invalid"},
+                        {"match_id": "m2", "chosen_candidate_id": "c2", "outcome": "positive"},
+                    ],
+                },
+            )
 
             assert result["synced_count"] == 1  # only the valid one

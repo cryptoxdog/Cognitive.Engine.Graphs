@@ -35,8 +35,7 @@ class TestOutcomeFeedbackCompute:
 
     def test_sufficient_positive_only(self):
         outcomes = [
-            {"outcome": "positive", "dimension_scores": {"geo": 0.9, "structural": 0.7}}
-            for _ in range(MIN_OUTCOMES)
+            {"outcome": "positive", "dimension_scores": {"geo": 0.9, "structural": 0.7}} for _ in range(MIN_OUTCOMES)
         ]
         fb = OutcomeFeedback(outcomes)
         result = fb.compute_feedback()
@@ -88,10 +87,7 @@ class TestOutcomeFeedbackCompute:
         assert abs(result["proposed_weights"]["d"]) <= WEIGHT_NUDGE + 0.0001
 
     def test_neutral_outcomes_ignored(self):
-        outcomes = [
-            {"outcome": "neutral", "dimension_scores": {"geo": 0.5}}
-            for _ in range(MIN_OUTCOMES)
-        ]
+        outcomes = [{"outcome": "neutral", "dimension_scores": {"geo": 0.5}} for _ in range(MIN_OUTCOMES)]
         fb = OutcomeFeedback(outcomes)
         result = fb.compute_feedback()
 

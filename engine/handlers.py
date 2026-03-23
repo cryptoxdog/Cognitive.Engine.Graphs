@@ -285,9 +285,9 @@ def _validate_match_weights(weights: dict[str, float], tenant: str) -> None:
     for key, val in weights.items():
         try:
             w = float(val)
-        except (TypeError, ValueError):
+        except (TypeError, ValueError) as exc:
             msg = f"Weight '{key}' is not a valid number"
-            raise ValidationError(msg, action="match", tenant=tenant)
+            raise ValidationError(msg, action="match", tenant=tenant) from exc
         if w < _WEIGHT_FLOOR or w > _WEIGHT_CEILING:
             msg = f"Weight '{key}' = {w} is outside allowed range [{_WEIGHT_FLOOR}, {_WEIGHT_CEILING}]"
             raise ValidationError(msg, action="match", tenant=tenant)

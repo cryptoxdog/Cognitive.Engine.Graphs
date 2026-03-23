@@ -118,7 +118,8 @@ ignore = [
 "auth/**" = ["S101", "S105", "S106", "TC002", "TRY301", "TRY401"]
 "chassis/**" = ["TRY300", "TRY301", "TRY401", "S105", "B027", "B904"]
 "chassis/auth/test_*.py" = ["S101", "S105", "S106"]
-"engine/config/**" = ["S105"]
+"engine/config/**" = ["S105", "PLR0915"]
+"engine/handlers.py" = ["PLR0915"]
 "engine/security/**" = ["S102", "E402", "B904", "TRY300", "UP047", "TRY301"]
 "agents/cursor/**" = [
     "PLW1510",

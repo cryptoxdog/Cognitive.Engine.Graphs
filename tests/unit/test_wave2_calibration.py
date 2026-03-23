@@ -40,17 +40,13 @@ class TestCalibrationPairModel:
     """Test CalibrationPair Pydantic validation."""
 
     def test_valid_pair(self):
-        pair = CalibrationPair(
-            node_a="A", node_b="B", expected_score_min=0.3, expected_score_max=0.7
-        )
+        pair = CalibrationPair(node_a="A", node_b="B", expected_score_min=0.3, expected_score_max=0.7)
         assert pair.node_a == "A"
         assert pair.expected_score_min == 0.3
 
     def test_pair_min_greater_than_max_raises(self):
         with pytest.raises(ValueError, match="expected_score_min"):
-            CalibrationPair(
-                node_a="A", node_b="B", expected_score_min=0.8, expected_score_max=0.3
-            )
+            CalibrationPair(node_a="A", node_b="B", expected_score_min=0.8, expected_score_max=0.3)
 
     def test_pair_with_label(self):
         pair = CalibrationPair(
