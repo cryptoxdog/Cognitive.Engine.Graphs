@@ -1,0 +1,4 @@
+# file: /Users/ib-mac/Dropbox/Repo_Dropbox_IB/Graph Cognitive Engine/engine/config/units.py
+# hypothesis_version: 6.151.6
+
+[0.000621371, 0.01, 0.453592, 1.0, 2.20462, 100.0, 1609.34, 'USD', 'USD/mile', 'USD_per_meter', 'celsius', 'concentration', 'currency', 'days', 'decimal', 'distance', 'fahrenheit', 'from_storage', 'g_per_10min', 'kilograms', 'meters', 'miles', 'percent', 'percentage', 'pounds', 'ppm', 'rate_per_distance', 'temperature', 'time', 'to_storage', 'value', 'viscosity', 'weight']

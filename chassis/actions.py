@@ -117,12 +117,21 @@ async def execute_action(
         engine_data = await handler(tenant, payload)
         status = "success"
     except Exception as e:
-        if engine_error_cls is not None and isinstance(e, engine_error_cls):
+        # W4-02: Circuit breaker open → 503 Service Unavailable
+        from engine.graph.circuit_breaker import CircuitOpenError
+
+        if isinstance(e, CircuitOpenError):
+            logger.warning("Circuit breaker OPEN for %s: %s", action, e)
+            engine_data = {"error": str(e), "retry_after": e.retry_after, "status_code": 503}
+            status = "circuit_open"
+        elif engine_error_cls is not None and isinstance(e, engine_error_cls):
             logger.warning(f"Engine error in {action}: {e}")
+            engine_data = {"error": str(e)}
+            status = "failed"
         else:
             logger.exception(f"Handler {action} failed for tenant={tenant}")
-        engine_data = {"error": str(e)}
-        status = "failed"
+            engine_data = {"error": str(e)}
+            status = "failed"
 
     # Deflate response into PacketEnvelope
     processing_ms = (time.time() - start_time) * 1000

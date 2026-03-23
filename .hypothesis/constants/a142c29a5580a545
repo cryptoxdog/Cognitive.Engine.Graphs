@@ -1,0 +1,4 @@
+# file: /Users/ib-mac/Dropbox/Repo_Dropbox_IB/Graph Cognitive Engine/engine/intake/impact_reporter.py
+# hypothesis_version: 6.151.6
+
+[0.0, 0.3, 0.4, 10.0, 60.0, 90.0, 100.0, 'CRITICAL', 'HIGH', 'LOW', 'MEDIUM', 'autonomous', 'discover', 'enrich']

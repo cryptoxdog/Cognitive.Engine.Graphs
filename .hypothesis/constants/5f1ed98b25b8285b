@@ -1,0 +1,4 @@
+# file: /Users/ib-mac/Dropbox/Repo_Dropbox_IB/Graph Cognitive Engine/engine/causal/attribution.py
+# hypothesis_version: 6.151.6
+
+[0.0, 0.2, 0.4, 0.5, 1.0, 'chain_depth', 'distance', 'first_touch', 'last_touch', 'linear', 'model', 'outcome_id', 'position_based', 'total_touchpoints', 'touchpoint_id', 'touchpoints', '|']

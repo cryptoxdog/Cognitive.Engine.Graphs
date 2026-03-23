@@ -35,17 +35,13 @@ from engine.gates.compiler import GateCompiler
 from engine.gds.scheduler import GDSScheduler
 from engine.graph.driver import GraphDriver
 from engine.scoring.assembler import ScoringAssembler
+from engine.state import get_state
 from engine.sync.generator import SyncGenerator
 from engine.traversal.assembler import TraversalAssembler
 from engine.traversal.resolver import ParameterResolutionError, ParameterResolver
 from engine.utils.security import sanitize_label
 
 logger = logging.getLogger(__name__)
-
-_graph_driver: GraphDriver | None = None
-_domain_loader: DomainPackLoader | None = None
-_gds_schedulers: dict[str, GDSScheduler] = {}
-_tenant_allowlist: set[str] | None = None  # None = all tenants allowed (dev mode)
 
 
 class EngineError(Exception):
@@ -67,19 +63,23 @@ class ExecutionError(EngineError):
 
 
 def init_dependencies(graph_driver: GraphDriver, domain_loader: DomainPackLoader) -> None:
-    """Called by chassis at startup to inject dependencies."""
-    global _graph_driver, _domain_loader, _tenant_allowlist
-    _graph_driver = graph_driver
-    _domain_loader = domain_loader
+    """Called by chassis/boot at startup to inject dependencies into EngineState.
+
+    W4-01: Populates the EngineState singleton rather than module-level globals.
+    """
+    state = get_state()
+    state._graph_driver = graph_driver
+    state._domain_loader = domain_loader
     import os
 
     allowlist_raw = os.getenv("TENANT_ALLOWLIST", "")
     if allowlist_raw.strip():
-        _tenant_allowlist = {t.strip() for t in allowlist_raw.split(",") if t.strip()}
-        logger.info("Tenant allowlist configured: %s", _tenant_allowlist)
+        state._tenant_allowlist = {t.strip() for t in allowlist_raw.split(",") if t.strip()}
+        logger.info("Tenant allowlist configured: %s", state._tenant_allowlist)
     else:
-        _tenant_allowlist = None  # All tenants allowed (dev/staging)
+        state._tenant_allowlist = None
         logger.warning("No TENANT_ALLOWLIST configured — all tenants accessible")
+    state._initialized = True
 
 
 def _validate_tenant_access(tenant: str, action: str, *, allowed_tenants: list[str] | None = None) -> None:
@@ -88,8 +88,9 @@ def _validate_tenant_access(tenant: str, action: str, *, allowed_tenants: list[s
     Checks both the legacy TENANT_ALLOWLIST env var and, when W3-01 is active,
     the JWT ``allowed_tenants`` claim forwarded from the auth middleware.
     """
-    # Legacy env-var allowlist check
-    if _tenant_allowlist is not None and tenant not in _tenant_allowlist:
+    state = get_state()
+    allowlist = state.tenant_allowlist
+    if allowlist is not None and tenant not in allowlist:
         raise ValidationError(
             f"Tenant '{tenant}' not in authorized allowlist",
             action=action,
@@ -109,9 +110,24 @@ def _validate_tenant_access(tenant: str, action: str, *, allowed_tenants: list[s
 
 
 def _require_deps() -> tuple[GraphDriver, DomainPackLoader]:
-    if _graph_driver is None or _domain_loader is None:
-        raise RuntimeError("Dependencies not initialized. Call init_dependencies() first.")
-    return _graph_driver, _domain_loader
+    state = get_state()
+    if not state.is_initialized:
+        msg = "Dependencies not initialized. Call init_dependencies() first."
+        raise RuntimeError(msg)
+    return state.graph_driver, state.domain_loader
+
+
+def _get_compliance_engine(domain_spec: DomainSpec) -> ComplianceEngine:
+    """W4-04: Get-or-create ComplianceEngine from the singleton pool.
+
+    Stores one ComplianceEngine per domain_id in EngineState.compliance_engines.
+    Avoids per-request instantiation overhead.
+    """
+    state = get_state()
+    domain_id = domain_spec.domain.id
+    if domain_id not in state.compliance_engines:
+        state.compliance_engines[domain_id] = ComplianceEngine(domain_spec)
+    return state.compliance_engines[domain_id]
 
 
 def _build_capability_set(domain_spec: DomainSpec) -> CapabilitySet | None:
@@ -383,7 +399,7 @@ async def handle_match(tenant: str, payload: dict[str, Any]) -> dict[str, Any]:
     domain_spec = domain_loader.load_domain(tenant)
     _enforce_capability(tenant, "match", domain_spec)
 
-    compliance = ComplianceEngine(domain_spec)
+    compliance = _get_compliance_engine(domain_spec)
     if compliance.enabled:
         compliance.validate_gates(domain_spec.gates)
         query = compliance.check_match_request(
@@ -626,7 +642,7 @@ async def handle_sync(tenant: str, payload: dict[str, Any]) -> dict[str, Any]:
         )
 
     # Run compliance checks on sync request
-    compliance = ComplianceEngine(domain_spec)
+    compliance = _get_compliance_engine(domain_spec)
     if compliance.enabled:
         compliance.check_sync_request(
             tenant=tenant,
@@ -882,13 +898,14 @@ async def _init_schema(driver: GraphDriver, spec: DomainSpec) -> int:
 
 
 def _get_or_create_scheduler(spec: DomainSpec, driver: GraphDriver) -> GDSScheduler:
+    state = get_state()
     domain_id = spec.domain.id
-    if domain_id not in _gds_schedulers:
+    if domain_id not in state.gds_schedulers:
         scheduler = GDSScheduler(spec, driver)
         scheduler.register_jobs()
         scheduler.start()
-        _gds_schedulers[domain_id] = scheduler
-    return _gds_schedulers[domain_id]
+        state.gds_schedulers[domain_id] = scheduler
+    return state.gds_schedulers[domain_id]
 
 
 async def handle_outcomes(tenant: str, payload: dict[str, Any]) -> dict[str, Any]:
@@ -996,7 +1013,7 @@ async def handle_outcomes(tenant: str, payload: dict[str, Any]) -> dict[str, Any
         except Exception:
             logger.warning("Counterfactual generation failed for %s", outcome_id, exc_info=True)
 
-    compliance = ComplianceEngine(domain_spec)
+    compliance = _get_compliance_engine(domain_spec)
     if compliance.enabled:
         compliance.log_outcome(tenant=tenant, outcome_id=outcome_id, outcome=outcome)
 

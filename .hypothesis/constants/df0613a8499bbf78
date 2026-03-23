@@ -1,0 +1,4 @@
+# file: /Users/ib-mac/Dropbox/Repo_Dropbox_IB/Graph Cognitive Engine/engine/feedback/score_propagator.py
+# hypothesis_version: 6.151.6
+
+[1.0, 1.15, 'affected', 'candidate_id', 'candidates_affected', 'factor', 'factor_applied', 'failure', 'outcome', 'outcome_type', 'propagated', 'reason', 'success', 'tenant']

@@ -1,0 +1,4 @@
+# file: /Users/ib-mac/Dropbox/Repo_Dropbox_IB/Graph Cognitive Engine/engine/scoring/assembler.py
+# hypothesis_version: 6.151.6
+
+[0.0, 0.15, 0.25, 0.6, 1.5, 2.0, 90.0, 100.0, 1000.0, 50000.0, ' + ', '$$', '${', ', ', '/*', '//', '0.0', 'apoc', 'call', 'community_id', 'confidence', 'create', 'dbms', 'delete', 'detach', 'dimension_names', 'domain_id', 'ensemble_confidence', 'foreach', 'front_size', 'gds', 'kge_score', 'last_activity_date', 'lat', 'load', 'match', 'merge', 'name', 'names', 'non_dominated_ids', 'optional', 'price_per_unit', 'rate', 'remove', 'return', 'score', 'set', 'target_price', 'total_candidates', 'union', 'unwind', 'using', 'value', 'weight', 'with']

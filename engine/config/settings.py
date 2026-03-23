@@ -116,6 +116,15 @@ class Settings(BaseSettings):
     tenant_auth_bypass_key: str = ""  # W3-01: service-to-service bypass key
     capability_auth_enabled: bool = True  # W3-02/W3-03: domain-spec capability model
 
+    # --- Wave 4: State Management & Resilience (seL4-inspired) ---
+    neo4j_circuit_threshold: int = 5  # W4-02: consecutive failures before circuit opens
+    neo4j_circuit_cooldown: float = 30.0  # W4-02: seconds in OPEN before HALF_OPEN
+    neo4j_circuit_half_open_max: int = 3  # W4-02: probe calls allowed in HALF_OPEN
+    domain_cache_ttl_seconds: int = 30  # W4-03: TTL for async domain pack cache
+    domain_cache_maxsize: int = 100  # W4-03: max entries in domain pack cache
+    compliance_flush_interval: int = 60  # W4-04: seconds between compliance audit flushes
+    compliance_buffer_max: int = 100  # W4-04: max buffered audit entries before forced flush
+
     @model_validator(mode="after")
     def _validate_production_secrets(self) -> "Settings":
         """Raise if default secrets are used in production environment."""

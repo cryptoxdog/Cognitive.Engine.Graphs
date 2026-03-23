@@ -22,6 +22,7 @@ NOTE: chassis/engine_boot.py was removed (was a stale duplicate of this file).
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from typing import Any
 
@@ -30,6 +31,7 @@ from engine.config.loader import DomainPackLoader
 from engine.config.settings import settings
 from engine.graph.driver import GraphDriver
 from engine.handlers import init_dependencies
+from engine.state import get_state
 
 logger = logging.getLogger(__name__)
 
@@ -64,6 +66,7 @@ class GraphLifecycle(LifecycleHook):
         self._graph_driver: GraphDriver | None = None
         self._domain_loader: DomainPackLoader | None = None
         self._schedulers: list[Any] = []
+        self._compliance_flush_task: asyncio.Task[None] | None = None
 
     # --- lifecycle ----------------------------------------------------------
 
@@ -120,23 +123,60 @@ class GraphLifecycle(LifecycleHook):
         else:
             logger.info("GDS disabled via settings.gds_enabled=False — skipping scheduler startup")
 
+        # W4-04: Start periodic compliance audit flush task
+        self._compliance_flush_task = asyncio.create_task(
+            self._compliance_flush_loop()
+        )
+        logger.info(
+            "W4-04: Compliance flush task started (interval=%ds, buffer_max=%d)",
+            settings.compliance_flush_interval,
+            settings.compliance_buffer_max,
+        )
+
         logger.info("GraphLifecycle.startup complete")
 
     async def shutdown(self) -> None:
         logger.info("GraphLifecycle.shutdown → stopping schedulers and closing Neo4j pool")
-        # Shut down all GDS schedulers
-        from engine.handlers import _gds_schedulers
 
-        for domain_id, scheduler in _gds_schedulers.items():
+        # W4-04: Cancel compliance flush task
+        if self._compliance_flush_task is not None:
+            self._compliance_flush_task.cancel()
             try:
-                logger.info("Shutting down GDS scheduler for domain: %s", domain_id)
-                scheduler.shutdown()
+                await self._compliance_flush_task
+            except asyncio.CancelledError:
+                pass
+            self._compliance_flush_task = None
+            logger.info("W4-04: Compliance flush task stopped")
+
+        # Final flush of all compliance engines before shutdown
+        state = get_state()
+        for domain_id, ce in state.compliance_engines.items():
+            try:
+                await ce.flush_audit()
             except Exception as exc:
-                logger.warning("Scheduler shutdown error for %s: %s", domain_id, exc)
-        _gds_schedulers.clear()
-        if self._graph_driver:
-            await self._graph_driver.close()
+                logger.warning("Final compliance flush failed for %s: %s", domain_id, exc)
+
+        await state.shutdown()
         logger.info("GraphLifecycle.shutdown complete")
+
+    # --- W4-04: compliance flush loop ----------------------------------------
+
+    async def _compliance_flush_loop(self) -> None:
+        """Periodically flush audit entries from all compliance engine singletons."""
+        interval = settings.compliance_flush_interval
+        while True:
+            try:
+                await asyncio.sleep(interval)
+                state = get_state()
+                for domain_id, ce in list(state.compliance_engines.items()):
+                    try:
+                        await ce.flush_audit()
+                    except Exception as exc:
+                        logger.warning("Compliance flush failed for domain=%s: %s", domain_id, exc)
+            except asyncio.CancelledError:
+                break
+            except Exception as exc:
+                logger.warning("Compliance flush loop error: %s", exc)
 
     # --- action routing -----------------------------------------------------
 

@@ -20,6 +20,8 @@ from typing import Any
 
 from neo4j import AsyncDriver, AsyncGraphDatabase
 
+from engine.graph.circuit_breaker import CircuitBreaker
+
 logger = logging.getLogger(__name__)
 
 
@@ -46,6 +48,16 @@ class GraphDriver:
 
         self._driver: AsyncDriver | None = None
         self._lock = asyncio.Lock()
+
+        # W4-02: Circuit breaker — configured via settings, defaults provided
+        from engine.config.settings import settings
+
+        self._circuit_breaker = CircuitBreaker(
+            name="neo4j",
+            failure_threshold=settings.neo4j_circuit_threshold,
+            recovery_timeout=settings.neo4j_circuit_cooldown,
+            half_open_max_calls=settings.neo4j_circuit_half_open_max,
+        )
 
     async def connect(self) -> None:
         """Establish driver connection."""
@@ -81,26 +93,35 @@ class GraphDriver:
             raise RuntimeError("Driver not connected. Call connect() first.")
         return self._driver
 
-    async def execute_query(
+    @property
+    def circuit_breaker(self) -> CircuitBreaker:
+        """Expose circuit breaker for health probes and metrics."""
+        return self._circuit_breaker
+
+    async def _raw_execute_query(
         self,
         cypher: str,
         parameters: dict[str, Any] | None = None,
         database: str = "neo4j",
     ) -> list[Any]:
-        """
-        Execute Cypher query.
-
-        Args:
-            cypher: Cypher query
-            parameters: Query parameters
-            database: Target database name
-
-        Returns:
-            List of record dictionaries
-        """
+        """Execute Cypher query without circuit breaker (internal)."""
         driver = self.get_driver()
 
         async with driver.session(database=database) as session:
             result = await session.run(cypher, parameters or {})
             records: list[Any] = await result.data()
             return records
+
+    async def execute_query(
+        self,
+        cypher: str,
+        parameters: dict[str, Any] | None = None,
+        database: str = "neo4j",
+    ) -> list[Any]:
+        """Execute Cypher query with W4-02 circuit breaker protection.
+
+        Raises CircuitOpenError (maps to 503) if breaker is OPEN.
+        """
+        return await self._circuit_breaker.call(
+            self._raw_execute_query, cypher, parameters, database
+        )

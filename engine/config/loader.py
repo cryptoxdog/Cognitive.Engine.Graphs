@@ -15,6 +15,7 @@ Discovers, validates, caches, and hot-reloads domain spec YAML files.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import os
 import threading
@@ -95,6 +96,41 @@ class DomainPackLoader:
                 self._cache.pop(domain_id, None)
             else:
                 self._cache.clear()
+
+    # ------------------------------------------------------------------
+    # W4-03: Async loading with per-domain stampede prevention
+    # ------------------------------------------------------------------
+
+    async def load_domain_async(self, domain_id: str) -> DomainSpec:
+        """Async domain loading with per-domain lock for stampede prevention.
+
+        Checks the existing TTL cache first. On miss, acquires a per-domain
+        asyncio.Lock so that concurrent requests for the same domain don't
+        all hit disk simultaneously. Loads from disk via asyncio.to_thread.
+        """
+        # Fast path: check sync cache (already TTL-bounded)
+        with self._lock:
+            if domain_id in self._cache:
+                cached_spec, _cached_mtime, cached_at = self._cache[domain_id]
+                if (time.monotonic() - cached_at) < self._ttl_seconds:
+                    return cached_spec
+
+        # Per-domain async lock for stampede prevention
+        if not hasattr(self, "_async_locks"):
+            self._async_locks: dict[str, asyncio.Lock] = {}
+        if domain_id not in self._async_locks:
+            self._async_locks[domain_id] = asyncio.Lock()
+
+        async with self._async_locks[domain_id]:
+            # Double-check after acquiring lock
+            with self._lock:
+                if domain_id in self._cache:
+                    cached_spec, _cached_mtime, cached_at = self._cache[domain_id]
+                    if (time.monotonic() - cached_at) < self._ttl_seconds:
+                        return cached_spec
+
+            # Load from disk in thread pool
+            return await asyncio.to_thread(self.load_domain, domain_id)
 
     def list_domains(self) -> list[str]:
         """Discover all domain directories containing spec.yaml."""

@@ -1,0 +1,4 @@
+# file: /Users/ib-mac/Dropbox/Repo_Dropbox_IB/Graph Cognitive Engine/engine/compliance/pii.py
+# hypothesis_version: 6.151.6
+
+['*', '-', '.', '@', 'account_number', 'address', 'com', 'contact_name', 'credit_score', 'critical', 'custom', 'data_subject_id', 'date_of_birth', 'deleted', 'dob', 'dsid', 'email', 'embeddings_deleted', 'field_name', 'financial', 'first_name', 'full_name', 'graph_nodes_deleted', 'high', 'ip_address', 'last_name', 'low', 'medium', 'name', 'packets_deleted', 'pattern_match', 'phone', 'postal_code', 'routing_number', 'social_security', 'ssn', 'street', 'zip_code']
