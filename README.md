@@ -56,6 +56,15 @@ curl -X POST http://localhost:8000/v1/match \
   -d '{"query": {"polymertype": "HDPE", "quantitylbs": 5000, "lat": 33.45, "lon": -84.39}, "top_n": 5}'
 ```
 
+## Intelligence Features
+
+CEG includes a self-improving intelligence layer that learns from transaction outcomes to refine matching quality over time. Subsystems include outcome-based weight learning, causal edge attribution, entity resolution, and counterfactual scenario generation.
+
+- **Technical details:** [INTELLIGENCE_ARCHITECTURE.md](INTELLIGENCE_ARCHITECTURE.md)
+- **Configuration & flag reference:** [docs/FEATURE_FLAGS.md](docs/FEATURE_FLAGS.md)
+
+All intelligence features are disabled by default and activated per-domain via YAML spec flags.
+
 ## Architecture
 
 ```
