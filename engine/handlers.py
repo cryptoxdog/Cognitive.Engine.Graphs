@@ -21,6 +21,13 @@ import time
 import uuid
 from typing import Any
 
+from engine.auth.capabilities import (
+    ACTION_PERMISSION_MAP,
+    Capability,
+    CapabilitySet,
+    check_action_permission,
+    get_capability_validator,
+)
 from engine.compliance.engine import ComplianceEngine
 from engine.config.loader import DomainPackLoader
 from engine.config.schema import DomainSpec
@@ -75,8 +82,13 @@ def init_dependencies(graph_driver: GraphDriver, domain_loader: DomainPackLoader
         logger.warning("No TENANT_ALLOWLIST configured — all tenants accessible")
 
 
-def _validate_tenant_access(tenant: str, action: str) -> None:
-    """Reject requests for unauthorized tenants."""
+def _validate_tenant_access(tenant: str, action: str, *, allowed_tenants: list[str] | None = None) -> None:
+    """Reject requests for unauthorized tenants.
+
+    Checks both the legacy TENANT_ALLOWLIST env var and, when W3-01 is active,
+    the JWT ``allowed_tenants`` claim forwarded from the auth middleware.
+    """
+    # Legacy env-var allowlist check
     if _tenant_allowlist is not None and tenant not in _tenant_allowlist:
         raise ValidationError(
             f"Tenant '{tenant}' not in authorized allowlist",
@@ -84,11 +96,57 @@ def _validate_tenant_access(tenant: str, action: str) -> None:
             tenant=tenant,
         )
 
+    # W3-01: JWT-based tenant authorization
+    from engine.config.settings import settings as _w3_settings
+
+    if _w3_settings.tenant_auth_enabled and allowed_tenants is not None:
+        if tenant not in allowed_tenants and "*" not in allowed_tenants:
+            raise ValidationError(
+                f"Tenant '{tenant}' not in JWT allowed_tenants",
+                action=action,
+                tenant=tenant,
+            )
+
 
 def _require_deps() -> tuple[GraphDriver, DomainPackLoader]:
     if _graph_driver is None or _domain_loader is None:
         raise RuntimeError("Dependencies not initialized. Call init_dependencies() first.")
     return _graph_driver, _domain_loader
+
+
+def _build_capability_set(domain_spec: DomainSpec) -> CapabilitySet | None:
+    """Build a CapabilitySet from domain spec capabilities (W3-02).
+
+    Returns None if no capabilities are defined in the spec.
+    """
+    if not domain_spec.capabilities:
+        return None
+    caps = [{"actions": c.actions, "allowed_subjects": c.allowed_subjects} for c in domain_spec.capabilities]
+    return CapabilitySet(caps)
+
+
+def _enforce_capability(tenant: str, action: str, domain_spec: DomainSpec) -> None:
+    """W3-02/W3-03: Check capability-based access control.
+
+    Only enforced when CAPABILITY_AUTH_ENABLED is True and the domain spec
+    declares capabilities. Raises ValidationError on denial.
+    """
+    from engine.config.settings import settings as _cap_settings
+
+    if not _cap_settings.capability_auth_enabled:
+        return
+
+    cap_set = _build_capability_set(domain_spec)
+    if cap_set is None:
+        return
+
+    if not check_action_permission(tenant, action, cap_set):
+        required = ACTION_PERMISSION_MAP.get(action, action)
+        raise ValidationError(
+            f"Tenant '{tenant}' lacks capability '{required}' for action '{action}'",
+            action=action,
+            tenant=tenant,
+        )
 
 
 def _require_key(payload: dict[str, Any], key: str, action: str, tenant: str) -> Any:
@@ -323,6 +381,7 @@ async def handle_match(tenant: str, payload: dict[str, Any]) -> dict[str, Any]:
             _validate_match_weights(weights, tenant)
 
     domain_spec = domain_loader.load_domain(tenant)
+    _enforce_capability(tenant, "match", domain_spec)
 
     compliance = ComplianceEngine(domain_spec)
     if compliance.enabled:
@@ -510,6 +569,7 @@ async def handle_sync(tenant: str, payload: dict[str, Any]) -> dict[str, Any]:
 
     if entity_type == "outcome" and _sync_settings.feedback_enabled:
         domain_spec = domain_loader.load_domain(tenant)
+        _enforce_capability(tenant, "sync", domain_spec)
         synced = 0
         for item in batch:
             if not isinstance(item, dict):
@@ -550,6 +610,7 @@ async def handle_sync(tenant: str, payload: dict[str, Any]) -> dict[str, Any]:
         return {"status": "success", "entity_type": "outcome", "synced_count": synced}
 
     domain_spec = domain_loader.load_domain(tenant)
+    _enforce_capability(tenant, "sync", domain_spec)
     if not domain_spec.sync:
         raise ValidationError("No sync endpoints configured", action="sync", tenant=tenant)
 
@@ -619,7 +680,7 @@ async def handle_sync(tenant: str, payload: dict[str, Any]) -> dict[str, Any]:
 
 
 async def handle_admin(tenant: str, payload: dict[str, Any]) -> dict[str, Any]:
-    """Admin: introspection, schema init, GDS trigger."""
+    """Admin: introspection, schema init, GDS trigger, capability delegation."""
     graph_driver, domain_loader = _require_deps()
     _validate_tenant_access(tenant, "admin")
     subaction = _require_key(payload, "subaction", "admin", tenant)
@@ -705,6 +766,91 @@ async def handle_admin(tenant: str, payload: dict[str, Any]) -> dict[str, Any]:
         new_weights = OutcomeFeedback.apply_weights(current, proposed)
         return {"status": "weights_applied", "new_weights": new_weights}
 
+    # ── W3-04: Capability Delegation ────────────────────────────
+    if subaction == "delegate_capability":
+        source_tenant = _require_key(payload, "source_tenant", "admin", tenant)
+        target_tenant = _require_key(payload, "target_tenant", "admin", tenant)
+        domain_id = _require_key(payload, "domain_id", "admin", tenant)
+        actions = _require_key(payload, "actions", "admin", tenant)
+        expires_in = payload.get("expires_in_seconds", 0.0)
+
+        validator = get_capability_validator()
+
+        # Find or create a root capability for the source tenant
+        parent_cap = None
+        for cap in validator._registry.values():
+            if cap.tenant_id == source_tenant and cap.is_active():
+                if all(a in cap.allowed_actions for a in actions):
+                    parent_cap = cap
+                    break
+
+        if parent_cap is None:
+            # Create root capability for source tenant
+            parent_cap = Capability(
+                tenant_id=source_tenant,
+                domain_id="*",
+                allowed_actions=frozenset(actions),
+            )
+            validator.register(parent_cap)
+
+        child_cap = validator.derive_capability(
+            parent_cap,
+            scope_restriction={
+                "domain_id": domain_id,
+                "allowed_actions": actions,
+            },
+            expires_in_seconds=expires_in,
+        )
+        # Override tenant on child to target
+        object.__setattr__(child_cap, "tenant_id", target_tenant)
+        child_cap.proof_hash = child_cap._compute_proof_hash()
+
+        # Audit the delegation
+        domain_spec_for_audit = domain_loader.load_domain(domain_id) if domain_id != "*" else None
+        compliance_engine = ComplianceEngine(domain_spec_for_audit) if domain_spec_for_audit else None
+        if compliance_engine:
+            compliance_engine.log_admin(tenant=tenant, subaction="delegate_capability")
+        logger.info(
+            "Capability delegated: %s → %s (domain=%s, actions=%s, cap_id=%s)",
+            source_tenant, target_tenant, domain_id, actions, child_cap.capability_id,
+        )
+        return {
+            "status": "delegated",
+            "capability": child_cap.to_dict(),
+            "delegation": {
+                "source_tenant": source_tenant,
+                "target_tenant": target_tenant,
+                "domain_id": domain_id,
+                "actions": actions,
+            },
+        }
+
+    if subaction == "revoke_capability":
+        capability_id = _require_key(payload, "capability_id", "admin", tenant)
+        validator = get_capability_validator()
+        revoked = validator.revoke_capability(capability_id)
+        if not revoked:
+            raise ValidationError(
+                f"Capability '{capability_id}' not found in registry",
+                action="admin",
+                tenant=tenant,
+            )
+
+        # Audit the revocation
+        logger.info("Capability revoked: %s (by tenant=%s)", capability_id, tenant)
+        return {
+            "status": "revoked",
+            "capability_id": capability_id,
+            "audit": validator.audit_summary(),
+        }
+
+    if subaction == "capability_audit":
+        validator = get_capability_validator()
+        return {
+            "status": "audit",
+            "summary": validator.audit_summary(),
+        }
+
     raise ValidationError(f"Unknown admin subaction: {subaction!r}", action="admin", tenant=tenant)
 
 
@@ -762,6 +908,7 @@ async def handle_outcomes(tenant: str, payload: dict[str, Any]) -> dict[str, Any
         )
 
     domain_spec = domain_loader.load_domain(tenant)
+    _enforce_capability(tenant, "outcomes", domain_spec)
     outcome_id = f"out_{uuid.uuid4().hex[:12]}"
 
     # R3: Causal validation for RESULTED_IN edge
@@ -918,6 +1065,7 @@ async def handle_resolve(tenant: str, payload: dict[str, Any]) -> dict[str, Any]
 
     entity_type = _require_key(payload, "entity_type", "resolve", tenant)
     domain_spec = domain_loader.load_domain(tenant)
+    _enforce_capability(tenant, "resolve", domain_spec)
 
     # R8: Semantic registry-based resolution
     if domain_spec.semantic_registry.enabled and entity_type in domain_spec.semantic_registry.entity_labels:
@@ -1076,6 +1224,7 @@ async def handle_enrich(tenant: str, payload: dict[str, Any]) -> dict[str, Any]:
     graph_driver, domain_loader = _require_deps()
     _validate_tenant_access(tenant, "enrich")
     domain_spec = domain_loader.load_domain(tenant)
+    _enforce_capability(tenant, "enrich", domain_spec)
 
     entity_type = payload.get("entity_type")
     if not entity_type:

@@ -111,6 +111,11 @@ class Settings(BaseSettings):
     ensemble_max_divergence: float = 0.30  # W2-03: GDS/KGE divergence cap (Wave 6)
     score_normalize: bool = False  # W2-04: post-query min-max normalization (opt-in)
 
+    # --- Wave 3: Capability & Access Control (seL4-inspired) ---
+    tenant_auth_enabled: bool = True  # W3-01: JWT allowed_tenants enforcement
+    tenant_auth_bypass_key: str = ""  # W3-01: service-to-service bypass key
+    capability_auth_enabled: bool = True  # W3-02/W3-03: domain-spec capability model
+
     @model_validator(mode="after")
     def _validate_production_secrets(self) -> "Settings":
         """Raise if default secrets are used in production environment."""
