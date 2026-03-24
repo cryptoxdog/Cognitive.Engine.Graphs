@@ -1,0 +1,16 @@
+id: CONTRACT-19
+name: GDS Jobs Declarative
+layer: intelligence
+level: MUST
+scope:
+  paths:
+  - engine/gds/**/*.py
+preconditions:
+- GDS algorithm scheduled
+postconditions:
+- Declared in spec.gds_jobs
+- 'Schedule type: cron|manual'
+- Projections spec-driven
+verification:
+  scanner_rules: []
+  test: tests/unit/

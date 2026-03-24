@@ -1,0 +1,17 @@
+id: CONTRACT-24
+name: Resilience Patterns
+layer: hardening
+level: MUST
+scope:
+  paths:
+  - engine/**/*.py
+preconditions:
+- Neo4j query or cache created
+postconditions:
+- Queries via GraphDriver.execute_query()
+- Circuit breaker 3/30s
+- Caches bounded + TTL
+- No module-level globals
+verification:
+  scanner_rules: []
+  test: tests/contracts/test_contract_24.py

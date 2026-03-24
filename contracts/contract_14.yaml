@@ -1,0 +1,15 @@
+id: CONTRACT-14
+name: NULL Semantics Deterministic
+layer: engine
+level: MUST
+scope:
+  paths:
+  - engine/gates/**/*.py
+preconditions:
+- Gate compiled
+postconditions:
+- 'null_behavior: pass wraps in IS NULL OR predicate'
+- 'null_behavior: fail rejects NULL'
+verification:
+  scanner_rules: []
+  test: tests/unit/

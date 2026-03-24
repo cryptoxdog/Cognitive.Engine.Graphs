@@ -1,0 +1,15 @@
+id: CONTRACT-18
+name: L9_META Headers
+layer: testing
+level: SHOULD
+scope:
+  paths:
+  - engine/**/*.py
+  - chassis/**/*.py
+preconditions:
+- New file created
+postconditions:
+- L9_META header present (schema v1)
+verification:
+  scanner_rules: []
+  test: tools/l9_meta_injector.py

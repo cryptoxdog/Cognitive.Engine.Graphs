@@ -1,0 +1,15 @@
+id: CONTRACT-11
+name: PII Handling
+layer: security
+level: MUST
+scope:
+  paths:
+  - engine/compliance/**/*.py
+preconditions:
+- PII field accessed
+postconditions:
+- 'Handling per spec: hash|encrypt|redact|tokenize'
+- Engine never logs PII values
+verification:
+  scanner_rules: []
+  test: tests/compliance/

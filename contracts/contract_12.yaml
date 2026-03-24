@@ -1,0 +1,15 @@
+id: CONTRACT-12
+name: Domain Spec Source of Truth
+layer: engine
+level: MUST
+scope:
+  paths:
+  - engine/config/**/*.py
+preconditions:
+- Matching behavior implemented
+postconditions:
+- All behavior from domain_spec.yaml via DomainConfig Pydantic
+- Never raw YAML or dicts
+verification:
+  scanner_rules: []
+  test: tests/contracts/test_contract_12.py

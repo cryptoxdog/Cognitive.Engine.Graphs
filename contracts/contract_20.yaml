@@ -1,0 +1,15 @@
+id: CONTRACT-20
+name: KGE Embeddings
+layer: intelligence
+level: MUST
+scope:
+  paths:
+  - engine/kge/**/*.py
+preconditions:
+- KGE scoring dimension used
+postconditions:
+- CompoundE3D 256-dim
+- Domain-specific, never cross-tenant
+verification:
+  scanner_rules: []
+  test: tests/unit/

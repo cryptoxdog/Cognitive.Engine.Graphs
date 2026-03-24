@@ -1,0 +1,16 @@
+id: CONTRACT-21
+name: Feature Flag Discipline
+layer: hardening
+level: MUST
+scope:
+  paths:
+  - engine/**/*.py
+preconditions:
+- Behavioral change that alters query results or adds validation
+postconditions:
+- Gated by bool flag in settings.py
+- True for safety, False for experimental
+- Documented in FEATURE_GATES.md
+verification:
+  scanner_rules: []
+  test: tests/contracts/test_contract_21.py

@@ -1,0 +1,16 @@
+id: CONTRACT-03
+name: Tenant Isolation
+layer: chassis
+level: MUST
+scope:
+  paths:
+  - engine/**/*.py
+preconditions:
+- Neo4j query executed
+postconditions:
+- Query scoped to tenant database
+- No cross-tenant reads
+verification:
+  scanner_rules:
+  - SHARED-002
+  test: tests/contracts/test_contract_03.py

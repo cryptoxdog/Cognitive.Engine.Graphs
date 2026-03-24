@@ -1,0 +1,14 @@
+id: CONTRACT-15
+name: Bidirectional Matching
+layer: engine
+level: MUST
+scope:
+  paths:
+  - engine/gates/**/*.py
+preconditions:
+- 'Gate with invertible: true'
+postconditions:
+- candidate_prop and query_param swapped when direction reverses
+verification:
+  scanner_rules: []
+  test: tests/unit/

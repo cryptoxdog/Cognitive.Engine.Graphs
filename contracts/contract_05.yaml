@@ -1,0 +1,15 @@
+id: CONTRACT-05
+name: Infrastructure is Template
+layer: chassis
+level: MUST
+scope:
+  paths:
+  - engine/**/*
+  - chassis/**/*
+preconditions:
+- Infrastructure file created or modified
+postconditions:
+- No Dockerfile, docker-compose, CI pipeline, or Terraform in engine/
+verification:
+  scanner_rules: []
+  test: tests/contracts/test_contract_05.py

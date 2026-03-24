@@ -1,0 +1,14 @@
+id: CONTRACT-16
+name: File Structure Fixed
+layer: engine
+level: MUST
+scope:
+  paths:
+  - engine/**/*
+preconditions:
+- New directory created
+postconditions:
+- No new top-level directories without architectural approval
+verification:
+  scanner_rules: []
+  test: tests/contracts/test_contract_16.py

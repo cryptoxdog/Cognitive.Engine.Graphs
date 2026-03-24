@@ -1,0 +1,16 @@
+id: CONTRACT-22
+name: Scoring Weight Ceiling
+layer: hardening
+level: MUST
+scope:
+  paths:
+  - engine/config/settings.py
+  - engine/boot.py
+preconditions:
+- Scoring weight modified or added
+postconditions:
+- Sum of defaults <= 1.0
+- Enforced by _assert_default_weight_sum()
+verification:
+  scanner_rules: []
+  test: tests/contracts/test_contract_22.py

@@ -1,0 +1,16 @@
+id: CONTRACT-06
+name: PacketEnvelope Only
+layer: packet
+level: MUST
+scope:
+  paths:
+  - engine/packet/**/*.py
+  - engine/handlers.py
+preconditions:
+- Inter-service payload created
+postconditions:
+- Wrapped via inflate_ingress() at entry
+- Wrapped via deflate_egress() at exit
+verification:
+  scanner_rules: []
+  test: tests/contracts/test_contract_06.py
