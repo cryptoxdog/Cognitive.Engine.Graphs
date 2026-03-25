@@ -101,3 +101,26 @@ class ExecutionError(ChassisError):
     """Runtime execution failure (DB down, timeout, etc.) → HTTP 500."""
 
     status_code: int = 500
+
+
+class FeatureNotEnabled(ChassisError):
+    """Feature gate is off — operator must opt in via env/settings → HTTP 422.
+
+    Raised instead of NotImplementedError for dormant features that have
+    working implementations but are gated behind a feature flag.
+    """
+
+    status_code: int = 422
+
+    def __init__(
+        self,
+        feature: str,
+        *,
+        flag: str,
+        message: str | None = None,
+        **kwargs: Any,
+    ) -> None:
+        self.feature = feature
+        self.flag = flag
+        msg = message or f"Feature '{feature}' is not enabled. Set {flag}=True to activate."
+        super().__init__(msg, **kwargs)

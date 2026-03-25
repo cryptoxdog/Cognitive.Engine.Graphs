@@ -615,6 +615,7 @@ class ComplianceSpec(BaseModel):
     audit: AuditSpec | None = None
     pii: PIISpec | None = None
     retention: RetentionSpec | None = None
+    gdpr_subject_id_field: str = "data_subject_id"  # W6-02: configurable per-domain
 
 
 class SignalWeightsSpec(BaseModel):
