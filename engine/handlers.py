@@ -1119,7 +1119,135 @@ async def handle_admin(tenant: str, payload: dict[str, Any]) -> dict[str, Any]:
             },
         }
 
+    # --- HGKR: Evaluation Endpoint ---
+    if subaction == "evaluate":
+        return await _handle_evaluate(tenant, payload, graph_driver, domain_loader)
+
     raise ValidationError(f"Unknown admin subaction: {subaction!r}", action="admin", tenant=tenant)
+
+
+async def _handle_evaluate(
+    tenant: str,
+    payload: dict[str, Any],
+    graph_driver: GraphDriver,
+    domain_loader: DomainPackLoader,
+) -> dict[str, Any]:
+    """Evaluate scoring quality against a labeled test set.
+
+    Computes precision@K, recall@K, F1@K, and NDCG@K for a batch
+    of test cases run through handle_match.
+
+    Payload:
+        - domain_id: str — domain to evaluate against
+        - test_set: list[dict] — each with "query", "match_direction",
+          "expected_ids" (list[str] of known-good candidate entity_ids)
+        - k: int — top-K for evaluation (default 10)
+        - weights: dict — optional scoring weight overrides
+        - ablation: dict — optional dimension ablation overrides
+    """
+    import math
+
+    domain_id = _require_key(payload, "domain_id", "admin", tenant)
+    test_set = _require_key(payload, "test_set", "admin", tenant)
+    k = int(payload.get("k", 10))
+    weight_overrides = payload.get("weights", {})
+
+    if not isinstance(test_set, list) or len(test_set) == 0:
+        raise ValidationError(
+            "test_set must be a non-empty list",
+            action="admin",
+            tenant=tenant,
+        )
+
+    per_case_results: list[dict[str, Any]] = []
+    total_precision = 0.0
+    total_recall = 0.0
+    total_ndcg = 0.0
+
+    for case_idx, case in enumerate(test_set):
+        query = case.get("query", {})
+        match_direction = case.get("match_direction", "")
+        expected_ids = set(case.get("expected_ids", []))
+
+        if not expected_ids:
+            per_case_results.append({"case_index": case_idx, "skipped": True, "reason": "no expected_ids"})
+            continue
+
+        match_payload: dict[str, Any] = {
+            "query": query,
+            "match_direction": match_direction,
+            "top_n": k,
+        }
+        if weight_overrides:
+            match_payload["weights"] = weight_overrides
+
+        try:
+            match_result = await handle_match(domain_id, match_payload)
+        except Exception as exc:
+            per_case_results.append({"case_index": case_idx, "error": str(exc)})
+            continue
+
+        candidates = match_result.get("candidates", [])
+        returned_ids = []
+        for c in candidates[:k]:
+            if isinstance(c, dict):
+                cand_node = c.get("candidate", {})
+                if isinstance(cand_node, dict):
+                    returned_ids.append(str(cand_node.get("entity_id", "")))
+                else:
+                    returned_ids.append("")
+            else:
+                returned_ids.append("")
+
+        # Precision@K: fraction of returned candidates that are relevant
+        relevant_returned = sum(1 for rid in returned_ids if rid in expected_ids)
+        precision = relevant_returned / len(returned_ids) if returned_ids else 0.0
+
+        # Recall@K: fraction of relevant candidates that were returned
+        recall = relevant_returned / len(expected_ids) if expected_ids else 0.0
+
+        # NDCG@K: normalized discounted cumulative gain
+        dcg = 0.0
+        for rank, rid in enumerate(returned_ids, start=1):
+            if rid in expected_ids:
+                dcg += 1.0 / math.log2(rank + 1)
+        # Ideal DCG: all relevant items at top positions
+        ideal_count = min(len(expected_ids), k)
+        idcg = sum(1.0 / math.log2(rank + 1) for rank in range(1, ideal_count + 1))
+        ndcg = dcg / idcg if idcg > 0 else 0.0
+
+        total_precision += precision
+        total_recall += recall
+        total_ndcg += ndcg
+
+        per_case_results.append({
+            "case_index": case_idx,
+            "precision_at_k": round(precision, 4),
+            "recall_at_k": round(recall, 4),
+            "ndcg_at_k": round(ndcg, 4),
+            "returned_count": len(returned_ids),
+            "relevant_returned": relevant_returned,
+        })
+
+    evaluated_count = sum(1 for r in per_case_results if "precision_at_k" in r)
+    avg_precision = total_precision / evaluated_count if evaluated_count > 0 else 0.0
+    avg_recall = total_recall / evaluated_count if evaluated_count > 0 else 0.0
+    avg_ndcg = total_ndcg / evaluated_count if evaluated_count > 0 else 0.0
+    f1 = (2 * avg_precision * avg_recall / (avg_precision + avg_recall)) if (avg_precision + avg_recall) > 0 else 0.0
+
+    return {
+        "status": "evaluation_complete",
+        "k": k,
+        "test_cases": len(test_set),
+        "evaluated": evaluated_count,
+        "aggregate": {
+            "precision_at_k": round(avg_precision, 4),
+            "recall_at_k": round(avg_recall, 4),
+            "f1_at_k": round(f1, 4),
+            "ndcg_at_k": round(avg_ndcg, 4),
+        },
+        "per_case": per_case_results,
+    }
 
 
 async def _init_schema(driver: GraphDriver, spec: DomainSpec) -> int:

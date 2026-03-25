@@ -22,7 +22,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-from collections import deque
+from collections import defaultdict, deque
 from datetime import datetime
 from typing import Any
 
@@ -96,13 +96,91 @@ class GDSScheduler:
         return "Facility"
 
     def register_jobs(self) -> None:
-        """Register all GDS jobs from domain spec."""
-        for job_spec in self.domain_spec.gdsjobs:
-            if job_spec.schedule.type == "cron":
-                self._register_cron_job(job_spec)
-            elif job_spec.schedule.type == "manual":
-                logger.info(f"Job {job_spec.name} is manual-trigger only")
-        logger.info(f"Registered {len(self.domain_spec.gdsjobs)} GDS jobs")
+        """Register all GDS jobs from domain spec using DAG ordering.
+
+        Jobs are topologically sorted by depends_on relationships.
+        Jobs without depends_on are placed in wave 0 (backward compatible).
+        """
+        waves = self._build_execution_dag(self.domain_spec.gdsjobs)
+        for wave_idx, wave in enumerate(waves):
+            for job_spec in wave:
+                if job_spec.schedule.type == "cron":
+                    self._register_cron_job(job_spec)
+                elif job_spec.schedule.type == "manual":
+                    logger.info("Job %s (wave %d) is manual-trigger only", job_spec.name, wave_idx)
+        logger.info(
+            "Registered %d GDS jobs across %d execution waves",
+            len(self.domain_spec.gdsjobs),
+            len(waves),
+        )
+
+    @staticmethod
+    def _build_execution_dag(jobs: list[GDSJobSpec]) -> list[list[GDSJobSpec]]:
+        """Build execution waves via Kahn's topological sort algorithm.
+
+        Args:
+            jobs: List of GDS job specs with optional depends_on fields.
+
+        Returns:
+            List of waves, where each wave is a list of jobs that can
+            execute in parallel. Wave N completes before wave N+1 starts.
+
+        Backward compatibility:
+            Jobs without depends_on are placed in wave 0 (parallel execution),
+            matching pre-enhancement behavior exactly.
+
+        Cycle handling:
+            Circular dependencies are detected and logged as errors.
+            Cycle members are placed in a fallback wave at the end.
+        """
+        if not jobs:
+            return []
+
+        job_map: dict[str, GDSJobSpec] = {j.algorithm: j for j in jobs}
+        in_degree: dict[str, int] = {j.algorithm: 0 for j in jobs}
+        dependents: dict[str, list[str]] = defaultdict(list)
+
+        for job in jobs:
+            deps = job.depends_on if job.depends_on else []
+            for dep in deps:
+                if dep in job_map:
+                    in_degree[job.algorithm] += 1
+                    dependents[dep].append(job.algorithm)
+                else:
+                    logger.warning(
+                        "Job '%s' depends on unknown algorithm '%s'; ignoring dependency",
+                        job.name,
+                        dep,
+                    )
+
+        # Kahn's algorithm: process nodes with in-degree 0 in waves
+        waves: list[list[GDSJobSpec]] = []
+        queue = [alg for alg, deg in in_degree.items() if deg == 0]
+
+        while queue:
+            waves.append([job_map[alg] for alg in queue])
+            next_queue: list[str] = []
+            for alg in queue:
+                for dep_alg in dependents[alg]:
+                    in_degree[dep_alg] -= 1
+                    if in_degree[dep_alg] == 0:
+                        next_queue.append(dep_alg)
+            queue = next_queue
+
+        # Detect cycles: any remaining nodes with in_degree > 0
+        placed = {alg for wave in waves for alg in [j.algorithm for j in wave]}
+        all_algs = {j.algorithm for j in jobs}
+        cycle_members = all_algs - placed
+
+        if cycle_members:
+            logger.error(
+                "Circular dependency detected among GDS jobs: %s. "
+                "Placing in fallback wave.",
+                sorted(cycle_members),
+            )
+            waves.append([job_map[alg] for alg in sorted(cycle_members)])
+
+        return waves
 
     def _register_cron_job(self, job_spec: GDSJobSpec) -> None:
         if not job_spec.schedule.cron:

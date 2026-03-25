@@ -104,6 +104,8 @@ class ComputationType(StrEnum):
     KGE = "kge"
     VARIANTDISCOVERY = "variantdiscovery"
     ENSEMBLECONFIDENCE = "ensembleconfidence"
+    PREFERENCEATTENTION = "preference_attention"
+    COMMUNITYBRIDGE = "community_bridge"
 
 
 class ScoringSource(StrEnum):
@@ -121,6 +123,22 @@ class ScoringAggregation(StrEnum):
 
     ADDITIVE = "additive"
     MULTIPLICATIVE = "multiplicative"
+
+
+class AggregationStrategy(StrEnum):
+    """Neighborhood aggregation method for iterative GDS algorithms.
+
+    Maps HGKR aggregator types to CEG equivalents:
+    - mean: GraphSAGE-style mean aggregation (default safe baseline)
+    - attention_weighted: GAT-style attention (for item-tailed relations)
+    - max: Max-pool aggregation
+    - sample_aggregate: Sample + aggregate (GraphSAGE sampling variant)
+    """
+
+    MEAN = "mean"
+    ATTENTION_WEIGHTED = "attention_weighted"
+    MAX_POOL = "max"
+    SAMPLE_AGGREGATE = "sample_aggregate"
 
 
 class SyncStrategy(StrEnum):
@@ -398,12 +416,22 @@ class ScoringDimensionSpec(BaseModel):
     defaultweight: float
     aggregation: ScoringAggregation = ScoringAggregation.ADDITIVE
     matchdirections: list[str] | None = None
+    edge_type_strategy: dict[str, ComputationType] = Field(
+        default_factory=dict,
+        description="Per-edge-type computation overrides",
+    )
 
 
 class ScoringSpec(BaseModel):
     """Scoring configuration."""
 
     dimensions: list[ScoringDimensionSpec]
+    preference_sample_size: int = Field(
+        default=28,
+        ge=1,
+        le=100,
+        description="Historical preference sample size for attention scoring",
+    )
 
 
 class SoftSignalSpec(BaseModel):
@@ -492,6 +520,24 @@ class GDSJobSpec(BaseModel):
     ratedenominatorfilter: str | None = None
     recencydecay: bool = False
     recencyhalflifedays: int | None = None
+    depends_on: list[str] = Field(
+        default_factory=list,
+        description="Job algorithm names that must complete before this job runs (DAG ordering)",
+    )
+    propagation_depth: int = Field(
+        default=2,
+        ge=1,
+        le=5,
+        description="L-hop propagation depth for iterative algorithms",
+    )
+    aggregation_strategy: AggregationStrategy = Field(
+        default=AggregationStrategy.MEAN,
+        description="Neighborhood aggregation method",
+    )
+    per_relation_params: dict[str, dict[str, Any]] = Field(
+        default_factory=dict,
+        description="Per-relation-type algorithm parameter overrides",
+    )
 
 
 class GDSSpec(BaseModel):
