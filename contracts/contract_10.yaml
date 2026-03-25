@@ -1,0 +1,16 @@
+id: CONTRACT-10
+name: Prohibited Factors
+layer: security
+level: MUST
+scope:
+  paths:
+  - engine/compliance/**/*.py
+  - engine/gates/**/*.py
+preconditions:
+- Gate compilation references compliance field
+postconditions:
+- Protected fields blocked at compile-time
+- Violation logged via audit_on_violation
+verification:
+  scanner_rules: []
+  test: tests/compliance/

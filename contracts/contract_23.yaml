@@ -1,0 +1,17 @@
+id: CONTRACT-23
+name: Admin Subaction Registration
+layer: hardening
+level: MUST
+scope:
+  paths:
+  - engine/handlers.py
+preconditions:
+- New admin subaction added
+postconditions:
+- snake_case name
+- Returns {status, subaction}
+- Logs with tenant/trace_id
+- Validates with _require_key()
+verification:
+  scanner_rules: []
+  test: tests/contracts/test_contract_23.py

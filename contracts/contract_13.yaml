@@ -1,0 +1,17 @@
+id: CONTRACT-13
+name: Gate-Then-Score Architecture
+layer: engine
+level: MUST
+scope:
+  paths:
+  - engine/gates/**/*.py
+  - engine/scoring/**/*.py
+preconditions:
+- Match query assembled
+postconditions:
+- Gates compile to Cypher WHERE
+- Scoring compiles to WITH/ORDER BY
+- 10 gate types, 13 scoring computations
+verification:
+  scanner_rules: []
+  test: tests/contracts/test_contract_13.py

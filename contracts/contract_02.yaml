@@ -1,0 +1,15 @@
+id: CONTRACT-02
+name: Handler Interface
+layer: chassis
+level: MUST
+scope:
+  paths:
+  - engine/handlers.py
+preconditions:
+- Action handler function defined
+postconditions:
+- 'Signature is async def handle_*(tenant: str, payload: dict) -> dict'
+- Registered via chassis.router.register_handler()
+verification:
+  scanner_rules: []
+  test: tests/contracts/test_contract_02.py

@@ -1,0 +1,18 @@
+id: CONTRACT-07
+name: Immutability + Content Hash
+layer: packet
+level: MUST
+scope:
+  paths:
+  - engine/packet/**/*.py
+preconditions:
+- PacketEnvelope mutation attempted
+postconditions:
+- Mutations via .derive() only
+- content_hash SHA-256 UNIQUE constraint
+verification:
+  scanner_rules:
+  - MEM-001
+  - MEM-002
+  - SHARED-001
+  test: tests/contracts/test_contract_07.py

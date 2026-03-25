@@ -1,0 +1,17 @@
+id: CONTRACT-01
+name: Single Ingress
+layer: chassis
+level: MUST
+scope:
+  paths:
+  - engine/**/*.py
+preconditions:
+- Any import statement in engine/ code
+postconditions:
+- No FastAPI, Starlette, or uvicorn imports present
+verification:
+  scanner_rules:
+  - ARCH-001
+  - ARCH-002
+  - ARCH-003
+  test: tests/contracts/test_contract_01.py

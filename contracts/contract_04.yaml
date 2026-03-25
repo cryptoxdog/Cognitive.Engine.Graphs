@@ -1,0 +1,17 @@
+id: CONTRACT-04
+name: Observability Inherited
+layer: chassis
+level: MUST
+scope:
+  paths:
+  - engine/**/*.py
+preconditions:
+- Logging or metrics code in engine/
+postconditions:
+- Only structlog.get_logger(__name__) used
+- No structlog.configure() or logging.basicConfig()
+verification:
+  scanner_rules:
+  - OBS-001
+  - OBS-002
+  test: tests/contracts/test_contract_04.py

@@ -1,0 +1,22 @@
+id: CONTRACT-09
+name: Cypher Injection Prevention
+layer: security
+level: MUST
+scope:
+  paths:
+  - engine/**/*.py
+preconditions:
+- String interpolated into Cypher MATCH/WHERE/SET
+postconditions:
+- Labels/types pass sanitize_label() regex ^[A-Za-z_][A-Za-z0-9_]*$
+- Values always parameterized ($batch, $query)
+verification:
+  scanner_rules:
+  - SEC-001
+  - SEC-002
+  - SEC-003
+  - SEC-004
+  - SEC-005
+  - SEC-006
+  - SEC-007
+  test: tests/contracts/test_contract_09.py

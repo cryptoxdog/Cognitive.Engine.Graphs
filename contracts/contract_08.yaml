@@ -1,0 +1,18 @@
+id: CONTRACT-08
+name: Lineage + Audit
+layer: packet
+level: MUST
+scope:
+  paths:
+  - engine/packet/**/*.py
+preconditions:
+- Derived packet created
+postconditions:
+- parent_id, root_id set
+- generation incremented
+- hop_trace append-only
+verification:
+  scanner_rules:
+  - DEL-001
+  - DEL-002
+  test: tests/contracts/test_contract_08.py

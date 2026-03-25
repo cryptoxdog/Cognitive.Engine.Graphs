@@ -1,0 +1,16 @@
+id: CONTRACT-17
+name: Test Requirements
+layer: testing
+level: MUST
+scope:
+  paths:
+  - tests/**/*.py
+preconditions:
+- Code change submitted
+postconditions:
+- Unit tests for pure functions
+- Integration with testcontainers-neo4j
+- Performance <200ms p95
+verification:
+  scanner_rules: []
+  test: tests/
