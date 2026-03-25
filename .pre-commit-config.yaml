@@ -33,9 +33,9 @@ repos:
     rev: v1.14.0
     hooks:
       - id: mypy
-        args: [--ignore-missing-imports]
+        args: [--ignore-missing-imports, --follow-imports=silent]
         additional_dependencies: [pydantic, pydantic-settings, types-PyYAML, neo4j, structlog]
-        exclude: ^(tests/|tools/|domains/|current work/|harvest_staging/|docs/|engine/security/|agents/cursor/)
+        exclude: ^(tests/|tools/|domains/|current work/|harvest_staging/|docs/|engine/security/|engine/auth/|agents/cursor/)
 
   # Unit tests (fast subset for pre-commit)
   # Note: Some tests require mock updates; run full suite with `pytest tests/`

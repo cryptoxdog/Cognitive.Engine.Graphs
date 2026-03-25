@@ -29,6 +29,7 @@ logger = logging.getLogger(__name__)
 # Sentinel value for confidence flags
 FLAG_MONOCULTURE = "monoculture"
 FLAG_ENSEMBLE_DIVERGENCE = "ensemble_divergence"
+FLAG_LOW_DIMENSIONAL_AGREEMENT = "low_dimensional_agreement"  # S2-07
 
 
 class ConfidenceChecker:
@@ -118,11 +119,75 @@ class ConfidenceChecker:
 
         return flags
 
+    def check_dimensional_agreement(
+        self,
+        candidates: list[dict[str, Any]],
+        agreement_threshold: float = 0.4,
+    ) -> list[dict[str, Any]]:
+        """S2-07: Flag candidates with low cross-dimensional agreement.
+
+        Wires CrossDimensionalEnsemble confidence (1 - 2*std_dev) into the
+        confidence checking pipeline. When confidence is below threshold,
+        the candidate's dimensions are in significant disagreement.
+
+        HGKR context: L=2 iterative propagation is designed to resolve
+        dimensional disagreement. Low agreement after fusion indicates
+        the dimensions are measuring fundamentally different signals.
+
+        Args:
+            candidates: List of candidate dicts, optionally with
+                        'cross_dimensional_confidence' key.
+            agreement_threshold: Minimum confidence to avoid flagging.
+
+        Returns:
+            List of flag dicts for candidates that triggered low agreement.
+        """
+        flags: list[dict[str, Any]] = []
+        for idx, candidate in enumerate(candidates):
+            # Check for pre-computed cross-dimensional confidence
+            cd_conf = candidate.get("cross_dimensional_confidence")
+            if cd_conf is not None and isinstance(cd_conf, (int, float)):
+                if cd_conf < agreement_threshold:
+                    flags.append(
+                        {
+                            "candidate_index": idx,
+                            "confidence": round(cd_conf, 4),
+                            "threshold": agreement_threshold,
+                            "flag": FLAG_LOW_DIMENSIONAL_AGREEMENT,
+                        }
+                    )
+                continue
+
+            # Fallback: compute agreement from dimension_scores if available
+            dim_scores = candidate.get("dimension_scores", {})
+            if not isinstance(dim_scores, dict) or len(dim_scores) < 2:
+                continue
+
+            values = [v for v in dim_scores.values() if isinstance(v, (int, float))]
+            if len(values) < 2:
+                continue
+
+            mean_val = sum(values) / len(values)
+            std_dev = (sum((v - mean_val) ** 2 for v in values) / len(values)) ** 0.5
+            agreement = max(0.0, 1.0 - 2.0 * std_dev)
+
+            if agreement < agreement_threshold:
+                flags.append(
+                    {
+                        "candidate_index": idx,
+                        "confidence": round(agreement, 4),
+                        "threshold": agreement_threshold,
+                        "flag": FLAG_LOW_DIMENSIONAL_AGREEMENT,
+                    }
+                )
+
+        return flags
+
     def annotate_candidates(self, candidates: list[dict[str, Any]]) -> list[dict[str, Any]]:
-        """Run monoculture check and annotate candidates with confidence flags.
+        """Run monoculture + dimensional agreement checks and annotate candidates.
 
         Mutates candidates in-place by adding 'confidence_flag' key where
-        monoculture is detected.
+        monoculture or low dimensional agreement is detected.
 
         Args:
             candidates: List of candidate result dicts.
@@ -133,12 +198,27 @@ class ConfidenceChecker:
         mono_flags = self.check_monoculture(candidates)
         flag_map: dict[int, dict[str, Any]] = {f["candidate_index"]: f for f in mono_flags}
 
+        # S2-07: Also check dimensional agreement
+        agreement_flags = self.check_dimensional_agreement(candidates)
+        agreement_map: dict[int, dict[str, Any]] = {
+            f["candidate_index"]: f for f in agreement_flags
+        }
+
         for idx, candidate in enumerate(candidates):
+            flags_list: list[str] = []
+            detail: dict[str, Any] = {}
+
             if idx in flag_map:
-                candidate["confidence_flag"] = flag_map[idx]["flag"]
-                candidate["confidence_detail"] = {
-                    "dominant_dimension": flag_map[idx]["dominant_dimension"],
-                    "contribution": flag_map[idx]["contribution"],
-                }
+                flags_list.append(flag_map[idx]["flag"])
+                detail["dominant_dimension"] = flag_map[idx]["dominant_dimension"]
+                detail["contribution"] = flag_map[idx]["contribution"]
+
+            if idx in agreement_map:
+                flags_list.append(agreement_map[idx]["flag"])
+                detail["dimensional_agreement"] = agreement_map[idx]["confidence"]
+
+            if flags_list:
+                candidate["confidence_flag"] = flags_list[0] if len(flags_list) == 1 else flags_list
+                candidate["confidence_detail"] = detail
 
         return candidates

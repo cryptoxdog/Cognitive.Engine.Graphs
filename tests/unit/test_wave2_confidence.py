@@ -143,7 +143,11 @@ class TestAnnotateCandidates:
         ]
         result = checker.annotate_candidates(candidates)
 
-        assert result[0]["confidence_flag"] == FLAG_MONOCULTURE
+        flag = result[0]["confidence_flag"]
+        if isinstance(flag, list):
+            assert FLAG_MONOCULTURE in flag
+        else:
+            assert flag == FLAG_MONOCULTURE
         assert result[0]["confidence_detail"]["dominant_dimension"] == "geo"
         assert "confidence_flag" not in result[1]
 

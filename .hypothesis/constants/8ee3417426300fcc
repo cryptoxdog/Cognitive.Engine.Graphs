@@ -1,4 +1,0 @@
-# file: /Users/ib-mac/Dropbox/Repo_Dropbox_IB/Graph Cognitive Engine/engine/gds/scheduler.py
-# hypothesis_version: 6.151.6
-
-[200.0, 500.0, 1000, ',\n            ', 'Facility', 'accepted_edges', 'algorithm', 'candidate', 'causal_chain_scoring', 'communities', 'communityCount', 'communityId', 'cooccurrence', 'cron', 'decay_km', 'does not exist', 'duration_sec', 'edges_created', 'edges_pruned', 'equipment_mappings', 'equipmentsync', 'error', 'extruder', 'failed', 'flakehandler', 'geoproximity', 'granulator', 'handles_flake', 'handles_regrind', 'handles_rollstock', 'has_extruder', 'has_granulator', 'has_shredder', 'has_sorting_line', 'has_wash_line', 'job', 'louvain', 'manual', 'max_km', 'modularity', 'nodes_scored', 'not found', 'reason', 'regrindhandler', 'reinforcement', 'rejected_edges', 'rollstockhandler', 'shredder', 'skipped', 'sortingline', 'status', 'success', 'temporalrecency', 'timestamp', 'washline', 'weights_updated', '|']

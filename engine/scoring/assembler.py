@@ -19,7 +19,13 @@ import logging
 import re
 from typing import Any
 
-from engine.config.schema import ComputationType, DomainSpec, ScoringDimensionSpec
+from engine.config.schema import (
+    ColdStartFallback,
+    ComputationType,
+    DomainSpec,
+    NullStrategy,
+    ScoringDimensionSpec,
+)
 from engine.graph.driver import GraphDriver
 from engine.utils.security import sanitize_label
 
@@ -87,6 +93,8 @@ class ScoringAssembler:
         self._last_active_dims: list[str] = []
         self._graph_driver = graph_driver
         self._learned_weights: dict[str, float] | None = None
+        self._population_means: dict[str, float] = {}  # S2-01: cached population means
+        self._negative_slope: float = 0.02  # S2-02: LeakyReLU alpha
 
     async def load_learned_weights(self) -> dict[str, float]:
         """Query DimensionWeight nodes from Neo4j for convergence loop.
@@ -207,7 +215,12 @@ class ScoringAssembler:
         return list(self._last_active_dims)
 
     def _compile_dimension(self, dim: ScoringDimensionSpec) -> str:
-        """Dispatch to computation-specific compiler."""
+        """Dispatch to computation-specific compiler.
+
+        Applies HGKR Pass 2 enhancements:
+        - S2-01: Null inheritance strategy wrapping
+        - S2-20: Cold-start fallback for applicable dimensions
+        """
         dispatch = {
             ComputationType.GEODECAY: self._compile_geodecay,
             ComputationType.LOGNORMALIZED: self._compile_lognormalized,
@@ -225,17 +238,26 @@ class ScoringAssembler:
         }
 
         if dim.computation == ComputationType.CANDIDATEPROPERTY:
-            return self._compile_candidateproperty(dim)
-        if dim.computation == ComputationType.CUSTOMCYPHER:
+            base_expr = self._compile_candidateproperty(dim)
+        elif dim.computation == ComputationType.CUSTOMCYPHER:
             if not dim.expression:
                 raise ValueError(f"Dimension '{dim.name}': customcypher requires 'expression'")
-            return _validate_custom_expression(dim.expression, dim.name)
+            base_expr = _validate_custom_expression(dim.expression, dim.name)
+        else:
+            compiler = dispatch.get(dim.computation)
+            if compiler is None:
+                logger.warning("Unknown computation type: %s", dim.computation)
+                return str(dim.defaultwhennull)
+            base_expr = compiler(dim)
 
-        compiler = dispatch.get(dim.computation)
-        if compiler is None:
-            logger.warning("Unknown computation type: %s", dim.computation)
-            return str(dim.defaultwhennull)
-        return compiler(dim)
+        # S2-01: Apply null inheritance strategy
+        base_expr = self._apply_null_strategy(dim, base_expr)
+
+        # S2-20: Apply cold-start fallback for eligible dimensions
+        if getattr(dim, "cold_start_fallback", None) and dim.cold_start_fallback != ColdStartFallback.ZERO:
+            base_expr = self._apply_cold_start_fallback(dim, base_expr)
+
+        return base_expr
 
     def _compile_geodecay(self, dim: ScoringDimensionSpec) -> str:
         k = dim.decayconstant or 50000.0
@@ -254,14 +276,31 @@ class ScoringAssembler:
         return f"log(1 + coalesce(candidate.{prop}, 0)) / log(1 + {max_val})"
 
     def _compile_communitymatch(self, dim: ScoringDimensionSpec) -> str:
-        """Community match scoring using simple equality check.
+        """Community match scoring.
 
-        Returns bias score if communities match, reduced score otherwise.
+        S2-17: When soft_match=True, uses graduated scoring based on community
+        distance rather than binary match/no-match. Falls back to original
+        binary logic when soft_match=False.
+
+        Returns bias score if communities match, graduated score otherwise.
         Does not require APOC - uses native Cypher only.
         """
         bias = dim.bias or 1.5
         cand_prop = sanitize_label(dim.candidateprop or "community_id")
         query_prop = sanitize_label(dim.queryprop or "community_id")
+
+        if getattr(dim, "soft_match", False):
+            # S2-17: Graduated community scoring — Hierarchical Attention Network pattern.
+            # Uses absolute community ID difference as proxy for dendrogram distance.
+            # Closer community IDs ≈ closer in hierarchy → higher partial credit.
+            return (
+                f"CASE "
+                f"  WHEN candidate.{cand_prop} IS NULL OR ${query_prop} IS NULL THEN 0.5 "
+                f"  WHEN candidate.{cand_prop} = ${query_prop} THEN {bias} "
+                f"  ELSE toFloat({bias}) / (1.0 + abs(candidate.{cand_prop} - ${query_prop})) "
+                f"END"
+            )
+
         return (
             f"CASE "
             f"  WHEN candidate.{cand_prop} IS NULL OR ${query_prop} IS NULL THEN 0.5 "
@@ -485,6 +524,65 @@ class ScoringAssembler:
         Mirrors seL4's invariant enforcement on all capability-transfer outputs.
         """
         return f"CASE WHEN ({expr}) < 0.0 THEN 0.0 WHEN ({expr}) > 1.0 THEN 1.0 ELSE ({expr}) END"
+
+    def _apply_null_strategy(self, dim: ScoringDimensionSpec, base_expr: str) -> str:
+        """S2-01: Apply null inheritance strategy to dimension expression.
+
+        HGKR Eq. 4: non-participant entities inherit prior embeddings.
+        - ZERO: score 0.0 when NULL (current default behavior)
+        - INHERIT_PRIOR: carry forward candidate's last known score for dimension
+        - POPULATION_MEAN: substitute the population mean score
+        """
+        strategy = getattr(dim, "null_strategy", NullStrategy.ZERO)
+        if strategy == NullStrategy.ZERO:
+            return base_expr  # No change — coalesce(..., 0.0) already handles this
+        if strategy == NullStrategy.INHERIT_PRIOR:
+            prop_name = sanitize_label(f"_prior_{dim.name}")
+            return f"coalesce(({base_expr}), candidate.{prop_name}, {dim.defaultwhennull})"
+        if strategy == NullStrategy.POPULATION_MEAN:
+            # Population mean is injected as a parameter at query time
+            param = sanitize_label(f"_popmean_{dim.name}")
+            return f"coalesce(({base_expr}), ${param}, {dim.defaultwhennull})"
+        return base_expr
+
+    def _apply_cold_start_fallback(self, dim: ScoringDimensionSpec, base_expr: str) -> str:
+        """S2-20: Cold-start fallback for preference_attention-type dimensions.
+
+        HGKR paper's core motivation: KGs solve cold-start via structural signals.
+        When a candidate has zero historical outcomes, fall back to graph-structural
+        similarity (shared neighbors count) or population mean.
+        """
+        fallback = getattr(dim, "cold_start_fallback", ColdStartFallback.ZERO)
+        if fallback == ColdStartFallback.ZERO:
+            return base_expr
+        if fallback == ColdStartFallback.STRUCTURAL_SIMILARITY:
+            # Adamic-Adar proxy: count shared neighbors as structural similarity
+            return (
+                f"CASE WHEN ({base_expr}) IS NULL OR ({base_expr}) = 0.0 "
+                f"THEN coalesce(candidate.shared_neighbor_score, 0.1) "
+                f"ELSE ({base_expr}) END"
+            )
+        if fallback == ColdStartFallback.POPULATION_MEAN:
+            param = sanitize_label(f"_popmean_{dim.name}")
+            return (
+                f"CASE WHEN ({base_expr}) IS NULL OR ({base_expr}) = 0.0 "
+                f"THEN coalesce(${param}, 0.1) "
+                f"ELSE ({base_expr}) END"
+            )
+        return base_expr
+
+    @staticmethod
+    def _leaky_relu(expr: str, negative_slope: float = 0.02) -> str:
+        """S2-02: LeakyReLU activation between propagation passes.
+
+        HGKR Eq. 5: LeakyReLU with α=0.02 prevents signal collapse.
+        Standard ReLU zeros out negative signals permanently; LeakyReLU
+        allows weak negative contribution.
+        """
+        return (
+            f"CASE WHEN ({expr}) >= 0 THEN ({expr}) "
+            f"ELSE {negative_slope} * ({expr}) END"
+        )
 
     def _build_score_expression(self, weight_exprs: list[str]) -> str:
         if not weight_exprs:
