@@ -10,12 +10,14 @@ status: active
 --- /L9_META ---
 
 Signal weight calculator for outcome-based weight learning.
-Computes dimension weights from historical outcome correlations.
+Computes dimension weights from historical outcome correlations,
+with 95% confidence intervals and dampening toward neutral.
 """
 
 from __future__ import annotations
 
 import logging
+import math
 
 from engine.config.schema import DomainSpec
 from engine.graph.driver import GraphDriver
@@ -72,17 +74,19 @@ class SignalWeightCalculator:
 
         # Step 2: For each scoring dimension, compute correlation with wins
         weights: dict[str, float] = {}
+        weight_details: dict[str, dict[str, float]] = {}
         for dim in self._spec.scoring.dimensions:
-            weight = await self._compute_dimension_weight(
+            detail = await self._compute_dimension_weight(
                 dim.name,
                 base_win_rate,
                 total_outcomes,
                 outcome_label,
             )
-            weights[dim.name] = weight
+            weights[dim.name] = detail["weight"]
+            weight_details[dim.name] = detail
 
-        # Step 3: Store weights in Neo4j
-        await self._store_weights(weights)
+        # Step 3: Store weights in Neo4j (with confidence metadata)
+        await self._store_weights(weight_details)
 
         logger.info(
             "Recalculated %d dimension weights for domain=%s",
@@ -97,8 +101,11 @@ class SignalWeightCalculator:
         base_win_rate: float,
         total_outcomes: int,
         outcome_label: str,
-    ) -> float:
-        """Compute weight for a single dimension based on outcome correlation."""
+    ) -> dict[str, float]:
+        """Compute weight for a single dimension based on outcome correlation.
+
+        Returns a dict with keys: weight, confidence, ci_width, lift, sample_size.
+        """
         safe_dim = sanitize_label(dimension_name)
 
         # Query outcomes where this dimension scored above median
@@ -119,7 +126,13 @@ class SignalWeightCalculator:
         dim_wins = result[0]["dim_wins"] if result else 0
 
         if dim_total == 0 or base_win_rate == 0.0:
-            return self._weight_spec.baseline_weight
+            return {
+                "weight": self._weight_spec.baseline_weight,
+                "confidence": 0.0,
+                "ci_width": 1.0,
+                "lift": 1.0,
+                "sample_size": dim_total,
+            }
 
         dim_win_rate = dim_wins / dim_total
         lift = dim_win_rate / base_win_rate
@@ -131,21 +144,40 @@ class SignalWeightCalculator:
             # Sigmoid-like scaling: penalizes dimensions present in <10% of outcomes
             frequency_factor = min(1.0, frequency_ratio * 10.0)
 
-        raw_weight = lift * frequency_factor
+        # Confidence interval calculation (95% CI)
+        sample_size = max(dim_total, 1)
+        ci_width = 1.96 * math.sqrt(lift * (1.0 - min(lift, 1.0)) / sample_size)
+        confidence = 1.0 - min(ci_width, 1.0)
+
+        # Dampening: blend toward 1.0 when confidence is low
+        if self._weight_spec.confidence_dampening:
+            dampened_weight = 1.0 + (lift - 1.0) * confidence * frequency_factor
+        else:
+            dampened_weight = lift * frequency_factor
 
         # Clamp to configured bounds
-        return max(
+        clamped = max(
             self._weight_spec.min_weight,
-            min(self._weight_spec.max_weight, raw_weight),
+            min(self._weight_spec.max_weight, dampened_weight),
         )
 
-    async def _store_weights(self, weights: dict[str, float]) -> None:
-        """Store computed weights as DimensionWeight nodes in Neo4j."""
-        for dim_name, weight_value in weights.items():
+        return {
+            "weight": clamped,
+            "confidence": round(confidence, 6),
+            "ci_width": round(ci_width, 6),
+            "lift": round(lift, 6),
+            "sample_size": dim_total,
+        }
+
+    async def _store_weights(self, weight_details: dict[str, dict[str, float]]) -> None:
+        """Store computed weights as DimensionWeight nodes in Neo4j with confidence metadata."""
+        for dim_name, detail in weight_details.items():
             safe_name = sanitize_label(dim_name)
             cypher = f"""
             MERGE (dw:DimensionWeight {{dimension: $dimension, tenant: $tenant}})
             SET dw.weight = $weight,
+                dw.confidence = $confidence,
+                dw.ci_width = $ci_width,
                 dw.updated_at = datetime(),
                 dw.{safe_name}_weight = $weight
             RETURN dw.dimension AS dimension
@@ -155,7 +187,9 @@ class SignalWeightCalculator:
                 parameters={
                     "dimension": dim_name,
                     "tenant": self._db,
-                    "weight": weight_value,
+                    "weight": detail["weight"],
+                    "confidence": detail["confidence"],
+                    "ci_width": detail["ci_width"],
                 },
                 database=self._db,
             )

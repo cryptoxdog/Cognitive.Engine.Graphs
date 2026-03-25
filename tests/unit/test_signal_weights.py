@@ -45,6 +45,7 @@ def _spec_with_dimensions(
     baseline: float = 1.0,
     frequency_adjustment: bool = True,
     min_outcomes: int = 100,
+    confidence_dampening: bool = False,
 ) -> DomainSpec:
     dims = dimensions or [
         ScoringDimensionSpec(
@@ -110,6 +111,7 @@ def _spec_with_dimensions(
                 baseline_weight=baseline,
                 frequency_adjustment=frequency_adjustment,
                 min_outcomes_for_recalculation=min_outcomes,
+                confidence_dampening=confidence_dampening,
             ),
         ),
     )

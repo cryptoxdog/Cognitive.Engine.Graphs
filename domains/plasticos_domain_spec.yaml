@@ -1135,3 +1135,74 @@ compliance:
   retention:
     transactionttldays: 365
     auditttldays: 90
+
+# ---------------------------------------------------------------------------
+# FEEDBACK LOOP CONFIGURATION
+# ---------------------------------------------------------------------------
+feedbackloop:
+  enabled: true
+  signal_weights:
+    enabled: true
+    recalculation_cadence_days: 30
+    min_outcomes_for_recalculation: 50
+    baseline_weight: 1.0
+    max_weight: 3.0
+    min_weight: 0.1
+    frequency_adjustment: true
+    confidence_dampening: true
+    penalty_threshold: 0.5
+    penalty_factor: 0.3
+  propagation_boost_factor: 1.15
+  propagation_similarity_threshold: 0.4
+  outcome_edge_type: RESULTED_IN
+  outcome_node_label: TransactionOutcome
+  drift_threshold: 0.15
+  drift_window_days: 30
+
+# ---------------------------------------------------------------------------
+# CAUSAL EDGE CONFIGURATION
+# ---------------------------------------------------------------------------
+causal:
+  enabled: true
+  attribution_enabled: true
+  counterfactual_enabled: true
+  temporal_decay_enabled: false
+  chain_depth_limit: 5
+  causal_edges:
+    - edge_type: RESULTED_IN
+      source_label: TransactionOutcome
+      target_label: Facility
+      temporal_validation: true
+      confidence_threshold: 0.0
+    - edge_type: CAUSED_BY
+      source_label: TransactionOutcome
+      target_label: TransactionOutcome
+      temporal_validation: true
+      confidence_threshold: 0.5
+
+# ---------------------------------------------------------------------------
+# ENTITY RESOLUTION / SEMANTIC REGISTRY
+# ---------------------------------------------------------------------------
+semantic_registry:
+  enabled: true
+  entity_labels:
+    - Facility
+  similarity_threshold: 0.85
+  property_weight: 0.5
+  structural_weight: 0.3
+  behavioral_weight: 0.2
+  comparison_properties:
+    - name
+    - state
+    - facility_role
+    - process_type
+  max_candidates: 20
+
+# ---------------------------------------------------------------------------
+# COUNTERFACTUAL CONFIGURATION
+# ---------------------------------------------------------------------------
+counterfactual:
+  enabled: true
+  max_scenarios_per_outcome: 3
+  min_confidence: 0.3
+  comparison_pool_size: 10

@@ -61,6 +61,8 @@ def _make_scoring_spec(dimensions: list[dict]) -> MagicMock:
     fl.enabled = True
     sw = MagicMock(spec=SignalWeightsSpec)
     sw.enabled = True
+    sw.penalty_threshold = 0.5
+    sw.penalty_factor = 0.3
     fl.signal_weights = sw
     spec.feedbackloop = fl
 

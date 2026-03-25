@@ -9,13 +9,14 @@ owner: engine-team
 status: active
 --- /L9_META ---
 
-Configuration pattern matcher using Jaccard similarity.
-Matches active requests against historical outcome configurations.
+Configuration pattern matcher using Jaccard similarity with sample
+probability correction for frequency bias.
 """
 
 from __future__ import annotations
 
 import logging
+import math
 from typing import Any
 
 from engine.config.schema import DomainSpec
@@ -32,6 +33,22 @@ def jaccard_similarity(set_a: set[str], set_b: set[str]) -> float:
     intersection = set_a & set_b
     union = set_a | set_b
     return len(intersection) / len(union)
+
+
+def corrected_similarity(
+    raw_similarity: float,
+    frequency: int,
+    total_outcomes: int,
+) -> float:
+    """Apply sample probability correction to raw Jaccard similarity.
+
+    Subtracts log(frequency)/log(total) to surface rare-but-predictive
+    configurations over common ones.
+    """
+    if total_outcomes <= 1 or frequency <= 0:
+        return raw_similarity
+    correction = math.log(frequency) / math.log(total_outcomes)
+    return max(0.0, raw_similarity - correction)
 
 
 class ConfigurationMatcher:
@@ -58,7 +75,8 @@ class ConfigurationMatcher:
     ) -> list[dict[str, Any]]:
         """
         Find historical outcomes matching the current match configuration
-        using Jaccard similarity on configuration keys.
+        using Jaccard similarity on configuration keys with sample probability
+        correction for frequency bias.
         """
         outcome_label = sanitize_label(self._spec.feedbackloop.outcome_node_label)
 
@@ -84,12 +102,25 @@ class ConfigurationMatcher:
             database=self._db,
         )
 
+        total_outcomes = len(results)
         current_keys = self._extract_config_keys(current_config)
+
+        # Count frequency of each config key set for probability correction
+        config_freq: dict[str, int] = {}
+        for record in results:
+            config_key = ",".join(sorted(record.get("config_keys") or []))
+            config_freq[config_key] = config_freq.get(config_key, 0) + 1
+
         matches: list[dict[str, Any]] = []
 
         for record in results:
             historical_keys = set(record.get("config_keys") or [])
-            similarity = jaccard_similarity(current_keys, historical_keys)
+            raw_sim = jaccard_similarity(current_keys, historical_keys)
+
+            # Apply sample probability correction
+            config_key = ",".join(sorted(record.get("config_keys") or []))
+            frequency = config_freq.get(config_key, 1)
+            similarity = corrected_similarity(raw_sim, frequency, total_outcomes)
 
             if similarity >= similarity_threshold:
                 matches.append(
@@ -98,6 +129,7 @@ class ConfigurationMatcher:
                         "match_id": record["match_id"],
                         "candidate_id": record["candidate_id"],
                         "similarity": round(similarity, 4),
+                        "raw_similarity": round(raw_sim, 4),
                         "outcome": record["outcome"],
                         "value": record["value"],
                     }

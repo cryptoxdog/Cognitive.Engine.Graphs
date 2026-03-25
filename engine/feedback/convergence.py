@@ -10,7 +10,8 @@ status: active
 --- /L9_META ---
 
 Convergence loop orchestrator for the outcome feedback cycle.
-Coordinates signal weight recalculation, pattern matching, and score propagation.
+Coordinates signal weight recalculation, pattern matching, score propagation,
+and drift detection.
 """
 
 from __future__ import annotations
@@ -19,6 +20,7 @@ import logging
 from typing import Any
 
 from engine.config.schema import DomainSpec
+from engine.feedback.drift_detector import DriftDetector
 from engine.feedback.pattern_matcher import ConfigurationMatcher
 from engine.feedback.score_propagator import ScorePropagator
 from engine.feedback.signal_weights import SignalWeightCalculator
@@ -35,6 +37,7 @@ class ConvergenceLoop:
     2. Pattern matching: find similar historical outcomes
     3. Signal weight update: recalculate if threshold met
     4. Score propagation: boost/penalize active candidate scores
+    5. Drift detection: chi-squared divergence check
 
     This is called from handle_outcomes after the TransactionOutcome
     node is written to Neo4j.
@@ -50,6 +53,7 @@ class ConvergenceLoop:
         self._weight_calculator = SignalWeightCalculator(graph_driver, domain_spec)
         self._pattern_matcher = ConfigurationMatcher(graph_driver, domain_spec)
         self._score_propagator = ScorePropagator(graph_driver, domain_spec)
+        self._drift_detector = DriftDetector(graph_driver, domain_spec)
         self._feedback_spec = domain_spec.feedbackloop
 
     async def on_outcome_recorded(
@@ -80,6 +84,13 @@ class ConvergenceLoop:
             metadata["new_weights"] = weights
         else:
             metadata["weights_recalculated"] = False
+
+        # Step 3: Drift detection (chi-squared divergence)
+        drift_data = await self._drift_detector.check_and_alert(
+            threshold=self._feedback_spec.drift_threshold,
+            window_days=self._feedback_spec.drift_window_days,
+        )
+        metadata["drift"] = drift_data
 
         logger.info(
             "Feedback loop completed for domain=%s outcome=%s",

@@ -768,6 +768,9 @@ class SignalWeightSpec(BaseModel):
     max_weight: float = 3.0
     min_weight: float = 0.1
     frequency_adjustment: bool = True
+    confidence_dampening: bool = True
+    penalty_threshold: float = 0.5
+    penalty_factor: float = 0.3
 
 
 class FeedbackLoopSpec(BaseModel):
@@ -781,6 +784,8 @@ class FeedbackLoopSpec(BaseModel):
     propagation_similarity_threshold: float = 0.4
     outcome_edge_type: str = "RESULTED_IN"
     outcome_node_label: str = "TransactionOutcome"
+    drift_threshold: float = 0.15
+    drift_window_days: int = 30
 
 
 class CausalEdgeSpec(BaseModel):

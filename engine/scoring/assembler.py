@@ -168,6 +168,7 @@ class ScoringAssembler:
         active_dim_names: list[str] = []
 
         learned = self._learned_weights or {}
+        sw_spec = self.domain_spec.feedbackloop.signal_weights if learned else None
 
         for dim in self.scoring_spec.dimensions:
             if dim.matchdirections and match_direction not in dim.matchdirections:
@@ -179,8 +180,12 @@ class ScoringAssembler:
             dimension_exprs.append(f"{expr} AS {dim.name}")
             weight = weights.get(dim.weightkey, dim.defaultweight)
             # Convergence loop: multiply spec weight by learned adjustment factor
-            if dim.name in learned:
-                weight = weight * learned[dim.name]
+            if dim.name in learned and sw_spec is not None:
+                learned_w = learned[dim.name]
+                # Negative penalty: when learned weight < penalty_threshold,
+                # apply negative penalty instead of just reduced weight.
+                # Implements "primitive subtraction" from Lippl et al.
+                weight = -abs(sw_spec.penalty_factor) if learned_w < sw_spec.penalty_threshold else weight * learned_w
             weight_exprs.append(f"({weight} * {dim.name})")
             active_dim_names.append(dim.name)
 
