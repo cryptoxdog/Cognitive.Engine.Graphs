@@ -132,6 +132,93 @@ class AuditSink:
         raise NotImplementedError
 
 
+class PostgresSink(AuditSink):
+    """
+    Concrete audit sink that writes to the packet_audit_log table.
+
+    Uses an asyncpg connection pool for async batch inserts.
+    Initialise with an asyncpg pool instance:
+
+        pool = await asyncpg.create_pool(dsn=...)
+        sink = PostgresSink(pool)
+        audit_logger.add_sink(sink)
+    """
+
+    _INSERT_SQL = """
+        INSERT INTO packet_audit_log (
+            audit_id, timestamp, action, severity, actor, tenant,
+            trace_id, resource, resource_type, detail, payload_hash,
+            compliance_tags, pii_fields_accessed, data_subject_id,
+            outcome, metadata
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+    """
+
+    def __init__(self, db_pool: Any) -> None:
+        self._pool = db_pool
+
+    async def write_batch(self, entries: list[AuditEntry]) -> int:
+        """Persist a batch of audit entries to packet_audit_log.
+
+        Uses executemany for O(1) round trips. Returns count persisted.
+        """
+        if not entries:
+            return 0
+
+        import json as _json
+
+        batch_data = [
+            (
+                e.audit_id,
+                e.timestamp,
+                e.action.value,
+                e.severity.value,
+                e.actor,
+                e.tenant,
+                e.trace_id,
+                e.resource,
+                e.resource_type,
+                e.detail,
+                e.payload_hash,
+                e.compliance_tags,
+                e.pii_fields_accessed,
+                e.data_subject_id,
+                e.outcome,
+                _json.dumps(e.metadata, default=str),
+            )
+            for e in entries
+        ]
+
+        async with self._pool.acquire() as conn:
+            await conn.executemany(self._INSERT_SQL, batch_data)
+
+        persisted = len(entries)
+        logger.info("PostgresSink persisted %d audit entries", persisted)
+        return persisted
+
+
+class LogSink(AuditSink):
+    """
+    Audit sink that writes entries to the Python logger.
+    Useful for development, testing, and as a fallback when no DB is available.
+    """
+
+    def __init__(self, log_level: int = logging.INFO) -> None:
+        self._log_level = log_level
+
+    async def write_batch(self, entries: list[AuditEntry]) -> int:
+        """Write audit entries to the Python logger."""
+        for entry in entries:
+            logger.log(
+                self._log_level,
+                "audit_event: action=%s actor=%s tenant=%s outcome=%s",
+                entry.action.value,
+                entry.actor,
+                entry.tenant,
+                entry.outcome,
+            )
+        return len(entries)
+
+
 class AuditLogger:
     """
     Engine-agnostic structured audit logger.

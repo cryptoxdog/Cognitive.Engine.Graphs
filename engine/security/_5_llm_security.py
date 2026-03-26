@@ -124,7 +124,7 @@ def sanitize_llm_input(user_input: str, max_length: int = 2000) -> str:
 # ============================================================
 
 
-def validate_llm_output[T: BaseModel](llm_response: str, expected_schema: type[T], strict: bool = True) -> T:
+def validate_llm_output(llm_response: str, expected_schema: type[T], strict: bool = True) -> T:
     """
     Validate LLM JSON output against Pydantic schema.
 
