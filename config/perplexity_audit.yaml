@@ -1,0 +1,143 @@
+# --- L9_META ---
+# l9_schema: 1
+# origin: l9-perplexity-audit
+# engine: graph
+# layer: [config, ci, audit]
+# tags: [L9_CONFIG, audit, tech-debt, perplexity, pipeline]
+# owner: platform
+# status: active
+# --- /L9_META ---
+
+# L9 Perplexity Audit Pipeline Configuration
+# Deploy to: config/perplexity_audit.yaml
+# Repo: https://github.com/cryptoxdog/Cognitive.Engine.Graphs
+
+
+pipeline:
+  name: l9-tech-debt-pipeline
+  version: 1.0.0
+
+
+perplexity:
+  model: sonar-pro
+  temperature: 0.1
+  max_tokens: 4096
+  return_citations: true
+  search_recency_filter: month
+  rate_limit_rpm: 20
+  retry_max_attempts: 3
+  retry_backoff_seconds: 5
+  timeout_seconds: 120
+
+
+scanning:
+  categories:
+    - name: reliability
+      enabled: true
+      priority: 1
+      directories: [memory/, core/, services/, orchestrators/]
+      schedule: daily
+    - name: security
+      enabled: true
+      priority: 1
+      directories: [api/, config/, core/governance/, services/, runtime/]
+      schedule: daily
+    - name: performance
+      enabled: true
+      priority: 2
+      directories: [memory/, graph_adapter/, services/, orchestrators/]
+      schedule: weekly
+    - name: architecture
+      enabled: true
+      priority: 2
+      directories: [.]
+      schedule: weekly
+    - name: testing
+      enabled: true
+      priority: 2
+      directories: [tests/, memory/, core/, api/]
+      schedule: weekly
+    - name: observability
+      enabled: true
+      priority: 2
+      directories: [core/observability/, telemetry/, api/, memory/, services/]
+      schedule: weekly
+    - name: documentation
+      enabled: true
+      priority: 3
+      directories: [.]
+      schedule: monthly
+    - name: adr_compliance
+      enabled: true
+      priority: 1
+      directories: [.]
+      schedule: daily
+    - name: dependencies
+      enabled: true
+      priority: 2
+      directories: [.]
+      schedule: weekly
+    - name: migrations
+      enabled: true
+      priority: 2
+      directories: [migrations/]
+      schedule: weekly
+    - name: ci_cd
+      enabled: true
+      priority: 2
+      directories: [.github/workflows/, ci/]
+      schedule: weekly
+    - name: runtime_safety
+      enabled: true
+      priority: 1
+      directories: [runtime/, core/governance/, private/kernels/]
+      schedule: daily
+
+
+severity_thresholds:
+  p0_auto_issue: true
+  p0_block_deploy: true
+  p1_auto_issue: true
+  p1_block_deploy: false
+  p2_auto_issue: false
+  p2_add_to_backlog: true
+  p3_log_only: true
+
+
+output:
+  reports_dir: reports/perplexity_audit/
+  format: [json, markdown]
+  github_issues:
+    enabled: true
+    labels: [tech-debt, automated-audit]
+  phase_packs:
+    enabled: true
+    output_dir: reports/perplexity_audit/phase_packs/
+    min_severity: P1
+
+
+incremental:
+  enabled: true
+  trigger: on_pr
+  scan_changed_files_only: true
+  categories: [reliability, security, adr_compliance]
+
+
+metrics:
+  track_gap_count: true
+  track_fix_velocity: true
+  track_debt_ratio: true
+  track_regression_rate: true
+  prometheus_endpoint: /metrics/audit
+  grafana_dashboard_uid: l9-tech-debt
+
+
+exclusions:
+  directories:
+    - _archived/
+    - .backup/
+    - examples/
+    - docs/
+    - reports/
+  patterns:
+    - test_*.py
