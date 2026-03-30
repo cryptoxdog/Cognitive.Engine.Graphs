@@ -1572,7 +1572,7 @@ async def handle_outcomes(tenant: str, payload: dict[str, Any]) -> dict[str, Any
                         database=domain_spec.domain.id,
                     )
                 except Exception:
-                    logger.warning("Causal edge creation failed for outcome=%s", outcome_id)
+                    logger.warning("Causal edge creation failed for outcome=%s", outcome_id, exc_info=True)
 
         # Compute attribution if enabled
         if domain_spec.causal.attribution_enabled:
@@ -1583,7 +1583,7 @@ async def handle_outcomes(tenant: str, payload: dict[str, Any]) -> dict[str, Any
                 attribution = await attr_calc.compute_attribution(outcome_id)
                 response["attribution"] = attribution
             except Exception:
-                logger.warning("Attribution calculation failed for outcome=%s", outcome_id)
+                logger.warning("Attribution calculation failed for outcome=%s", outcome_id, exc_info=True)
 
     return response
 

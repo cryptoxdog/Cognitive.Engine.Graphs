@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import re
 from typing import Any, TypeVar
 
@@ -96,7 +97,7 @@ class CodeGenOutput(BaseModel):
 # ── Validation helper ────────────────────────────────────────
 
 
-def validate_llm_json[T: BaseModel](raw: str, schema: type[T]) -> T:
+def validate_llm_json(raw: str, schema: type[T]) -> T:
     """Parse raw LLM string into a validated Pydantic model."""
     try:
         data = json.loads(raw)
@@ -105,38 +106,145 @@ def validate_llm_json[T: BaseModel](raw: str, schema: type[T]) -> T:
     return schema.model_validate(data)
 
 
+# ── LLM Provider Backend ────────────────────────────────────
+
+
+class _LLMBackend:
+    """
+    Lazy-initialised OpenAI-compatible LLM backend.
+
+    Reads configuration from environment variables:
+      - LLM_PROVIDER: "openai" (default) | "openai-compatible"
+      - OPENAI_API_KEY: API key for OpenAI or compatible providers
+      - OPENAI_BASE_URL: Override base URL for OpenAI-compatible providers
+      - LLM_MAX_TOKENS: Maximum response tokens (default 2048)
+      - LLM_TEMPERATURE: Sampling temperature (default 0.1)
+    """
+
+    def __init__(self) -> None:
+        self._client: Any = None
+        self._provider: str = os.environ.get("LLM_PROVIDER", "openai")
+        self._max_tokens: int = int(os.environ.get("LLM_MAX_TOKENS", "2048"))
+        self._temperature: float = float(os.environ.get("LLM_TEMPERATURE", "0.1"))
+
+    def _ensure_client(self, model: str) -> Any:
+        """Lazy-init the OpenAI client on first call."""
+        if self._client is not None:
+            return self._client
+
+        try:
+            from openai import OpenAI
+        except ImportError as exc:
+            raise RuntimeError(
+                "openai package is required for LLM features. "
+                "Install with: pip install openai"
+            ) from exc
+
+        api_key = os.environ.get("OPENAI_API_KEY")
+        if not api_key:
+            raise RuntimeError(
+                "OPENAI_API_KEY environment variable is required. "
+                "Set it to your OpenAI (or compatible provider) API key."
+            )
+
+        kwargs: dict[str, Any] = {"api_key": api_key}
+        base_url = os.environ.get("OPENAI_BASE_URL")
+        if base_url:
+            kwargs["base_url"] = base_url
+
+        self._client = OpenAI(**kwargs)
+        _slog.info(
+            "llm_backend_initialized",
+            provider=self._provider,
+            model=model,
+            base_url=base_url or "https://api.openai.com/v1",
+        )
+        return self._client
+
+    def call(self, model: str, system: str, user: str) -> str:
+        """
+        Execute a chat completion and return the raw response text.
+
+        Args:
+            model: Model identifier (e.g. "gpt-4-turbo")
+            system: System prompt
+            user: User prompt
+
+        Returns:
+            Raw text/JSON string from the model response.
+
+        Raises:
+            RuntimeError: If the client cannot be initialized.
+        """
+        client = self._ensure_client(model)
+
+        response = client.chat.completions.create(
+            model=model,
+            messages=[
+                {"role": "system", "content": system},
+                {"role": "user", "content": user},
+            ],
+            max_tokens=self._max_tokens,
+            temperature=self._temperature,
+            response_format={"type": "json_object"},
+        )
+
+        content = response.choices[0].message.content
+        if content is None:
+            _slog.warning("llm_empty_response", model=model)
+            return "{}"
+
+        # Log token usage if available
+        if hasattr(response, "usage") and response.usage:
+            _slog.info(
+                "llm_token_usage",
+                model=model,
+                input_tokens=response.usage.prompt_tokens,
+                output_tokens=response.usage.completion_tokens,
+                total_tokens=response.usage.total_tokens,
+            )
+
+        return content
+
+
+# Module-level singleton — shared across all ValidatedLLMClient instances
+_llm_backend = _LLMBackend()
+
+
 # ── Validated Client ─────────────────────────────────────────
 
 
 class ValidatedLLMClient:
     """
-    Drop-in wrapper around any LLM SDK that enforces
+    Drop-in wrapper around the OpenAI SDK that enforces
     input sanitisation + output schema validation on every call.
+
+    Configuration is read from environment variables (see _LLMBackend).
+    Falls back to FeatureNotEnabled if OPENAI_API_KEY is not set.
     """
 
     def __init__(self, model: str = "gpt-4-turbo"):
         self.model = model
-        # Replace with your actual client init:
-        # self._client = openai.OpenAI()
 
     # ---- private ---------------------------------------------------
 
     def _call(self, system: str, user: str) -> str:
         """
-        Raw LLM call — replace body with your provider SDK.
-        Must return the raw text/JSON string from the model.
+        Execute an LLM call via the configured backend.
 
-        See DEFERRED.md: DEFERRED-002
+        Returns the raw text/JSON string from the model.
+        Raises FeatureNotEnabled if the LLM backend is not configured.
         """
-        from chassis.errors import FeatureNotEnabled
-
-        raise FeatureNotEnabled(
-            "LLM SDK",
-            flag="LLM_PROVIDER",
-            message="LLM SDK integration point not yet wired. "
-            "Configure an LLM provider to enable AI-assisted features. "
-            "See DEFERRED.md: DEFERRED-002.",
-        )
+        try:
+            return _llm_backend.call(self.model, system, user)
+        except RuntimeError as exc:
+            # Convert to FeatureNotEnabled for graceful degradation
+            from chassis.errors import FeatureNotEnabled
+            raise FeatureNotEnabled(
+                "LLM SDK",
+                flag="OPENAI_API_KEY",
+                message=str(exc),
+            ) from exc
 
     # ---- public API ------------------------------------------------
 

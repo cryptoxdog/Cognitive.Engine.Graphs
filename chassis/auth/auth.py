@@ -90,7 +90,7 @@ def _decode_jwt_payload(token: str) -> dict[str, Any]:
         if isinstance(claims, dict):
             return claims
     except Exception:
-        pass
+        logger.debug("Failed to decode JWT claims from token", exc_info=True)
     return {}
 
 
