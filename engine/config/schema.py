@@ -862,6 +862,55 @@ class CausalSubgraphSpec(BaseModel):
     chain_depth_limit: int = 5
 
 
+class ParetoObjectiveSpec(BaseModel):
+    """Single objective dimension for Pareto optimization."""
+
+    model_config = ConfigDict(frozen=True)
+
+    dimension: str = Field(description="Scoring dimension name")
+    direction: str = Field(default="maximize", description="maximize or minimize")
+    weight_hint: float = Field(default=1.0, ge=0.0, le=1.0, description="Initial weight hint")
+
+
+class ParetoConfigSpec(BaseModel):
+    """Pareto-specific configuration."""
+
+    model_config = ConfigDict(frozen=True)
+
+    objectives: list[ParetoObjectiveSpec] = Field(default_factory=list)
+    front_size_limit: int = Field(default=50, ge=1, description="Max candidates on Pareto front")
+
+
+class ArbitrationConstraintSpec(BaseModel):
+    """Hard or soft constraint on a scoring dimension."""
+
+    model_config = ConfigDict(frozen=True)
+
+    dimension: str = Field(description="Scoring dimension to constrain")
+    threshold: float = Field(ge=0.0, le=1.0, description="Minimum acceptable score")
+    hard: bool = Field(default=False, description="If True, reject candidates below threshold")
+    penalty: float = Field(default=0.5, ge=0.0, le=1.0, description="Soft penalty multiplier when below threshold")
+
+
+class DecisionArbitrationSpec(BaseModel):
+    """Multi-objective decision arbitration configuration.
+
+    When enabled, the match handler applies Pareto dominance filtering
+    and constraint enforcement to the candidate set before returning results.
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    enabled: bool = False
+    optimization_method: str = Field(default="pareto", description="pareto or weighted_sum")
+    pareto_config: ParetoConfigSpec = Field(default_factory=ParetoConfigSpec)
+    constraints: list[ArbitrationConstraintSpec] = Field(default_factory=list)
+    policy_weights: dict[str, dict[str, float]] = Field(
+        default_factory=dict,
+        description="Named weight policies, e.g. {'balanced': {'geo': 0.5, 'price': 0.5}}",
+    )
+
+
 class DomainMetadata(BaseModel):
     """Domain pack metadata."""
 
@@ -895,6 +944,7 @@ class DomainSpec(BaseModel):
     causal: CausalSubgraphSpec = Field(default_factory=CausalSubgraphSpec)
     counterfactual: CounterfactualSpec = Field(default_factory=CounterfactualSpec)
     semantic_registry: SemanticRegistrySpec = Field(default_factory=SemanticRegistrySpec)
+    decision_arbitration: DecisionArbitrationSpec = Field(default_factory=DecisionArbitrationSpec)
 
     @model_validator(mode="after")
     def validate_cross_references(self) -> DomainSpec:

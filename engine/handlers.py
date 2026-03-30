@@ -493,6 +493,41 @@ async def handle_match(tenant: str, payload: dict[str, Any]) -> dict[str, Any]:
                 match_direction, weights, pareto_candidates=pareto_candidates_input
             )
 
+        # --- Milestone 2.1: Spec-driven constraint enforcement ---
+        if domain_spec.decision_arbitration.enabled:
+            from engine.scoring.pareto_integrator import (
+                apply_constraint_penalties,
+                apply_pareto_filter,
+            )
+
+            constraint_dicts = [
+                {
+                    "dimension": c.dimension,
+                    "threshold": c.threshold,
+                    "hard": c.hard,
+                    "penalty": c.penalty,
+                }
+                for c in domain_spec.decision_arbitration.constraints
+            ]
+
+            if constraint_dicts:
+                results = apply_constraint_penalties(list(results), constraint_dicts)
+
+            # Spec-driven Pareto filter using declared objectives
+            arb_dims = [
+                obj.dimension
+                for obj in domain_spec.decision_arbitration.pareto_config.objectives
+            ]
+            if arb_dims and len(results) > 1:
+                arb_pareto = apply_pareto_filter(results, arb_dims)
+                if pareto_metadata is None:
+                    pareto_metadata = {}
+                pareto_metadata["arbitration"] = {
+                    "frontsize": arb_pareto["frontsize"],
+                    "pruned_pct": arb_pareto["pruned_pct"],
+                    "nondominated_ids": arb_pareto["nondominated"],
+                }
+
     execution_time_ms = (time.monotonic() - start_time) * 1000
 
     # --- W2-04: Score Normalization ---
@@ -1256,6 +1291,114 @@ async def handle_admin(tenant: str, payload: dict[str, Any]) -> dict[str, Any]:
                 "to compare AUC across aggregation strategies. Select the "
                 "config with highest AUC and apply to domain spec."
             ),
+        }
+
+    # --- Milestone 2.2: Pareto Weight Discovery ---
+    if subaction == "discover_weights":
+        from chassis.errors import FeatureNotEnabled
+        from engine.config.settings import settings as _pw_settings
+
+        if not _pw_settings.pareto_weight_discovery_enabled:
+            raise FeatureNotEnabled(
+                "Pareto Weight Discovery",
+                flag="PARETO_WEIGHT_DISCOVERY_ENABLED",
+                action="admin",
+                tenant=tenant,
+            )
+
+        domain_id = _require_key(payload, "domain_id", "admin", tenant)
+        spec = domain_loader.load_domain(domain_id)
+        n_samples = int(payload.get("n_samples", 50))
+
+        if not spec.decision_arbitration or not spec.decision_arbitration.enabled:
+            raise ValidationError(
+                "Decision arbitration not enabled in domain spec",
+                action="admin",
+                tenant=tenant,
+            )
+
+        dimension_names = [
+            obj.dimension
+            for obj in spec.decision_arbitration.pareto_config.objectives
+        ]
+
+        if not dimension_names:
+            raise ValidationError(
+                "No Pareto objectives defined in decision_arbitration.pareto_config",
+                action="admin",
+                tenant=tenant,
+            )
+
+        # Read outcome history from Neo4j
+        outcome_cypher = """
+        MATCH (o:TransactionOutcome)
+        WHERE o.tenant = $tenant AND o.dimension_scores IS NOT NULL
+        RETURN o.dimension_scores AS dimension_scores,
+               o.was_selected AS was_selected
+        ORDER BY o.created_at DESC
+        LIMIT 1000
+        """
+        try:
+            raw_outcomes = await graph_driver.execute_query(
+                cypher=outcome_cypher,
+                parameters={"tenant": tenant},
+                database=spec.domain.id,
+            )
+        except Exception as exc:
+            raise ExecutionError(
+                "Failed to read outcomes for weight discovery",
+                action="admin",
+                tenant=tenant,
+                detail=str(exc),
+            ) from exc
+
+        # Convert to the format expected by discover_pareto_weights
+        import json as _json
+
+        outcome_history: list[dict[str, Any]] = []
+        for rec in raw_outcomes:
+            ds = rec.get("dimension_scores")
+            if isinstance(ds, str):
+                try:
+                    ds = _json.loads(ds)
+                except (ValueError, TypeError):
+                    continue
+            if not isinstance(ds, dict):
+                continue
+            outcome_history.append({
+                "dimension_scores": {k: float(v) for k, v in ds.items()},
+                "was_selected": bool(rec.get("was_selected", False)),
+            })
+
+        if len(outcome_history) < 10:
+            return {
+                "status": "insufficient_data",
+                "error": "Insufficient outcome history for weight discovery",
+                "min_required": 10,
+                "current_count": len(outcome_history),
+            }
+
+        from engine.scoring.weight_discovery import adaptive_weight_discovery
+
+        weight_vectors = await adaptive_weight_discovery(
+            dimension_names=dimension_names,
+            outcome_history=outcome_history,
+            n_samples=n_samples,
+        )
+
+        return {
+            "status": "weights_discovered",
+            "discovered_weights": [
+                {
+                    "weights": wv.weights,
+                    "ndcg_score": round(wv.ndcg_score, 6),
+                    "diversity_score": round(wv.diversity_score, 6),
+                    "coverage_score": round(wv.coverage_score, 6),
+                }
+                for wv in weight_vectors
+            ],
+            "front_size": len(weight_vectors),
+            "outcome_history_size": len(outcome_history),
         }
 
     raise ValidationError(f"Unknown admin subaction: {subaction!r}", action="admin", tenant=tenant)
