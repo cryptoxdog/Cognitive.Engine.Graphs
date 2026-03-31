@@ -598,6 +598,29 @@ async def handle_match(tenant: str, payload: dict[str, Any]) -> dict[str, Any]:
                     )
                     c["match_explanation"] = explanation
 
+    # --- Belief Propagation Re-ranking (ToTh §3) ---
+    # Applies entropy-penalized Bayesian composite scoring after all
+    # deterministic scoring/filtering is complete and before response assembly.
+    # Position: after confidence checker + causal BFS, before Pareto (Pareto
+    # operates on belief_score-ranked list in the next iteration if enabled).
+    intelligence_quality: dict[str, Any] = {}
+    if candidates_out:
+        from engine.scoring.belief_propagation import rescore_candidates
+
+        dimension_keys = scoring_assembler.last_active_dimension_names or []
+        if dimension_keys:
+            candidates_out = rescore_candidates(
+                candidates_out,
+                dimension_keys,
+                prior_key="confidence",   # Neo4j node property; defaults to 0.5 if absent
+                score_key="belief_score",
+            )
+            intelligence_quality = {
+                "method": "entropy_penalized_composite",  # ToTh §3
+                "dimensions_used": dimension_keys,
+                "prior_source": "node.confidence",
+            }
+
     response = {
         "candidates": candidates_out,
         "query_id": f"q_{uuid.uuid4().hex[:12]}",
@@ -608,6 +631,8 @@ async def handle_match(tenant: str, payload: dict[str, Any]) -> dict[str, Any]:
     }
     if pareto_metadata:
         response["pareto"] = pareto_metadata
+    if intelligence_quality:
+        response["intelligence_quality"] = intelligence_quality
 
     # Flush audit entries (currently logs warning since db_pool=None;
     # will persist to PostgreSQL once provisioned)
