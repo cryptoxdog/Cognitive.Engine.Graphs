@@ -1,410 +1,97 @@
-# --- L9_META ---
-# l9_schema: 1
-# origin: domain-specific
-# engine: graph
-# layer: [config]
-# tags: [domains, plasticos]
-# owner: domain-team
-# status: active
-# --- /L9_META ---
-#
-# PlasticOS Domain Specification — Plastics Recycling Marketplace
-# Primary test domain for the L9 Graph Cognitive Engine
-#
-# Entity Model: MaterialIntake (RFQ) → Facility (Supplier)
-# Match Direction: intake_to_buyer (buyer seeking suppliers for material)
-
 domain:
   id: plasticos
-  name: PlasticOS Recycling Marketplace
-  version: "1.0.0"
-  description: >
-    Domain specification for matching material intake requests (RFQs) from buyers
-    to recycling facilities (suppliers) based on polymer compatibility, geographic
-    proximity, capacity, certifications, and historical transaction success.
-
+  name: PlasticOS
+  version: 1.0.0
 ontology:
   nodes:
-    - label: Facility
-      managedby: sync
-      candidate: true
-      matchdirection: intake_to_buyer
-      description: Recycling facility that processes plastic materials
+    - label: Buyer
+      canonical: company
       properties:
-        - name: facility_id
-          type: string
-          required: true
-          description: Unique facility identifier
-        - name: name
-          type: string
-          required: true
-        - name: lat
-          type: float
-          description: Latitude for geo-proximity scoring
-        - name: lon
-          type: float
-          description: Longitude for geo-proximity scoring
-        - name: credit_score
-          type: float
-          description: Financial creditworthiness score (0-100)
-        - name: min_density
-          type: float
-          description: Minimum acceptable material density (g/cm³)
-        - name: max_density
-          type: float
-          description: Maximum acceptable material density (g/cm³)
-        - name: min_mfi
-          type: float
-          description: Minimum acceptable melt flow index
-        - name: max_mfi
-          type: float
-          description: Maximum acceptable melt flow index
-        - name: contamination_tolerance
-          type: float
-          description: Maximum contamination percentage accepted (0-100)
-        - name: food_grade_certified
-          type: bool
-          description: FDA food-grade certification status
-        - name: capacity_tons_month
-          type: float
-          description: Monthly processing capacity in tons
-        - name: tier
-          type: string
-          description: Facility tier (premium, standard, economy)
-        - name: community_id
-          type: int
-          description: Louvain community assignment for network effects
-        - name: rate_per_ton
-          type: float
-          description: Current rate per ton
-        - name: rate_confidence
-          type: float
-          description: Confidence in rate accuracy (0-1)
-        - name: last_transaction_date
-          type: datetime
-          description: Date of most recent transaction
-
-    - label: MaterialIntake
-      managedby: api
-      queryentity: true
-      matchdirection: intake_to_buyer
-      description: Material intake request (RFQ) from a buyer
+        entity_id: string
+        revenue: float
+        margin: float
+        risk: float
+        capacity: float
+    - label: Supplier
+      canonical: company
       properties:
-        - name: intake_id
-          type: string
-          required: true
-        - name: polymer_type
-          type: string
-          description: Primary polymer type (HDPE, PP, PET, LDPE)
-        - name: density
-          type: float
-          description: Material density (g/cm³)
-        - name: mfi
-          type: float
-          description: Melt flow index
-        - name: contamination_pct
-          type: float
-          description: Contamination percentage
-        - name: requires_food_grade
-          type: bool
-          description: Whether food-grade certification is required
-        - name: volume_tons
-          type: float
-          description: Requested volume in tons
-        - name: lat
-          type: float
-          description: Buyer location latitude
-        - name: lon
-          type: float
-          description: Buyer location longitude
-        - name: target_price
-          type: float
-          description: Target price per ton
-
-    - label: PolymerFamily
-      managedby: static
-      taxonomy: true
-      description: Polymer type taxonomy
+        entity_id: string
+        revenue: float
+        margin: float
+        risk: float
+        capacity: float
+    - label: Contact
+      canonical: person
       properties:
-        - name: code
-          type: string
-          required: true
-        - name: name
-          type: string
-        - name: resin_code
-          type: int
-
-    - label: MaterialForm
-      managedby: static
-      taxonomy: true
-      description: Physical form of material (pellet, flake, regrind)
-      properties:
-        - name: form_id
-          type: string
-          required: true
-        - name: name
-          type: string
-
+        entity_id: string
+        email: string
   edges:
-    - type: PROCESSES
-      from: Facility
-      to: PolymerFamily
-      direction: DIRECTED
-      category: capability
-      managedby: sync
-      description: Facility can process this polymer type
-
-    - type: ACCEPTS_FORM
-      from: Facility
-      to: MaterialForm
-      direction: DIRECTED
-      category: capability
-      managedby: sync
-
-    - type: EXCLUDED_FROM
-      from: Facility
-      to: Facility
-      direction: DIRECTED
-      category: exclusion
-      managedby: sync
-      description: Facility A is excluded from matching with Facility B
-
-    - type: TRANSACTED_WITH
-      from: Facility
-      to: Facility
-      direction: DIRECTED
-      category: transaction
-      managedby: sync
-      properties:
-        - name: transaction_date
-          type: datetime
-        - name: outcome
-          type: string
-        - name: volume_tons
-          type: float
-
-matchentities:
-  candidate:
-    - label: Facility
-      matchdirection: intake_to_buyer
-  queryentity:
-    - label: MaterialIntake
-      matchdirection: intake_to_buyer
-
-queryschema:
-  matchdirections:
-    - intake_to_buyer
-  fields:
-    - name: polymer_type
-      type: string
-      required: true
-    - name: density
-      type: float
-    - name: mfi
-      type: float
-    - name: contamination_pct
-      type: float
-    - name: requires_food_grade
-      type: bool
-    - name: volume_tons
-      type: float
-    - name: lat
-      type: float
-    - name: lon
-      type: float
-    - name: target_price
-      type: float
-
+    - type: KNOWS
+      source_node: Contact
+      target_node: Buyer
+      attributes: {}
 traversal:
   steps:
-    - name: polymer_capability
-      pattern: "(candidate:Facility)-[:PROCESSES]->(polymer:PolymerFamily)"
-      required: true
-      matchdirections:
-        - intake_to_buyer
-      description: Ensure facility processes the requested polymer type
-
-gates:
-  - name: density_range
-    type: range
-    candidateprop_min: min_density
-    candidateprop_max: max_density
-    queryparam: density
-    nullbehavior: pass
-    matchdirections:
-      - intake_to_buyer
-    description: Material density must fall within facility's acceptable range
-
-  - name: mfi_range
-    type: range
-    candidateprop_min: min_mfi
-    candidateprop_max: max_mfi
-    queryparam: mfi
-    nullbehavior: pass
-    matchdirections:
-      - intake_to_buyer
-
-  - name: contamination_threshold
-    type: threshold
-    candidateprop: contamination_tolerance
-    queryparam: contamination_pct
-    operator: ">="
-    nullbehavior: fail
-    matchdirections:
-      - intake_to_buyer
-    description: Facility must tolerate the material's contamination level
-
-  - name: food_grade_check
-    type: boolean
-    candidateprop: food_grade_certified
-    queryparam: requires_food_grade
-    nullbehavior: pass
-    matchdirections:
-      - intake_to_buyer
-    description: If food-grade required, facility must be certified
-
-  - name: capacity_check
-    type: threshold
-    candidateprop: capacity_tons_month
-    queryparam: volume_tons
-    operator: ">="
-    nullbehavior: pass
-    matchdirections:
-      - intake_to_buyer
-    description: Facility must have capacity for requested volume
-
-  - name: exclusion_check
-    type: exclusion
-    edgetype: EXCLUDED_FROM
-    matchdirections:
-      - intake_to_buyer
-    description: Exclude facilities on buyer's blacklist
-
+    - alias: buyer
+      node_label: Buyer
+      relationship_type: KNOWS
+      direction: both
 scoring:
   dimensions:
-    - name: geo_proximity
-      source: candidateproperty
-      computation: geodecay
-      candidateprop: lat
-      queryprop: lon
-      decayconstant: 800000.0
-      weightkey: w_geo
-      defaultweight: 0.25
-      matchdirections:
-        - intake_to_buyer
-
-    - name: credit_score
-      source: candidateproperty
-      computation: lognormalized
-      candidateprop: credit_score
-      maxvalue: 100.0
-      weightkey: w_credit
-      defaultweight: 0.15
-      matchdirections:
-        - intake_to_buyer
-
-    - name: contamination_tolerance_score
-      source: candidateproperty
-      computation: inverselinear
-      candidateprop: contamination_tolerance
-      minvalue: 0.0
-      maxvalue: 100.0
-      weightkey: w_contamination
-      defaultweight: 0.10
-      matchdirections:
-        - intake_to_buyer
-      description: Lower contamination tolerance = more selective = higher quality
-
-    - name: community_match
-      source: candidateproperty
-      computation: communitymatch
-      candidateprop: community_id
-      queryprop: community_id
-      bias: 0.92
-      weightkey: w_community
-      defaultweight: 0.10
-      matchdirections:
-        - intake_to_buyer
-
-    - name: rate_score
-      source: candidateproperty
-      computation: weightedrate
-      candidateprop: rate_per_ton
-      queryprop: rate_confidence
-      weightkey: w_rate
-      defaultweight: 0.15
-      matchdirections:
-        - intake_to_buyer
-
-    - name: price_alignment
-      source: candidateproperty
-      computation: pricealignment
-      candidateprop: rate_per_ton
-      queryprop: target_price
-      weightkey: w_price
-      defaultweight: 0.15
-      matchdirections:
-        - intake_to_buyer
-
-    - name: recency
-      source: candidateproperty
-      computation: temporalproximity
-      candidateprop: last_transaction_date
-      decayconstant: 15552000.0
-      weightkey: w_recency
-      defaultweight: 0.10
-      matchdirections:
-        - intake_to_buyer
-
+    - name: revenue
+      source: revenue
+      weight: 0.40
+      positive: true
+    - name: margin
+      source: margin
+      weight: 0.30
+      positive: true
+    - name: risk
+      source: risk
+      weight: 0.20
+      positive: true
+    - name: capacity
+      source: capacity
+      weight: 0.10
+      positive: true
 sync:
-  endpoints:
-    - path: /v1/sync/facilities
-      targetnode: Facility
-      idproperty: facility_id
-      batchstrategy: UNWINDMERGE
-
-    - path: /v1/sync/polymerfamilies
-      targetnode: PolymerFamily
-      idproperty: code
-      batchstrategy: UNWINDMERGE
-
-    - path: /v1/sync/materialforms
-      targetnode: MaterialForm
-      idproperty: form_id
-      batchstrategy: UNWINDMERGE
-
-gdsjobs:
-  - name: louvain_community
-    algorithm: louvain
-    schedule:
-      type: cron
-      cron: "0 2 * * *"
-    projection:
-      nodelabels:
-        - Facility
-      edgetypes:
-        - TRANSACTED_WITH
-    writeproperty: community_id
-
-  - name: facility_similarity
-    algorithm: node_similarity
-    schedule:
-      type: manual
-    projection:
-      nodelabels:
-        - Facility
-        - PolymerFamily
-      edgetypes:
-        - PROCESSES
-    writeedge: SIMILAR_TO
-
+  nodes:
+    - label: Buyer
+      required_fields:
+        - entity_id
+        - revenue
+        - margin
+        - risk
+        - capacity
+    - label: Supplier
+      required_fields:
+        - entity_id
+        - revenue
+        - margin
+        - risk
+        - capacity
 compliance:
-  regimes: []
-  prohibitedfactors:
-    enabled: true
-    blockedfields: []
-  audit:
-    enabled: true
-  pii:
-    fields: []
-    handling: redact
+  required_fields:
+    - entity_id
+    - revenue
+    - margin
+    - risk
+    - capacity
+decision_policy:
+  version: 1.0.0
+  hard_constraints:
+    - metric: compliance_pass
+      operator: eq
+      value: true
+    - metric: risk
+      operator: lte
+      value: 0.70
+  weights:
+    revenue: 0.40
+    margin: 0.30
+    risk: 0.20
+    capacity: 0.10
+  thresholds:
+    approve_threshold: 0.50
+    reject_threshold: 0.20
+    conflict_tolerance: 0.35
