@@ -1,0 +1,119 @@
+# llms-full.txt — Cognitive Engine Graphs (CEG)
+# Full resolved documentation for deep agent context sessions.
+# Companion to llms.txt. Contains complete inline content — no external refs.
+
+## Identity
+- Name: Cognitive Engine Graphs (CEG)
+- Type: Domain-configurable graph matching and scoring engine
+- Owner: L9 Labs (Igor Beylin / cryptoxdog)
+- Repo: https://github.com/cryptoxdog/Cognitive.Engine.Graphs
+- Stack: Python 3.12, Neo4j 5.x + GDS, Pydantic v2, FastAPI (chassis only), pytest
+- Status: Production — 7 open seL4-upgrade PRs pending merge
+
+## Core Architectural Law
+engine/ contains all matching logic. It NEVER imports FastAPI, Starlette, or uvicorn.
+chassis/ is the thin HTTP adapter only. It calls engine handlers.
+Handlers receive (TenantContext, payload) → dict. No HTTP concerns in engine.
+
+## Request Execution Path
+1. HTTP POST /v1/{tenant}/{action} → chassis/routers.py (validates PacketEnvelope)
+2. chassis dispatches to engine/handlers.py action handler
+3. Handler loads DomainSpec from domains/{domain_id}_domain_spec.yaml
+4. DomainSpec drives: gates/ → WHERE clauses, traversal/ → MATCH clauses, scoring/ → WITH+RETURN
+5. engine/graph/driver.py executes Cypher against Neo4j (never raw sessions)
+6. If feedbackloop.enabled: feedback/convergence.py runs convergence cycle
+7. Results returned as dict → chassis serializes to HTTP response
+
+## 8 Action Handlers (engine/handlers.py)
+match, sync, admin, outcomes, resolve, health, healthcheck, enrich
+
+## 10 Gate Types (engine/gates/)
+Each gate compiles to a Cypher WHERE clause fragment.
+All gate types registered in GateType enum.
+New gates: extend BaseGate, register in enum, add unit test in tests/unit/gates/.
+
+## 13 Scoring Computation Types (engine/scoring/)
+Compile to Cypher WITH clause fragments.
+ScoringAssembler.load_learned_weights() multiplies spec_weight × learned_weight.
+All scores output clamped to [0.0, 1.0].
+
+## Signal Weight Formula
+lift_i = P(positive | dim_i active) / P(positive)
+freq_factor_i = sqrt(count_with_dim_i / total_outcomes)
+ci_width_i = 1.96 × sqrt(lift_i × (1 - lift_i) / sample_size_i)
+confidence_i = 1.0 - min(ci_width_i, 1.0)
+weight_i = clamp(1.0 + (lift_i - 1.0) × confidence_i × freq_factor_i, min, max)
+
+## Entity Resolution Similarity
+similarity(a,b) = α×property_sim + β×structural_sim + γ×behavioral_sim
+property_sim = Jaccard(categorical) + cosine(numeric)
+structural_sim = |shared_neighbors| / |union_neighbors|
+behavioral_sim = |shared_outcomes| / |union_outcomes|
+α + β + γ = 1.0 (configurable per domain)
+
+## 10 Causal Edge Types
+CAUSED_BY, TRIGGERED, DROVE, RESULTED_IN, ACCELERATED_BY,
+BLOCKED_BY, ENABLED_BY, PREVENTED_BY, INFLUENCED_BY, CONTRIBUTED_TO
+
+## 24 Enforced Contracts
+C-001: No raw label interpolation into Cypher
+C-002: All queries via GraphDriver.execute_query()
+C-003: Engine imports no FastAPI/Starlette/uvicorn
+C-004: No PII values in log output
+C-005: All caches bounded (TTLCache)
+C-006 through C-024: See docs/contracts/ and .claude/rules/contracts.md
+
+## Feature Flags (engine/config/settings.py)
+feedback_loop_enabled, kge_enabled (DORMANT), score_clamp_enabled,
+causal_enabled, entity_resolution_enabled
+
+## Key Cypher Rules
+- Labels: always sanitize_label(spec.targetnode) before f-string interpolation
+- Values: always $params — never f-string value interpolation
+- Route: always engine/graph/driver.py GraphDriver.execute_query()
+- Never: raw async driver sessions, direct bolt calls
+
+## Code Style (enforced)
+- Python 3.12+, async/await for all I/O
+- Type hints on every function signature
+- Pydantic v2 BaseModel for all structured data
+- Nullable: x: str | None = None (never Optional)
+- Datetime: datetime.now(tz=UTC)
+- Logging: structlog.get_logger(__name__)
+- Exception message: msg = f"..."; raise ValueError(msg) (avoids ruff EM101)
+- Ruff 88-char line length, Black-compatible
+
+## Forbidden Patterns
+eval(), exec(), pickle.load(), yaml.load() without SafeLoader,
+subprocess with shell=True, unbounded dict caches, FastAPI imports in engine/,
+raw Cypher value interpolation, cross-tenant KGE embedding sharing,
+PII in any log statement, committing .env files
+
+## Where to Put New Code
+New gate type → engine/gates/ + register enum + unit test
+New scoring dimension → engine/scoring/ + assembler update
+New action handler → engine/handlers.py register_all() + integration test
+New HTTP route → chassis/routers.py ONLY
+New domain vertical → domains/{id}_domain_spec.yaml
+New contract → contracts/ + tools/contract_scanner.py
+
+## Test Layers
+tests/unit/ — pure functions, no Neo4j, <100ms total
+tests/integration/ — testcontainers-neo4j, requires Docker
+tests/compliance/ — prohibited factors blocked at compile time
+tests/contracts/ — all 24 contracts
+tests/invariants/ — score bounds, weight sums, determinism
+tests/property/ — Hypothesis property tests
+
+## Make Commands
+make setup         # install deps, pre-commit hooks, verify Neo4j
+make dev           # docker-compose up (app + Neo4j + Redis + Prometheus + Grafana)
+make test          # full pytest suite
+make test-unit     # unit only
+make test-integration # integration (Docker required)
+make lint          # ruff check + mypy
+make cypher-lint   # scan generated Cypher for injection vectors
+make coverage      # check coverage thresholds
+
+## Dormant Subsystems
+engine/kge/ — CompoundE3D embeddings — kge_enabled=False — do not activate without cross-tenant isolation audit
