@@ -10,6 +10,6 @@ pytest-mock>=3.14.0,<4.0.0
 pytest-xdist>=3.5.0,<4.0.0
 pytest-timeout>=2.3.0,<3.0.0
 ruff==0.15.5
-mypy==1.14.0
+mypy==1.19.1
 faker>=40.5.1,<41.0.0
 testcontainers[neo4j]>=4.8.0,<5.0.0
