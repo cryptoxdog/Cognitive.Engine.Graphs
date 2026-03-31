@@ -1,25 +1,11 @@
 """
---- L9_META ---
-l9_schema: 1
-origin: gap-fix
-engine: graph
-layer: [compliance]
-tags: [audit, postgresql, persistence]
-owner: engine-team
-status: active
---- /L9_META ---
-
-engine/compliance/audit_persistence.py
-
 GAP-5 FIX: Wire db_pool into ComplianceEngine so flush_audit() persists
 to PostgreSQL instead of warning db_pool=None.
 
-Call configure_audit_pool(pool) from app startup after asyncpg.create_pool().
+Call configure_audit_pool(pool) at app startup after asyncpg.create_pool().
 """
 from __future__ import annotations
-
-import logging
-import time
+import logging, time
 from typing import Any
 
 import asyncpg  # type: ignore
@@ -31,11 +17,11 @@ _POOL: asyncpg.Pool | None = None
 _CREATE_TABLE_SQL = """
 CREATE TABLE IF NOT EXISTS audit_log (
     id          BIGSERIAL PRIMARY KEY,
-    tenant_id   TEXT              NOT NULL,
-    actor       TEXT              NOT NULL,
-    action      TEXT              NOT NULL,
+    tenant_id   TEXT             NOT NULL,
+    actor       TEXT             NOT NULL,
+    action      TEXT             NOT NULL,
     detail      TEXT,
-    created_at  DOUBLE PRECISION  NOT NULL
+    created_at  DOUBLE PRECISION NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_audit_tenant_created
     ON audit_log (tenant_id, created_at DESC);
@@ -60,11 +46,10 @@ async def flush_audit_entries(entries: list[dict[str, Any]]) -> int:
     if _POOL is None:
         logger.error(
             "flush_audit_entries called but db_pool is None — "
-            "call configure_audit_pool() at startup. Entries lost: %d",
+            "call configure_audit_pool() at startup. Entries dropped: %d",
             len(entries),
         )
         return 0
-
     if not entries:
         return 0
 
@@ -78,13 +63,11 @@ async def flush_audit_entries(entries: list[dict[str, Any]]) -> int:
         )
         for e in entries
     ]
-
     async with _POOL.acquire() as conn:
         await conn.executemany(
             "INSERT INTO audit_log (tenant_id, actor, action, detail, created_at) "
             "VALUES ($1, $2, $3, $4, $5)",
             rows,
         )
-
     logger.debug("audit_persistence: flushed %d entries to PostgreSQL", len(rows))
     return len(rows)

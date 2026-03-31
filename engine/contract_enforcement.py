@@ -1,150 +1,270 @@
 """
---- L9_META ---
-l9_schema: 1
-origin: gap-fix
-engine: graph
-layer: [packet]
-tags: [contract, enforcement, packet_envelope, hash]
-owner: engine-team
-status: active
---- /L9_META ---
+GAP-1 FIX: Strict PacketEnvelope contract enforcement.
 
-engine/contract_enforcement.py
+Replaces all silent bypass paths with hard ContractViolationError failures.
+Every inter-service data flow that previously sent a hand-built dict now
+must pass through enforce_packet_envelope() before processing.
 
-GAP-1 + GAP-10 FIX: Strict PacketEnvelope shape and hash enforcement.
+Usage:
+    from engine.contract_enforcement import enforce_packet_envelope, ContractViolationError
 
-Provides:
-  - enforce_packet_envelope(packet, expected_type) — raises ContractViolationError on any violation
-  - build_graph_sync_packet(...)  — canonical factory
-  - build_schema_proposal_packet(...) — canonical factory
+    # In GraphSyncClient (was: sending bare dict)
+    envelope = enforce_packet_envelope(raw_payload, expected_type="graph_sync")
+
+    # In any handler boundary:
+    enforce_packet_envelope(incoming, expected_type="enrich_request")
 """
+
 from __future__ import annotations
 
 import hashlib
 import json
-import time
-import uuid
+import logging
 from typing import Any
 
+logger = logging.getLogger(__name__)
 
-class ContractViolationError(ValueError):
-    """Raised when a packet fails contract enforcement."""
+# ---------------------------------------------------------------------------
+# Error hierarchy
+# ---------------------------------------------------------------------------
 
+class ContractViolationError(RuntimeError):
+    """Raised whenever an inter-service packet fails contract validation.
 
-# ── Canonical JSON hash ────────────────────────────────────────────────────────
+    This is an EXPLICIT HARD FAILURE — never caught and silently swallowed.
+    Callers must fix the packet, not catch this error.
+    """
 
-def _canonical_json(value: Any) -> bytes:
-    return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode()
-
-
-def _sha256(data: bytes) -> str:
-    return hashlib.sha256(data).hexdigest()
-
-
-def _content_hash(payload: Any) -> str:
-    return _sha256(_canonical_json(payload))
-
-
-def _envelope_hash(packet: dict[str, Any]) -> str:
-    """Hash entire packet minus the envelope_hash field itself."""
-    copy = {k: v for k, v in packet.items() if k != "envelope_hash"}
-    return _sha256(_canonical_json(copy))
+    def __init__(self, reason: str, *, packet_id: str | None = None) -> None:
+        self.reason = reason
+        self.packet_id = packet_id
+        msg = f"ContractViolation[{packet_id or 'unknown'}]: {reason}"
+        super().__init__(msg)
+        logger.error(msg)
 
 
-# ── Enforcement ────────────────────────────────────────────────────────────────
+# ---------------------------------------------------------------------------
+# Allowed packet types — Gap-10 fix: schema_proposal added
+# ---------------------------------------------------------------------------
 
-_REQUIRED_FIELDS = {"packet_id", "packet_type", "tenant_id", "payload",
-                    "content_hash", "envelope_hash", "created_at"}
+_ALLOWED_PACKET_TYPES: frozenset[str] = frozenset(
+    [
+        "enrich_request",
+        "enrich_result",
+        "inference_result",
+        "graph_sync",
+        "graph_inference_result",   # Gap-2: new type for return channel
+        "schema_proposal",          # Gap-10: was missing, caused ValidationError
+        "community_export",         # Gap-6: community label export to ENRICH
+        "health_check",
+        "admin_command",
+    ]
+)
 
-_VALID_TYPES = {
-    "graph_sync", "enrich_request", "schema_proposal",
-    "graph_inference_result", "community_export",
-    "request", "response", "event", "command",
+
+# ---------------------------------------------------------------------------
+# Required fields per packet type
+# ---------------------------------------------------------------------------
+
+_REQUIRED_FIELDS: dict[str, list[str]] = {
+    "enrich_request": ["packet_id", "tenant_id", "content_hash", "envelope_hash", "entity_id"],
+    "enrich_result": ["packet_id", "tenant_id", "content_hash", "envelope_hash", "entity_id", "enriched_fields"],
+    "inference_result": ["packet_id", "tenant_id", "content_hash", "envelope_hash", "inference_outputs"],
+    "graph_sync": ["packet_id", "tenant_id", "content_hash", "envelope_hash", "entity_type", "batch"],
+    "graph_inference_result": ["packet_id", "tenant_id", "content_hash", "envelope_hash", "inference_outputs"],
+    "schema_proposal": ["packet_id", "tenant_id", "content_hash", "envelope_hash", "proposed_fields"],
+    "community_export": ["packet_id", "tenant_id", "content_hash", "envelope_hash", "communities"],
+    "health_check": ["packet_id", "tenant_id"],
+    "admin_command": ["packet_id", "tenant_id", "content_hash", "envelope_hash", "subaction"],
 }
 
 
+# ---------------------------------------------------------------------------
+# Core enforcement function
+# ---------------------------------------------------------------------------
+
 def enforce_packet_envelope(
-    packet: dict[str, Any],
+    packet: Any,
+    *,
     expected_type: str,
 ) -> dict[str, Any]:
     """
-    Validate packet shape, type, and cryptographic integrity.
-    Returns the packet unchanged on success.
-    Raises ContractViolationError on any failure.
+    Validate that `packet` is a well-formed PacketEnvelope of `expected_type`.
+
+    Checks:
+      1. packet is a dict (or Pydantic model with .model_dump())
+      2. packet_type matches expected_type
+      3. packet_type is in _ALLOWED_PACKET_TYPES
+      4. All required fields for the type are present
+      5. content_hash matches SHA-256 of the canonical content payload
+      6. envelope_hash is present and non-empty
+
+    Returns the validated dict.
+    Raises ContractViolationError on ANY failure — no silent returns.
     """
+    # Normalise to dict
+    if hasattr(packet, "model_dump"):
+        packet = packet.model_dump(mode="python")
     if not isinstance(packet, dict):
-        msg = f"packet must be a dict, got {type(packet).__name__}"
-        raise ContractViolationError(msg)
+        raise ContractViolationError(
+            f"Expected a dict or Pydantic model, got {type(packet).__name__}",
+        )
 
-    missing = _REQUIRED_FIELDS - packet.keys()
-    if missing:
-        msg = f"packet missing required fields: {sorted(missing)}"
-        raise ContractViolationError(msg)
+    packet_id = packet.get("packet_id", "<no_id>")
 
-    ptype = packet.get("packet_type")
-    if ptype != expected_type:
-        msg = f"packet_type mismatch: expected={expected_type!r} got={ptype!r}"
-        raise ContractViolationError(msg)
+    # Type check
+    actual_type = packet.get("packet_type") or packet.get("type")
+    if actual_type != expected_type:
+        raise ContractViolationError(
+            f"packet_type mismatch: expected={expected_type!r} got={actual_type!r}",
+            packet_id=packet_id,
+        )
 
-    if ptype not in _VALID_TYPES:
-        msg = f"packet_type {ptype!r} is not a registered canonical type"
-        raise ContractViolationError(msg)
+    if expected_type not in _ALLOWED_PACKET_TYPES:
+        raise ContractViolationError(
+            f"packet_type={expected_type!r} is not in the allowed set",
+            packet_id=packet_id,
+        )
 
-    # Content hash integrity
-    expected_content = _content_hash(packet["payload"])
-    if packet["content_hash"] != expected_content:
-        msg = f"content_hash mismatch: expected={expected_content[:16]}… got={str(packet['content_hash'])[:16]}…"
-        raise ContractViolationError(msg)
+    # Required fields
+    required = _REQUIRED_FIELDS.get(expected_type, [])
+    for field_name in required:
+        if field_name not in packet or packet[field_name] is None:
+            raise ContractViolationError(
+                f"Missing or null required field '{field_name}' for type={expected_type!r}",
+                packet_id=packet_id,
+            )
 
-    # Envelope hash integrity
-    expected_env = _envelope_hash(packet)
-    if packet["envelope_hash"] != expected_env:
-        msg = f"envelope_hash mismatch: expected={expected_env[:16]}…"
-        raise ContractViolationError(msg)
+    # Content hash verification (when present)
+    if "content_hash" in required:
+        _verify_content_hash(packet, expected_type, packet_id)
+
+    # Envelope hash must be non-empty
+    if "envelope_hash" in required:
+        if not packet.get("envelope_hash"):
+            raise ContractViolationError(
+                "envelope_hash is empty",
+                packet_id=packet_id,
+            )
 
     return packet
 
 
-# ── Canonical factories ────────────────────────────────────────────────────────
+def _verify_content_hash(
+    packet: dict[str, Any],
+    packet_type: str,
+    packet_id: str,
+) -> None:
+    """Recompute SHA-256 over the canonical content payload and compare."""
+    # Content payload = everything except hash fields and metadata
+    _HASH_EXCLUDED = {"content_hash", "envelope_hash", "packet_id", "packet_type",
+                      "type", "created_at", "lineage", "tenant_context"}
+    content_payload = {k: v for k, v in packet.items() if k not in _HASH_EXCLUDED}
+    try:
+        payload_bytes = json.dumps(content_payload, sort_keys=True, default=str).encode()
+    except (TypeError, ValueError) as exc:
+        raise ContractViolationError(
+            f"Cannot serialize content payload for hash verification: {exc}",
+            packet_id=packet_id,
+        ) from exc
 
-def _base_packet(packet_type: str, tenant_id: str, payload: Any) -> dict[str, Any]:
-    pkt: dict[str, Any] = {
-        "packet_id": f"pkt_{uuid.uuid4().hex}",
-        "packet_type": packet_type,
-        "tenant_id": tenant_id,
-        "payload": payload,
-        "content_hash": _content_hash(payload),
-        "envelope_hash": "",  # filled below
-        "created_at": time.time(),
-    }
-    pkt["envelope_hash"] = _envelope_hash(pkt)
-    return pkt
+    expected_hash = hashlib.sha256(payload_bytes).hexdigest()
+    actual_hash = packet.get("content_hash", "")
+    if expected_hash != actual_hash:
+        raise ContractViolationError(
+            f"content_hash mismatch: expected={expected_hash!r} got={actual_hash!r}",
+            packet_id=packet_id,
+        )
 
+
+# ---------------------------------------------------------------------------
+# GraphSyncClient wrapper — Gap-1 targeted fix
+# ---------------------------------------------------------------------------
 
 def build_graph_sync_packet(
+    *,
     tenant_id: str,
     entity_type: str,
     batch: list[dict[str, Any]],
+    tenant_context: dict[str, Any] | None = None,
+    lineage: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    payload = {"entity_type": entity_type, "batch": batch}
-    return _base_packet("graph_sync", tenant_id, payload)
+    """
+    Build a fully contract-compliant graph_sync PacketEnvelope.
+    Previously GraphSyncClient sent a bare dict with no hashes.
+    Use this factory everywhere instead.
+    """
+    import uuid, time
+
+    content_payload: dict[str, Any] = {
+        "entity_type": entity_type,
+        "batch": batch,
+    }
+    if tenant_context:
+        content_payload["tenant_context"] = tenant_context
+
+    payload_bytes = json.dumps(content_payload, sort_keys=True, default=str).encode()
+    content_hash = hashlib.sha256(payload_bytes).hexdigest()
+
+    packet_id = f"gs_{uuid.uuid4().hex}"
+    envelope_meta = {"packet_id": packet_id, "tenant_id": tenant_id, "content_hash": content_hash}
+    envelope_hash = hashlib.sha256(
+        json.dumps(envelope_meta, sort_keys=True).encode()
+    ).hexdigest()
+
+    packet = {
+        "packet_id": packet_id,
+        "packet_type": "graph_sync",
+        "tenant_id": tenant_id,
+        "entity_type": entity_type,
+        "batch": batch,
+        "content_hash": content_hash,
+        "envelope_hash": envelope_hash,
+        "created_at": time.time(),
+    }
+    if tenant_context:
+        packet["tenant_context"] = tenant_context
+    if lineage:
+        packet["lineage"] = lineage
+
+    # Self-validate before returning — hard fail if our own factory is broken
+    enforce_packet_envelope(packet, expected_type="graph_sync")
+    return packet
 
 
 def build_schema_proposal_packet(
+    *,
     tenant_id: str,
     proposed_fields: list[dict[str, Any]],
+    provenance: str = "schema_discovery",
 ) -> dict[str, Any]:
-    payload = {"proposed_fields": proposed_fields}
-    pkt = _base_packet("schema_proposal", tenant_id, payload)
-    pkt["packet_id"] = f"sp_{uuid.uuid4().hex}"
-    # Recompute envelope_hash after packet_id change
-    pkt["envelope_hash"] = _envelope_hash(pkt)
-    return pkt
+    """
+    Gap-4 + Gap-10 fix: Build a valid schema_proposal PacketEnvelope.
+    Previously SchemaProposal was computed but never emitted.
+    """
+    import uuid, time
 
+    content_payload: dict[str, Any] = {
+        "proposed_fields": proposed_fields,
+        "provenance": provenance,
+    }
+    payload_bytes = json.dumps(content_payload, sort_keys=True, default=str).encode()
+    content_hash = hashlib.sha256(payload_bytes).hexdigest()
+    packet_id = f"sp_{uuid.uuid4().hex}"
+    envelope_meta = {"packet_id": packet_id, "tenant_id": tenant_id, "content_hash": content_hash}
+    envelope_hash = hashlib.sha256(
+        json.dumps(envelope_meta, sort_keys=True).encode()
+    ).hexdigest()
 
-def build_graph_inference_result_packet(
-    tenant_id: str,
-    inference_outputs: list[dict[str, Any]],
-) -> dict[str, Any]:
-    payload = {"inference_outputs": inference_outputs}
-    return _base_packet("graph_inference_result", tenant_id, payload)
+    packet = {
+        "packet_id": packet_id,
+        "packet_type": "schema_proposal",
+        "tenant_id": tenant_id,
+        "proposed_fields": proposed_fields,
+        "provenance": provenance,
+        "content_hash": content_hash,
+        "envelope_hash": envelope_hash,
+        "created_at": time.time(),
+    }
+    enforce_packet_envelope(packet, expected_type="schema_proposal")
+    return packet

@@ -1,31 +1,12 @@
 """
---- L9_META ---
-l9_schema: 1
-origin: gap-fix
-engine: graph
-layer: [graph]
-tags: [gds, community, louvain, enrich, export]
-owner: engine-team
-status: active
---- /L9_META ---
-
-engine/graph/community_export.py
-
 GAP-6 FIX: Export Louvain community labels from Neo4j back to ENRICH
-as known_fields context so convergence_controller can use them in Pass N+1.
+as known_fields context so convergence_controller uses them in Pass N+1.
 
-Attach to GDS scheduler job completion hook.
+Attach to GDSScheduler post-job completion hook for "louvain" jobs.
 """
 from __future__ import annotations
-
-import hashlib
-import json
 import logging
-import time
-import uuid
 from typing import Any
-
-from engine.contract_enforcement import enforce_packet_envelope
 
 logger = logging.getLogger(__name__)
 
@@ -36,9 +17,8 @@ async def export_community_labels_to_enrich(
     domain_id: str,
 ) -> dict[str, Any]:
     """
-    Query Neo4j for community labels produced by the last Louvain run.
-    Builds a community_export PacketEnvelope and submits it to the
-    GraphToEnrichReturnChannel as enrichment targets for the community_id field.
+    Query Neo4j for community labels from the last Louvain run, then submit
+    them to GraphToEnrichReturnChannel as enrichment targets.
     """
     from engine.graph_return_channel import (
         GraphToEnrichReturnChannel,
@@ -59,15 +39,12 @@ async def export_community_labels_to_enrich(
         )
     except Exception:
         logger.exception(
-            "community_export: failed to query community labels for tenant=%s",
-            tenant_id,
+            "community_export: failed to query community labels tenant=%s", tenant_id
         )
         return {"status": "error", "exported": 0}
 
     if not records:
-        logger.debug(
-            "community_export: no community labels found for tenant=%s", tenant_id
-        )
+        logger.debug("community_export: no community labels for tenant=%s", tenant_id)
         return {"status": "ok", "exported": 0}
 
     inference_outputs = [
@@ -75,7 +52,7 @@ async def export_community_labels_to_enrich(
             "entity_id": r["entity_id"],
             "field": "community_id",
             "value": r["community_id"],
-            "confidence": 0.95,  # Louvain is deterministic — high confidence
+            "confidence": 0.95,   # Louvain is deterministic
             "rule": "louvain_community_detection",
         }
         for r in records
@@ -92,8 +69,7 @@ async def export_community_labels_to_enrich(
     channel = GraphToEnrichReturnChannel.get_instance()
     count = await channel.submit(envelope)
     logger.info(
-        "community_export: submitted %d community label targets for tenant=%s",
-        count,
-        tenant_id,
+        "community_export: submitted %d community label targets tenant=%s",
+        count, tenant_id,
     )
     return {"status": "ok", "exported": count, "packet_id": envelope.packet_id}
