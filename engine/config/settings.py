@@ -47,6 +47,13 @@ class Settings(BaseSettings):
     neo4j_max_connection_lifetime: int = 3600
     neo4j_connection_acquisition_timeout: int = 60
 
+    # --- PostgreSQL (audit persistence) ---
+    # FIX(RULE-9 + GAP-5): postgres_dsn is REQUIRED for audit pool wiring.
+    # apply_all_gap_fixes() reads this at startup and raises RuntimeError if absent.
+    # Set POSTGRES_DSN in .env or environment. Production: use a secrets manager DSN.
+    # Format: postgresql://user:pass@host:port/dbname
+    postgres_dsn: str = "postgresql://l9:change-me-in-production@localhost:5432/l9_audit"
+
     # --- Redis ---
     redis_url: str = "redis://localhost:6379/0"
 
@@ -98,37 +105,37 @@ class Settings(BaseSettings):
     pareto_weight_discovery_enabled: bool = False  # off until outcome data flows
 
     # --- Wave 1: Invariant & Validation Hardening (seL4-inspired) ---
-    domain_strict_validation: bool = True  # W1-01: cross-reference validators at load time
-    score_clamp_enabled: bool = True  # W1-02: clamp dimension scores to [0, 1]
-    strict_null_gates: bool = True  # W1-03: reject gates with null-resolved params
-    max_hop_hard_cap: int = 10  # W1-04: maximum hops for traversal patterns
-    param_strict_mode: bool = True  # W1-05: raise on derived parameter resolution failures
+    domain_strict_validation: bool = True   # W1-01: cross-reference validators at load time
+    score_clamp_enabled: bool = True        # W1-02: clamp dimension scores to [0, 1]
+    strict_null_gates: bool = True          # W1-03: reject gates with null-resolved params
+    max_hop_hard_cap: int = 10              # W1-04: maximum hops for traversal patterns
+    param_strict_mode: bool = True          # W1-05: raise on derived parameter resolution failures
 
     # --- Wave 6: Dormant Feature Activation ---
-    gdpr_erasure_enabled: bool = False  # W6-02: GDPR erasure endpoint (opt-in)
-    gdpr_dry_run: bool = True  # W6-02: when True, compute erasure scope without executing
-    gds_max_staleness_hours: int = 25  # W6-03: max hours before GDS job considered stale
+    gdpr_erasure_enabled: bool = False      # W6-02: GDPR erasure endpoint (opt-in)
+    gdpr_dry_run: bool = True               # W6-02: when True, compute erasure scope without executing
+    gds_max_staleness_hours: int = 25       # W6-03: max hours before GDS job considered stale
 
     # --- Wave 2: Refinement-Inspired Scoring ---
-    feedback_enabled: bool = False  # W2-02: outcome feedback loop (opt-in)
-    confidence_check_enabled: bool = True  # W2-03: ensemble confidence bounds
-    monoculture_threshold: float = 0.70  # W2-03: single-dimension dominance cap
-    ensemble_max_divergence: float = 0.30  # W2-03: GDS/KGE divergence cap (Wave 6)
-    score_normalize: bool = False  # W2-04: post-query min-max normalization (opt-in)
+    feedback_enabled: bool = False          # W2-02: outcome feedback loop (opt-in)
+    confidence_check_enabled: bool = True   # W2-03: ensemble confidence bounds
+    monoculture_threshold: float = 0.70     # W2-03: single-dimension dominance cap
+    ensemble_max_divergence: float = 0.30   # W2-03: GDS/KGE divergence cap (Wave 6)
+    score_normalize: bool = False           # W2-04: post-query min-max normalization (opt-in)
 
     # --- Wave 3: Capability & Access Control (seL4-inspired) ---
-    tenant_auth_enabled: bool = True  # W3-01: JWT allowed_tenants enforcement
-    tenant_auth_bypass_key: str = ""  # W3-01: service-to-service bypass key
-    capability_auth_enabled: bool = True  # W3-02/W3-03: domain-spec capability model
+    tenant_auth_enabled: bool = True        # W3-01: JWT allowed_tenants enforcement
+    tenant_auth_bypass_key: str = ""        # W3-01: service-to-service bypass key
+    capability_auth_enabled: bool = True    # W3-02/W3-03: domain-spec capability model
 
     # --- Wave 4: State Management & Resilience (seL4-inspired) ---
-    neo4j_circuit_threshold: int = 5  # W4-02: consecutive failures before circuit opens
-    neo4j_circuit_cooldown: float = 30.0  # W4-02: seconds in OPEN before HALF_OPEN
-    neo4j_circuit_half_open_max: int = 3  # W4-02: probe calls allowed in HALF_OPEN
-    domain_cache_ttl_seconds: int = 30  # W4-03: TTL for async domain pack cache
-    domain_cache_maxsize: int = 100  # W4-03: max entries in domain pack cache
-    compliance_flush_interval: int = 60  # W4-04: seconds between compliance audit flushes
-    compliance_buffer_max: int = 100  # W4-04: max buffered audit entries before forced flush
+    neo4j_circuit_threshold: int = 5        # W4-02: consecutive failures before circuit opens
+    neo4j_circuit_cooldown: float = 30.0    # W4-02: seconds in OPEN before HALF_OPEN
+    neo4j_circuit_half_open_max: int = 3    # W4-02: probe calls allowed in HALF_OPEN
+    domain_cache_ttl_seconds: int = 30      # W4-03: TTL for async domain pack cache
+    domain_cache_maxsize: int = 100         # W4-03: max entries in domain pack cache
+    compliance_flush_interval: int = 60     # W4-04: seconds between compliance audit flushes
+    compliance_buffer_max: int = 100        # W4-04: max buffered audit entries before forced flush
 
     @model_validator(mode="after")
     def _validate_production_secrets(self) -> "Settings":
@@ -139,6 +146,11 @@ class Settings(BaseSettings):
                 raise ValueError(msg)
             if self.api_secret_key in _DEFAULT_SECRETS:
                 msg = "api_secret_key must be changed from default in production"
+                raise ValueError(msg)
+            # FIX(RULE-9 + GAP-5): postgres_dsn default is rejected in production.
+            # Operators must set POSTGRES_DSN to a real DSN via secrets manager.
+            if "change-me-in-production" in self.postgres_dsn:
+                msg = "postgres_dsn must be set to a real DSN in production"
                 raise ValueError(msg)
         return self
 
