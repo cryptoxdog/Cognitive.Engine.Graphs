@@ -53,7 +53,7 @@ jobs:
 
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@49b3bc8e6bdd4a60e6116a5414239cba5943d3cfv3.2.0
@@ -98,7 +98,7 @@ jobs:
 
       - name: Install Cosign
         if: github.event_name != 'pull_request'
-        uses: sigstore/cosign-installer@22642962e8ccb5e4d0835fa76e1a8c5f1ca71f86v3.7.0
+        uses: sigstore/cosign-installer@22642962e8ccb5e4d0835fa76e1a8c5f1ca71f86 # v3.7.0
 
       - name: Sign Container Image
         if: github.event_name != 'pull_request'
@@ -115,7 +115,7 @@ jobs:
 
       - name: Generate SBOM for Container
         if: github.event_name != 'pull_request'
-        uses: anchore/sbom-action@fc46e51fb0e4e3ecf1ea2be3b2e00ee50f1c4e44v0.17.7
+        uses: anchore/sbom-action@fc46e51fb0e4e3ecf1ea2be3b2e00ee50f1c4e44 # v0.17.7
         with:
           image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ steps.build.outputs.digest }}
           format: spdx-json
@@ -134,13 +134,13 @@ jobs:
 
       - name: Upload Trivy Results to Security Tab
         if: always() && github.event_name != 'pull_request'
-        uses: github/codeql-action/upload-sarif@v4
+        uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: trivy-results.sarif
 
       - name: Attest Build Provenance
         if: github.event_name != 'pull_request'
-        uses: actions/attest-build-provenance@1c608d11d69870c2092266b3f9a6337bc7cc3830v2.0.0
+        uses: actions/attest-build-provenance@1c608d11d69870c2092266b3f9a6337bc7cc3830 # v2.0.0
         with:
           subject-name: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           subject-digest: ${{ steps.build.outputs.digest }}
