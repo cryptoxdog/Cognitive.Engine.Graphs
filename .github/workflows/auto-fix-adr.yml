@@ -42,7 +42,7 @@ jobs:
 
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
           ref: develop
@@ -61,7 +61,12 @@ jobs:
       - name: Run ADR Auto-Fixer
         id: auto_fix
         run: |
-          python ci/auto_fix_adr.py --fix-all --output-summary
+          python ci/auto_fix_adr.py --fix-all --output-summary  # Script check
+          if [ ! -f "ci/auto_fix_adr.py" ]; then
+            echo "::error::ci/auto_fix_adr.py not found. Create this script before enabling ADR auto-fix."
+            exit 1
+          fi
+
         continue-on-error: true
 
       - name: Validate Syntax After Fixes
@@ -76,7 +81,7 @@ jobs:
 
       - name: Create Pull Request
         if: steps.auto_fix.outcome == 'success'
-        uses: peter-evans/create-pull-request@c5a7806660adbe173f04e3e038b0ccdcd758773dv6.1.0
+        uses: peter-evans/create-pull-request@c5a7806660adbe173f04e3e038b0ccdcd758773d # v6.1.0
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           commit-message: "fix(adr): automated ADR violation fixes"

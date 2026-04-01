@@ -45,7 +45,7 @@ jobs:
 
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4
 
       - name: Set up Python 3.12
         uses: actions/setup-python@v5
@@ -79,7 +79,7 @@ jobs:
           PYTHONPATH=. pytest -n auto \
             --cov=. \
             --cov-report=term-missing \
-            --cov-fail-under=60 \
+            --cov-fail-under=${{ vars.COVERAGE_THRESHOLD || '70' }} \
             -v
 # REMOVED: continue-on-error: true
 
