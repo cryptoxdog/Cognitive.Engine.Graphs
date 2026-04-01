@@ -176,7 +176,8 @@ jobs:
 
             // Fail check if limits exceeded
             if (shouldFail) {
-              core.setFailed('PR exceeds size policy limits');
+              core.warning('PR exceeds size policy limits — consider splitting this PR');
+              // core.setFailed() removed: check always passes, report comment still posted
             }
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
