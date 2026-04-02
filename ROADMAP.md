@@ -927,3 +927,173 @@ def inject_watermark(graph, session_id: str):
 ---
 
 *Appendix B added: 2026-04-02 — Milestone 4 CompoundE3D implementation + Milestone 5 AGEA defense stack*
+
+
+---
+
+## APPENDIX C — Execution Sequence, Checklist & Citations
+
+### What to Avoid (Continued)
+
+#### ❌ Skipping CompGCN and jumping directly to NBFNet
+
+**Transition path:** CompGCN provides partial induction (new entities get embeddings via neighbors); NBFNet provides true induction (new entities scored via structure only). CompGCN is the prerequisite — its jointly-learned relation embeddings feed into NBFNet's edge representation layer.
+
+#### ❌ Simple SUM aggregation in message passing (leaves 3-4% MRR on table)
+
+PNA combines mean/max/sum/std with degree scaling → +3.7% MRR over best simple aggregator (NBFNet Table 3). 50 lines of code. No reason to use sum.
+
+#### ❌ Dense W_r matrices per relation without basis decomposition
+
+Full W_r requires O(|R|·d²) parameters. PlasticOS: 31 × 256² = 2.03M params for relation weights alone. With B=50 basis decomposition: 4.74× reduction. Every 10 new relation types adds 16× fewer params with decomposition.
+
+#### ❌ Exposing raw subgraph context in external API responses
+
+```json
+// ❌ Current response leaks topology
+{
+  "dimension_scores": {...},          // reveals community/geo/temporal
+  "gates_passed": ["polymer_match"],  // reveals schema (WHERE clauses)
+  "explanation": "ACCEPTED→COLOCATED" // reveals topology (edge types)
+}
+```
+
+AGEA: 1000 queries → 90%+ graph recovery using this information. Sanitize before any external launch.
+
+---
+
+### 6.4 — Novel Synthesis: The "PathCompound Engine"
+
+**Research hypothesis (internal RFC / future publication):**
+
+> Conjecture: Using CompoundE3D's 3D affine operators (T·R·S·F·H) as the MESSAGE function in NBFNet's Bellman-Ford iterations enables non-commutative path composition that captures geometric relational structure better than RotatE (2D rotation only).
+
+**Intuition (PlasticOS-specific):**
+
+Different relation types have fundamentally different geometric semantics:
+- `ACCEPTEDMATERIALFROM`: Material compatibility → **translation** in polymer space
+- `COLOCATEDWITH`: Geographic proximity → **scaling** by distance + rotation for directional bias
+- `SUCCEEDEDWITH`: Transaction history → **reflection** for inverse preference + shear for outcome distortion
+
+Composing via path = M_r3 ∘ M_r2 ∘ M_r1 where each M_r is a 3D compound operator preserves geometric path structure that RotatE cannot express.
+
+**Validation strategy:**
+
+| Condition | Dataset | Expected CompoundE3D-NBFNet gain |
+|---|---|---|
+| Heterogeneous (supports hypothesis) | FB15k-237 (237 relation types) | +3.3% MRR over RotatE-NBFNet |
+| Heterogeneous | YAGO3-10 (37 relation types) | +3.5% MRR |
+| Homogeneous (control) | WN18RR (11 lexical relation types) | +0.3% MRR (no significant gain) |
+
+**Success criteria:** If heterogeneous gain > homogeneous gain by ≥2% → hypothesis supported.
+
+**Timeline:** 3-6 months (research project, not production blocker)
+
+**Publication target:** NeurIPS/ICML workshop → establishes team as KGE research contributors → talent magnet + IP moat.
+
+---
+
+## FINAL EXECUTION SEQUENCE
+
+### Phase 1 — Foundation (Weeks 1-5)
+
+| Milestone | Deliverable | Exit Criteria |
+|---|---|---|
+| M1 (Weeks 1-2) | Filtered MRR harness + baselines (FB15k-237, WN18RR, PlasticOS) | Reproduce RotatE MRR ≥0.338 on FB15k-237 |
+| M2 (Weeks 3-5) | CompGCN encoder (Corr, B=50, 3 layers) | MRR improvement ≥4% on FB15k-237; ≥15% HITS@10 on unseen entities |
+
+### Phase 2 — Core Upgrade (Weeks 6-10)
+
+| Milestone | Deliverable | Exit Criteria |
+|---|---|---|
+| M3 (Weeks 6-10) | NBFNet (T=6, PNA, RotatE MESSAGE, edge dropout 10%, memory opt) | HITS@10 ≥0.599 on FB15k-237; ≥0.523 on inductive splits |
+
+### Phase 3 — Advanced Features (Weeks 11-18, Optional)
+
+| Milestone | Trigger | Deliverable | Exit Criteria |
+|---|---|---|---|
+| M4 (Weeks 11-14) | If time allows | CompoundE3D as MESSAGE function + beam search selector | +2-4% MRR over RotatE-NBFNet on heterogeneous graphs |
+| M5 (Weeks 15-18) | If public API planned | AGEA defense stack (sanitization, monitoring, rate limiting, watermarking) | <30% graph recovery after 1000 adversarial queries |
+
+### GO/NO-GO at Week 12
+
+| Signal | Threshold | Decision |
+|---|---|---|
+| NBFNet HITS@10 on FB15k-237 | ≥0.599 → GO | Proceed to Phase 3 |
+| Inductive HITS@10 | ≥0.523 → GO | — |
+| PlasticOS MRR | ≥0.35 → GO | — |
+| Peak GPU memory | ≤10GB on V100 16GB → GO | — |
+| Inference latency | <500ms → GO | — |
+| NBFNet HITS@10 | <0.580 → NO-GO | Reassess architecture |
+| Memory | >16GB → NO-GO | Cannot fit V100 |
+| Latency | >1000ms → NO-GO | Production UX blocker |
+
+---
+
+## PRODUCTION READINESS CHECKLIST
+
+### Technical Validation
+- [ ] Reproduce NBFNet MRR ≥0.599 on FB15k-237
+- [ ] Reproduce CompGCN MRR ≥0.355 on FB15k-237
+- [ ] Inductive split HITS@10 ≥0.523
+- [ ] PlasticOS baseline MRR established (target ≥0.35)
+- [ ] Memory optimization: <10GB peak on V100 16GB
+- [ ] Inference latency: <500ms per match query
+- [ ] Regression tests: MRR degradation <2% from baseline
+
+### Integration Validation
+- [ ] CompGCN outputs wire into NBFNet edge representations
+- [ ] NBFNet scores integrate with existing 14 Cypher gates
+- [ ] 4 scoring dimensions (community, geo, temporal, structural) preserved
+- [ ] Path interpretation layer returns top-3 paths per candidate
+- [ ] Existing Louvain/GDS jobs continue to work
+- [ ] Neo4j → FastAPI → Odoo data flow unbroken
+
+### Security Validation (if public API)
+- [ ] Response sanitization (no dimension_scores, gates_passed, explanation in external responses)
+- [ ] Traversal monitoring detects hub exploitation (>5 high-degree entities/session)
+- [ ] Novelty rate limiting (budget=100, exponential backoff)
+- [ ] Subgraph watermarking (0.1% phantom triples, session-specific seed)
+- [ ] Red team: <30% graph recovery after 1000 adversarial queries
+
+### Production Validation
+- [ ] End-to-end test: Odoo → /v1/match → Neo4j → FastAPI → NBFNet → response
+- [ ] Load test: 100 concurrent match queries, <1s p99 latency
+- [ ] Graceful degradation: NBFNet OOM → fallback to CompGCN embeddings
+- [ ] Monitoring: Track MRR, HITS@10, latency, memory in production
+- [ ] Alerting: MRR drops >5% → page on-call
+
+---
+
+## CONTEXT SLOTS (STACK REFERENCE)
+
+| Component | Current Value |
+|---|---|
+| Runtime | Python 3.11, PyTorch 2.1, PyTorch Geometric 2.4, FastAPI 0.104 |
+| Graph DB | Neo4j 5.x Enterprise, multi-database per tenant |
+| Current encoder | CompoundE3D Phase 4 (beamsearch.py, ensemble.py, compounde3d.py) with static TransE/RotatE embeddings |
+| Current scoring | CompoundE3D ensemble (WDS/Borda/MoE) + 14 Cypher WHERE gates + 4 scoring dimensions |
+| Graph scale | ~15K entities, ~50K edges, 31 relation types, ~150 triples/day growth |
+| Deployment | Kubernetes + Terraform IaC, multi-tenant with domain key routing |
+| Inductive requirement | **BLOCKING** — new facilities/materials added daily without retraining |
+| Public API | PLANNED (SaaS) → AGEA defense is critical pre-launch |
+| Baseline MRR | PlasticOS ~0.25-0.30 (estimated, no formal benchmark yet) |
+
+---
+
+## CITATIONS
+
+1. Zhu, Z. et al. (2021). **Neural Bellman-Ford Networks: A General Graph Neural Network Framework for Link Prediction.** *NeurIPS 2021*. arXiv:2106.06935
+2. Vashishth, S. et al. (2020). **Composition-based Multi-Relational Graph Convolutional Networks.** *ICLR 2020*. arXiv:1911.03082
+3. Ge, Y. et al. (2023). **Knowledge Graph Embedding with 3D Compound Geometric Transformations.** *AAAI 2023*. arXiv:2304.00378
+4. Schlichtkrull, M. et al. (2018). **Modeling Relational Data with Graph Convolutional Networks.** *ESWC 2018*. arXiv:1703.06103
+5. [AGEA paper] arXiv:2601.14662 — Adversarial Graph Extraction Attack (recent preprint)
+6. Sun, Z. et al. (2019). **RotatE: Knowledge Graph Embedding by Relational Rotation in Complex Space.** *ICLR 2019*. arXiv:1902.10197
+7. Corso, G. et al. (2020). **Principal Neighbourhood Aggregation for Graph Nets.** *NeurIPS 2020*. arXiv:2004.05718
+8. Xu, D. et al. (2019). **Inductive Representation Learning on Temporal Graphs.** *ICLR 2020*. arXiv:2002.07962
+
+---
+
+*END OF ROADMAP — Complete document: Phases 1-6 + Appendices A-C*
+*Total scope: 5 research papers → 3 architecture candidates → 7 implementation milestones → production checklist*
+*Recommended path: Architecture B (Path-Aware Engine) → Milestone 6 (AGEA defense) if external API planned*
