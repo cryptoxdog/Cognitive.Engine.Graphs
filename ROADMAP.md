@@ -638,3 +638,292 @@ Self-adversarial negative sampling (SANS) reduces training time 30-40% with +2-3
 
 *Appendix added: 2026-04-02 | Phases 5–6 continuation*
 *Source: Nuclear Super Prompt Response on NBFNet/CompGCN/CompoundE3D/R-GCN/AGEA*
+
+
+---
+
+## APPENDIX B — Milestone 4 & 5 Implementation Detail
+
+### Milestone 4 — CompoundE3D as NBFNet MESSAGE Function
+
+#### 4.1 — 3D Compound Operator Implementation
+
+```python
+class CompoundE3DOperator(nn.Module):
+    """
+    Block-diagonal 3D affine operator: M_r = diag(O_{r,1}, ..., O_{r,n})
+    Each block applies independent T·R·S·F·H transform.
+    Embed dim d=256 → n=85 blocks of 3×3 (pad last block to fill d=256).
+    """
+    def __init__(self, num_relations, num_blocks):
+        super().__init__()
+        self.T = nn.Parameter(torch.randn(num_relations, num_blocks, 3))
+        # Use quaternion parameterization to avoid gimbal lock
+        self.R_quat = nn.Parameter(torch.randn(num_relations, num_blocks, 4))  # (w,x,y,z)
+        self.S_log = nn.Parameter(torch.zeros(num_relations, num_blocks, 3))   # log scale
+        self.F_normal = nn.Parameter(torch.randn(num_relations, num_blocks, 3))
+        self.H_shear = nn.Parameter(torch.eye(3).unsqueeze(0).unsqueeze(0)
+                                     .expand(num_relations, num_blocks, -1, -1).clone())
+
+    def forward(self, h: torch.Tensor, rel_idx: int) -> torch.Tensor:
+        h_blocks = h.view(-1, 3)  # (num_blocks, 3)
+        out = []
+        for i in range(h_blocks.size(0)):
+            v = h_blocks[i]
+
+            # 1. Householder shear
+            v = v @ self.H_shear[rel_idx, i]
+
+            # 2. Householder reflection (unit normal guaranteed by normalize)
+            n = F.normalize(self.F_normal[rel_idx, i], dim=-1)
+            v = v - 2 * (v @ n) * n
+
+            # 3. Scaling (positive via softplus)
+            v = v * F.softplus(self.S_log[rel_idx, i])
+
+            # 4. SO(3) rotation via unit quaternion
+            R = self._quaternion_to_rotation(
+                F.normalize(self.R_quat[rel_idx, i], dim=-1)
+            )
+            v = v @ R.t()
+
+            # 5. Translation
+            v = v + self.T[rel_idx, i]
+
+            out.append(v)
+
+        return torch.stack(out).view(-1)  # Flatten back to (d,)
+
+    @staticmethod
+    def _quaternion_to_rotation(q: torch.Tensor) -> torch.Tensor:
+        """Convert unit quaternion (w,x,y,z) to 3×3 rotation matrix."""
+        w, x, y, z = q.unbind(-1)
+        return torch.stack([
+            torch.stack([1 - 2*(y**2+z**2),  2*(x*y - w*z),   2*(x*z + w*y)]),
+            torch.stack([2*(x*y + w*z),        1 - 2*(x**2+z**2), 2*(y*z - w*x)]),
+            torch.stack([2*(x*z - w*y),        2*(y*z + w*x),   1 - 2*(x**2+y**2)]),
+        ])
+```
+
+#### 4.2 — Wire as NBFNet MESSAGE Function
+
+```python
+class CompoundE3DMessage(nn.Module):
+    """Drop-in replacement for RotateMessage in NBFNet Bellman-Ford."""
+    def __init__(self, num_relations, embed_dim=256):
+        super().__init__()
+        self.operators = CompoundE3DOperator(num_relations, num_blocks=embed_dim // 3)
+
+    def forward(self, h_src: torch.Tensor, rel_idx: int) -> torch.Tensor:
+        return self.operators(h_src, rel_idx)
+```
+
+#### 4.3 — Beam Search MESSAGE Function Selector
+
+```python
+class BeamSearchSelector:
+    """Select optimal NBFNet MESSAGE function via validation MRR."""
+
+    def select_message_fn(self, graph, valid_set, embed_dim=256):
+        candidates = [
+            ('RotatE',       RotateMessage(embed_dim)),
+            ('DistMult',     DistMultMessage(embed_dim)),
+            ('CompoundE3D',  CompoundE3DMessage(graph.num_relations, embed_dim)),
+        ]
+        results = []
+        for name, msg_fn in candidates:
+            nbfnet = NBFNet(message_fn=msg_fn, num_layers=6, embed_dim=embed_dim)
+            # Train for 10 epochs on a small warmup batch
+            train_warmup(nbfnet, graph, epochs=10)
+            mrr = evaluate_mrr(nbfnet, valid_set, filtered=True)
+            results.append((name, mrr, msg_fn))
+            print(f"  {name}: MRR={mrr:.4f}")
+
+        best_name, best_mrr, best_fn = max(results, key=lambda x: x[1])
+        print(f"Selected: {best_name} (MRR={best_mrr:.4f})")
+        return best_fn, best_mrr
+```
+
+#### 4.4 — Numerical Stability Checklist
+
+| Issue | Risk | Fix |
+|---|---|---|
+| Reflection normal not unit length | Wrong reflection plane → incorrect gradients | `n = F.normalize(self.F_normal, dim=-1)` |
+| Scaling reaches zero | NaN gradients | `S = F.softplus(self.S_log)` or `torch.clamp(S, min=1e-6)` |
+| Euler angle gimbal lock | Training instability at ±90° pitch | Quaternion parameterization (implemented above) |
+| Quaternion not unit | Invalid rotation matrix | `q = F.normalize(self.R_quat, dim=-1)` before applying |
+| Large shear values | Gradient explosion | Initialize `H_shear = I` (identity); clip grad norm to 1.0 |
+
+**Validation criteria:**
+- ✅ CompoundE3D-NBFNet vs RotatE-NBFNet on WN18RR: target +2-4% MRR
+- ✅ Beam search selects optimal variant in <50 validation cycles
+- ✅ No NaN losses during 100-epoch training run
+
+---
+
+### Milestone 5 — AGEA-Inspired Active Inference & Security Hardening
+
+#### 5.1 — Novelty Score Tracker
+
+```python
+class NoveltyTracker:
+    """
+    Computes per-query novelty N^t from AGEA paper Equation 1.
+
+    N^t = (N^t_nodes · |V^t_r| + N^t_edges · |E^t_r|) / (|V^t_r| + |E^t_r|)
+
+    Dual use:
+      - Defense: High N^t → rate limit (potential extraction attack)
+      - Active learning: High N^t → prioritize for enrichment
+    """
+    def __init__(self):
+        self.seen_entities: set = set()
+        self.seen_edges: set = set()
+
+    def compute_novelty(self, query_result) -> float:
+        new_entities = [e for e in query_result.entities
+                        if e not in self.seen_entities]
+        new_edges = [e for e in query_result.edges
+                     if e not in self.seen_edges]
+
+        V_r = len(self.seen_entities) + 1e-8
+        E_r = len(self.seen_edges) + 1e-8
+
+        N_nodes = len(new_entities) / max(len(query_result.entities), 1)
+        N_edges = len(new_edges)   / max(len(query_result.edges), 1)
+
+        novelty = (N_nodes * V_r + N_edges * E_r) / (V_r + E_r)
+
+        # Update seen sets
+        self.seen_entities.update(new_entities)
+        self.seen_edges.update(new_edges)
+
+        return novelty
+
+    def predict_novelty(self, candidate) -> float:
+        """Predict novelty for an unseen candidate (for active learning)."""
+        # Estimate: fraction of candidate's known neighbors not yet seen
+        known_neighbors = getattr(candidate, 'known_neighbors', [])
+        if not known_neighbors:
+            return 1.0  # Unknown entity → maximum novelty
+        unseen = [n for n in known_neighbors if n not in self.seen_entities]
+        return len(unseen) / len(known_neighbors)
+```
+
+#### 5.2 — Active Enrichment Scheduler (AGEA-derived, repurposed)
+
+```python
+def select_enrichment_batch(
+    candidates,
+    novelty_tracker: NoveltyTracker,
+    budget: int = 50,
+    epsilon: float = 0.2,
+) -> list:
+    """
+    ε-greedy enrichment scheduling: explore uncertain regions vs. exploit
+    high-score candidates.
+
+    EXPLORE (prob ε): Sample proportional to novelty → fill knowledge gaps
+    EXPLOIT (prob 1-ε): Select highest-uncertainty entities → maximize info gain
+    """
+    novelties = {c.id: novelty_tracker.predict_novelty(c) for c in candidates}
+
+    if random.random() < epsilon:
+        # EXPLORE: Proportional to novelty
+        probs = np.array([novelties[c.id] for c in candidates], dtype=float)
+        probs = probs / (probs.sum() + 1e-8)
+        selected = np.random.choice(candidates, size=min(budget, len(candidates)),
+                                     p=probs, replace=False)
+    else:
+        # EXPLOIT: Top-K by uncertainty score
+        selected = sorted(candidates,
+                          key=lambda c: c.uncertainty_score,
+                          reverse=True)[:budget]
+
+    return list(selected)
+```
+
+#### 5.3 — API Defense Layer (Full Stack)
+
+```python
+# ── a) Response sanitization ─────────────────────────────────────────────────
+def sanitize_match_response(raw_results: list, session_salt: str) -> list:
+    """Remove all graph-topology-leaking fields from API response."""
+    return [{
+        'candidate_id': hmac_hash(r.id, session_salt),  # Anonymize per session
+        'final_score':  round(r.final_score, 3),
+        # ❌ NEVER return: dimension_scores, gates_passed, explanation paths,
+        #    neighbor IDs, edge weights, subgraph structure, raw Cypher
+    } for r in raw_results]
+
+
+# ── b) Traversal monitor ─────────────────────────────────────────────────────
+class TraversalMonitor:
+    """Detect hub exploitation (AGEA's w_e ∝ log(deg(e)+1) strategy)."""
+
+    def __init__(self, degree_threshold: int = 100, hub_query_limit: int = 5):
+        self.session_hub_queries: dict[str, int] = defaultdict(int)
+        self.degree_threshold = degree_threshold
+        self.hub_limit = hub_query_limit
+
+    def check_query(self, session_id: str, queried_entities: list) -> None:
+        hub_entities = [e for e in queried_entities
+                        if e.degree > self.degree_threshold]
+        self.session_hub_queries[session_id] += len(hub_entities)
+
+        if self.session_hub_queries[session_id] > self.hub_limit:
+            raise SecurityException(
+                f"Hub exploitation detected: session {session_id!r} has queried "
+                f"{self.session_hub_queries[session_id]} high-degree entities "
+                f"(limit={self.hub_limit})"
+            )
+
+
+# ── c) Novelty-based rate limiting ───────────────────────────────────────────
+session_novelty_count: dict[str, int] = defaultdict(int)
+
+@app.post("/v1/match")
+async def match_endpoint(request: MatchRequest,
+                         session_id: str = Header(...)):
+    novelty = novelty_tracker.compute_novelty(request)
+
+    if novelty > 0.3:  # High novelty → potential extraction attack
+        wait_time = min(60, 2 ** session_novelty_count[session_id])
+        await asyncio.sleep(wait_time)
+        session_novelty_count[session_id] += 1
+
+    traversal_monitor.check_query(session_id, request.queried_entities)
+    raw_results = await run_matching(request)
+    return sanitize_match_response(raw_results, session_salt=session_id)
+
+
+# ── d) Subgraph watermarking ─────────────────────────────────────────────────
+def inject_watermark(graph, session_id: str):
+    """
+    Add 0.1% phantom triples keyed to session_id.
+    If graph is leaked, phantom triples identify the session that extracted it.
+    """
+    phantom_seed = int(hashlib.sha256(session_id.encode()).hexdigest(), 16) % 10_000
+    rng = np.random.RandomState(phantom_seed)
+
+    num_phantom = max(1, int(0.001 * len(graph.edges)))
+    phantom_edges = [
+        (rng.choice(graph.nodes), rng.choice(graph.relations), rng.choice(graph.nodes))
+        for _ in range(num_phantom)
+    ]
+    graph.add_edges(phantom_edges, metadata={'watermark': session_id})
+    return graph
+```
+
+#### 5.4 — Validation Criteria
+
+| Test | Method | Target |
+|---|---|---|
+| AGEA attack success rate with defenses | Simulate 1000-query extraction; measure node/edge recovery | <30% graph recovered (vs. 90%+ baseline) |
+| Active scheduler convergence speed | Measure uncertainty reduction per enrichment batch | 2–3× faster vs. random baseline |
+| False positive rate | Replay 10K legitimate user sessions through defense layer | 0 benign queries blocked |
+| Watermark attribution | Extract watermarked graph; verify session ID traceable | 100% attribution accuracy |
+
+---
+
+*Appendix B added: 2026-04-02 — Milestone 4 CompoundE3D implementation + Milestone 5 AGEA defense stack*
