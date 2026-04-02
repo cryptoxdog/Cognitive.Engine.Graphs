@@ -404,3 +404,237 @@ N^t = (N^t_nodes · |V^t_r| + N^t_edges · |E^t_r|) / (|V^t_r| + |E^t_r|)
 
 *Generated: 2026-04-02 | Author: IgorBot + Nuclear Super Prompt Response*
 *Research papers: NBFNet (2106.06935), CompGCN (1911.03082), CompoundE3D (2309.12501), R-GCN (1703.06103), AGEA (2601.14662)*
+
+
+---
+
+## PHASE 5 — RISK, FAILURE MODES & ADVERSARIAL REVIEW
+
+### 5.1 — Technical Failure Modes
+
+| Failure Mode | Source Paper | Probability | Impact | Mitigation |
+|---|---|---|---|---|
+| Over-smoothing in deep CompGCN (6+ layers) | CompGCN §6 | High | MRR drops 5-10% after layer 4 | PairNorm: `h = (h - mean(h)) / std(h)` OR residual connections |
+| Semiring violation in NBFNet with non-linear activations | NBFNet §5 | Medium | Bellman-Ford convergence not guaranteed | Keep BF iterations linear; use ReLU only in final MLP |
+| CompoundE3D non-invertible operators when `s_x=0` or `s_y=0` | CompoundE3D §3.1 | Medium | NaN gradients | Enforce positivity: `S = F.softplus(S_log)` or `S = torch.clamp(S, min=1e-6)` |
+| NBFNet memory explosion on dense graphs | NBFNet §3 | High | OOM on >100K entities | Gradient checkpointing + dynamic edge pruning (top-k=20) + mini-batch NeighborLoader |
+| AGEA-style graph extraction on production engine | AGEA §3.2 | **High** (if public API) | 90-96% graph recovered in 1K queries | Milestone 6 defenses (sanitization, rate limiting, watermarking) |
+| Cold-start relation types (new gates post-training) | NBFNet §4 | Medium | New relation scores random | Meta-learning init: train on auxiliary relation prediction task |
+
+**Critical Mitigation Priorities:**
+1. NBFNet memory — blocks production deployment
+2. AGEA response sanitization — blocks public API launch
+3. CompGCN over-smoothing — blocks MRR gains
+
+---
+
+### 5.2 — Security & Adversarial Risks (AGEA-derived)
+
+**Attack surface — current `/v1/match` response leaks:**
+
+| Field | What It Reveals | AGEA Exploitation |
+|---|---|---|
+| `dimension_scores.communitymatch` | Louvain community membership | Query variations → infer community boundaries |
+| `dimension_scores.geodecayscore` | Haversine distance | Trilateration to reverse-engineer facility locations |
+| `gates_passed` | WHERE clause logic (14 gates) | Infer schema: thresholds, accepted value ranges |
+| `explanation` (path) | Multi-hop graph structure | Direct topology exposure |
+| Ranked candidate order | Relative edge weights | SUCCEEDEDWITH score inference |
+
+**AGEA attack simulation (1000 queries → 90%+ graph recovery):**
+```python
+for i in range(1000):
+    # Phase 1: Gate threshold discovery
+    result = api.post("/v1/match", json={"mfi": random.uniform(0, 100), ...})
+    gates = [c["gates_passed"] for c in result["candidates"]]
+    # Infer: mfi=50 passes, mfi=51 fails → threshold = 50
+
+    # Phase 2: Topology extraction via explanation paths
+    paths = [c["explanation"] for c in result["candidates"]]
+    # Build graph: ACCEPTEDMATERIALFROM, COLOCATEDWITH edges
+
+    # Phase 3: Edge weight recovery from dimension_scores
+    # If communitymatch=0.85 for (A,B) but 0.30 for (A,C) → B,A are co-community
+```
+
+**Defense implementation:**
+
+```python
+# a) Response sanitization
+def sanitize_match_response(raw_results):
+    return [{
+        'candidate_id': result.id,
+        'final_score': result.score,
+        # ❌ DO NOT RETURN: dimension_scores, gates_passed, explanation paths,
+        #    neighbor IDs, edge weights, subgraph structure
+    } for result in raw_results]
+
+# b) Traversal monitoring (degree-spike anomaly detection)
+class TraversalMonitor:
+    def check_query(self, session_id, queried_entities):
+        hub_entities = [e for e in queried_entities if e.degree > 100]
+        if self.session_hub_queries[session_id] > 5:
+            raise SecurityException("Hub exploitation detected")
+
+# c) Novelty dampening
+async def match_endpoint(request, session_id):
+    novelty = novelty_tracker.compute_novelty(request)
+    if novelty > 0.3:  # Potential exploration attack
+        wait_time = min(60, 2 ** session_novelty_count[session_id])
+        await asyncio.sleep(wait_time)
+        session_novelty_count[session_id] += 1
+
+# d) Subgraph watermarking (phantom triples for attribution)
+def inject_watermark(graph, session_id):
+    phantom_seed = hash(session_id) % 1000
+    rng = np.random.RandomState(phantom_seed)
+    num_phantom = int(0.001 * len(graph.edges))  # 0.1% phantom triples
+    phantom_edges = [(rng.choice(nodes), rng.choice(relations), rng.choice(nodes))
+                     for _ in range(num_phantom)]
+    graph.add_edges(phantom_edges, watermark=session_id)
+```
+
+**Strategic decision:**
+- Internal API (Odoo → FastAPI): Keep full response for debugging ✅
+- External API (public SaaS): **Sanitize + watermark + rate limit before launch** — blocking issue
+
+---
+
+### 5.3 — Architectural Risks
+
+| Risk | Probability | Impact | Mitigation |
+|---|---|---|---|
+| Inductive edge repr includes entity-specific embeddings | Medium | Breaks induction entirely | Parameterize ONLY by relation: `w_q = W_r·q + b_r` (NO entity lookup) |
+| CompoundE3D beam variants become stale after graph evolution | Medium | MRR degrades silently | Re-run beam search quarterly or when `|E|` changes >20% |
+| Ensemble weights drift post-deployment | High | Calibration error rises | Monthly temperature re-calibration or online MoE weight updates |
+| AGEA defenses create false positives on power users | Medium | Legitimate users rate-limited | Whitelist known API keys + behavioral profiling |
+
+**Critical: Inductive edge representation constraint**
+
+```python
+# ❌ BAD — breaks induction (includes entity embeddings)
+def edge_representation(u, r, v, entity_embed):
+    return W_r @ (entity_embed[u] + entity_embed[v]) + b_r
+
+# ✅ GOOD — preserves induction (relation + query only)
+def edge_representation(r, query_rel):
+    return W_r @ query_rel + b_r
+```
+
+---
+
+## PHASE 6 — KEY INSIGHTS & STRATEGIC RECOMMENDATIONS
+
+### 6.1 — The 10 Most Important Takeaways
+
+#### 1. Replace entity lookup tables with CompGCN (HIGHEST ROI)
+- Joint node+relation embeddings via circular-correlation composition
+- +7% MRR on FB15k-237 (0.338 → 0.355), 4.74× parameter reduction with B=50
+- Partial inductive capability: new entities init via neighbors
+- **PlasticOS impact:** New facilities added daily → 15-20% HITS@10 improvement on cold-start
+
+#### 2. NBFNet is the new inference backbone (PARADIGM SHIFT)
+- TRUE inductive: scores unseen entities from graph structure alone
+- +68% HITS@10 on inductive splits (0.311 → 0.523), path interpretability
+- **PlasticOS impact:** Eliminates cold-start retraining requirement entirely
+- **Compliance impact:** Auditable paths ("routed to Facility X because: ACCEPTED→COLOCATED→COMMUNITY")
+
+#### 3. PNA aggregation over simple sum/mean/max (+3.7% MRR)
+```
+PNA = concat(mean, max, sum, std) × learned scalers × log(degree+1)
+```
+Captures complementary neighborhood signals; 50 lines of code.
+
+#### 4. CompoundE3D is already your SOTA relation repr (LEVERAGE WHAT YOU HAVE)
+- Fully integrated (beamsearch.py, ensemble.py, compounde3d.py)
+- Upgrade path: Use as MESSAGE function in NBFNet (Milestone 4) → geometric path composition
+
+#### 5. 6 layers is the NBFNet sweet spot — do not go deeper
+- T=6: MRR = 0.509 (optimal); T=12: MRR = 0.505 (-0.8%, +2× memory)
+- Hardcode `num_layers=6`
+
+#### 6. Basis decomposition B=50 is Pareto-optimal
+- B=50: 99%+ MRR retention, 4.74× parameter reduction
+- Fits V100 16GB instead of A100 40GB; 30% training speedup
+
+#### 7. Your API is a high-value extraction target (AGEA)
+- 96% node recovery in 5K queries for $0.50–$2.50
+- Explanation paths + dimension_scores = direct topology leakage
+- **Action: Sanitize API response before any external launch**
+
+#### 8. Edge dropout is the single most important NBFNet training trick
+- Without: HITS@10 = 0.521 (learns shortcuts)
+- With 10% dropout: HITS@10 = 0.599 (+15% absolute)
+- 5 lines of code in training loop
+
+#### 9. Self-adversarial negative sampling from RotatE (SANS)
+- Samples negatives proportional to current model score → hard negatives
+- +2-3% MRR, 30-40% training time reduction
+
+#### 10. AGEA's explore/exploit is reusable for active enrichment scheduling
+- Repurpose novelty-guided ε-greedy for uncertainty-based entity prioritization
+- Expected: 2-3× faster enrichment convergence, fewer wasted API calls
+
+---
+
+### 6.2 — Build Priority Order
+
+#### ✅ Tier 1 — Production Blockers (12 weeks)
+
+| Priority | Component | Impact | Effort | Blocking Condition |
+|---|---|---|---|---|
+| 1 | CompGCN encoder (Milestone 2) | +7% MRR, cold-start fix | 1 week | New entities get poor matches |
+| 2 | NBFNet Bellman-Ford (Milestone 3) | +68% inductive HITS@10 | 4 weeks | Cannot generalize to unseen entities |
+| 3 | AGEA defense layer (Milestone 6) | Prevents 90%+ extraction | 3 weeks | **Only if public API planned** |
+
+#### ✅ Tier 2 — Performance Optimizations (Weeks 13-18)
+
+| Priority | Component | Impact | Effort |
+|---|---|---|---|
+| 4 | CompoundE3D MESSAGE function (Milestone 4) | +2-4% MRR on heterogeneous graphs | 4 weeks |
+| 5 | Ensemble fusion + calibration (Milestone 5) | +1-3% MRR, better confidence | 2 weeks |
+
+#### ❌ Tier 3 — Research Experiments (Defer)
+
+| Component | Rationale | Action |
+|---|---|---|
+| PathCompound MESSAGE (CompoundE3D × NBFNet) | Unproven; 50% confidence | Internal RFC → validate on FB15k-237 before productionizing |
+| Active inference scheduler | Nice-to-have; current loop converges acceptably | Implement after Tier 1+2; measure ROI in prod |
+
+---
+
+### 6.3 — What to Avoid
+
+#### ❌ R-GCN as primary encoder
+CompGCN strictly dominates on link prediction: +3-5% MRR, joint relation embeddings, composition operators. Keep R-GCN in benchmarking scripts only.
+
+#### ❌ Static embedding lookup tables
+`nn.Embedding(num_entities, d)` cannot score new entities. Replace with CompGCN (Milestone 2).
+
+#### ❌ Direct entity exposure in API responses
+Gate pass/fail details + explanation paths = graph extraction attack surface. Sanitize before any external launch.
+
+#### ❌ NBFNet with >6 layers in production
+T=12 doubles memory for -0.8% MRR. Not Pareto-optimal.
+
+#### ❌ Uniform negative sampling
+Self-adversarial negative sampling (SANS) reduces training time 30-40% with +2-3% MRR. Cost: 30 lines of code.
+
+---
+
+## SUMMARY
+
+| Metric | Baseline | Architecture B (12 weeks) | Architecture C (20 weeks) |
+|---|---|---|---|
+| MRR (transductive) | ~0.338 | ~0.355–0.365 | ~0.370–0.380 |
+| HITS@10 (inductive) | 0.0 | **0.52+** | 0.55+ |
+| Cold-start latency | N/A (retrain required) | <200ms zero-shot | <200ms zero-shot |
+| Path interpretability | 0% | **>90%** | >95% |
+| Graph extraction resistance | 0% (vulnerable) | 0% (Phase 1 scope) | **>80%** (with Milestone 6) |
+| Training cycle (delta) | Full retrain nightly | IncLoRA 10-15 min | IncLoRA 10-15 min |
+
+**Recommended path: Architecture B → Milestone 6 (AGEA defense) if external API planned.**
+
+---
+
+*Appendix added: 2026-04-02 | Phases 5–6 continuation*
+*Source: Nuclear Super Prompt Response on NBFNet/CompGCN/CompoundE3D/R-GCN/AGEA*
