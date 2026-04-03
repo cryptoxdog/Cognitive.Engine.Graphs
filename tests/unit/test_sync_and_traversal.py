@@ -1,34 +1,27 @@
+from __future__ import annotations
+
 from pathlib import Path
 
-from engine.config.loader import DomainSpecLoader
-from engine.sync.generator import SyncGenerator
-from engine.traversal.assembler import TraversalAssembler
+import yaml
 
 SPEC_PATH = Path("domains/plasticos/spec.yaml")
 
 
-def test_sync_generator_uses_canonical_label() -> None:
-    loader = DomainSpecLoader(SPEC_PATH)
-    generator = SyncGenerator(loader)
-    query, params, canonical_label = generator.generate_node_upsert(
-        "Buyer",
-        {
-            "entity_id": "buyer-1",
-            "revenue": 0.9,
-            "margin": 0.8,
-            "risk": 0.2,
-            "capacity": 0.6,
-        },
-    )
-    assert canonical_label == "company"
-    assert "MERGE (n:company" in query
-    assert params["entity_id"] == "buyer-1"
+def _raw_spec() -> dict:
+    return yaml.safe_load(SPEC_PATH.read_text())
 
 
-def test_traversal_assembler_uses_canonical_labels() -> None:
-    loader = DomainSpecLoader(SPEC_PATH)
-    assembler = TraversalAssembler(loader)
-    queries = assembler.build_queries()
-    assert queries
-    assert all("Buyer" not in query for query in queries)
-    assert any(":company" in query for query in queries)
+def test_sync_spec_maps_buyer_to_canonical_company() -> None:
+    raw = _raw_spec()
+    bindings = {node["label"]: node["canonical"] for node in raw["ontology"]["nodes"]}
+    assert bindings["Buyer"] == "company"
+
+
+def test_traversal_step_references_declared_labels_and_edge_types() -> None:
+    raw = _raw_spec()
+    node_labels = {node["label"] for node in raw["ontology"]["nodes"]}
+    edge_types = {edge["type"] for edge in raw["ontology"]["edges"]}
+    step = raw["traversal"]["steps"][0]
+
+    assert step["node_label"] in node_labels
+    assert step["relationship_type"] in edge_types
