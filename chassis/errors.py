@@ -103,8 +103,8 @@ class ExecutionError(ChassisError):
     status_code: int = 500
 
 
-class FeatureNotEnabled(ChassisError):
-    """Feature gate is off — operator must opt in via env/settings → HTTP 422.
+class FeatureNotEnabled(ChassisError):  # noqa: N818
+    """Feature gate is off - operator must opt in via env/settings -> HTTP 422.
 
     Raised instead of NotImplementedError for dormant features that have
     working implementations but are gated behind a feature flag.

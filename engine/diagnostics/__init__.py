@@ -11,12 +11,13 @@ status: active
 
 Algorithmic diagnostics for persona composition and drift detection.
 """
-from engine.diagnostics.fingerprint import AlgorithmicFingerprint, compute_fingerprint
+
 from engine.diagnostics.dissimilarity import chi_squared_dissimilarity, detect_drift
+from engine.diagnostics.fingerprint import AlgorithmicFingerprint, compute_fingerprint
 
 __all__ = [
     "AlgorithmicFingerprint",
-    "compute_fingerprint",
     "chi_squared_dissimilarity",
+    "compute_fingerprint",
     "detect_drift",
 ]

@@ -1,8 +1,10 @@
 """Unit tests — ScoringAssembler: scoring types, weight override, aggregation."""
+
 from __future__ import annotations
 
-import pytest
 from pathlib import Path
+
+import pytest
 
 DOMAINS_DIR = Path(__file__).parent.parent.parent / "domains"
 
@@ -10,6 +12,7 @@ DOMAINS_DIR = Path(__file__).parent.parent.parent / "domains"
 def test_assembler_loads_from_plasticos_spec():
     from engine.config.loader import DomainPackLoader
     from engine.scoring.assembler import ScoringAssembler
+
     loader = DomainPackLoader(domains_dir=DOMAINS_DIR)
     spec = loader.load_domain("plasticos")
     assembler = ScoringAssembler(spec)
@@ -20,8 +23,9 @@ def test_assembler_loads_from_plasticos_spec():
 
 def test_empty_dims_returns_default_score():
     """With no scoring dimensions, assembler should return a safe default."""
-    from engine.scoring.assembler import ScoringAssembler
     from engine.config.schema import DomainSpec
+    from engine.scoring.assembler import ScoringAssembler
+
     raw = {
         "domain": {"id": "test", "name": "Test", "version": "0.0.1"},
         "ontology": {"nodes": [], "edges": []},
@@ -43,6 +47,7 @@ def test_empty_dims_returns_default_score():
 def test_scoring_clause_contains_composite_score():
     from engine.config.loader import DomainPackLoader
     from engine.scoring.assembler import ScoringAssembler
+
     loader = DomainPackLoader(domains_dir=DOMAINS_DIR)
     spec = loader.load_domain("plasticos")
     assembler = ScoringAssembler(spec)
@@ -54,6 +59,7 @@ def test_scoring_clause_contains_composite_score():
 def test_weight_override_changes_output():
     from engine.config.loader import DomainPackLoader
     from engine.scoring.assembler import ScoringAssembler
+
     loader = DomainPackLoader(domains_dir=DOMAINS_DIR)
     spec = loader.load_domain("plasticos")
     assembler = ScoringAssembler(spec)

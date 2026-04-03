@@ -122,6 +122,4 @@ class GraphDriver:
 
         Raises CircuitOpenError (maps to 503) if breaker is OPEN.
         """
-        return await self._circuit_breaker.call(
-            self._raw_execute_query, cypher, parameters, database
-        )
+        return await self._circuit_breaker.call(self._raw_execute_query, cypher, parameters, database)

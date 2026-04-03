@@ -18,8 +18,9 @@ from __future__ import annotations
 
 import logging
 import re
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Any, Callable
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -27,23 +28,26 @@ logger = logging.getLogger(__name__)
 # Types
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class InferenceContext:
     """Runtime context passed to every inference function."""
+
     tenant_id: str
     domain_id: str
     pass_number: int
     known_fields: dict[str, Any] = field(default_factory=dict)
-    domain_kb: dict[str, Any] = field(default_factory=dict)   # from domain spec KB injection
+    domain_kb: dict[str, Any] = field(default_factory=dict)  # from domain spec KB injection
     confidence_floor: float = 0.55
 
 
 @dataclass
 class InferenceResult:
     """Output of a single inference function execution."""
+
     field_name: str
     value: Any
-    confidence: float          # 0.0–1.0
+    confidence: float  # 0.0-1.0
     rule_name: str
     provenance: str = "inference"
     rationale: str = ""
@@ -62,7 +66,7 @@ class InferenceResult:
 InferenceFn = Callable[[dict[str, Any], InferenceContext], InferenceResult | None]
 
 # ---------------------------------------------------------------------------
-# Registry — populated by @register_inference_rule decorators below
+# Registry - populated by @register_inference_rule decorators below
 # ---------------------------------------------------------------------------
 
 _RULE_REGISTRY: dict[str, InferenceFn] = {}
@@ -70,12 +74,14 @@ _RULE_REGISTRY: dict[str, InferenceFn] = {}
 
 def register_inference_rule(name: str) -> Callable[[InferenceFn], InferenceFn]:
     """Decorator that registers an inference function under `name`."""
+
     def decorator(fn: InferenceFn) -> InferenceFn:
         if name in _RULE_REGISTRY:
             raise ValueError(f"Inference rule '{name}' is already registered")
         _RULE_REGISTRY[name] = fn
         logger.debug("Registered inference rule: %s → %s", name, fn.__qualname__)
         return fn
+
     return decorator
 
 
@@ -83,10 +89,7 @@ def get_rule(name: str) -> InferenceFn:
     """Return a registered rule or raise KeyError with a clear message."""
     if name not in _RULE_REGISTRY:
         available = sorted(_RULE_REGISTRY.keys())
-        raise KeyError(
-            f"Inference rule '{name}' not found in registry. "
-            f"Available rules: {available}"
-        )
+        raise KeyError(f"Inference rule '{name}' not found in registry. Available rules: {available}")
     return _RULE_REGISTRY[name]
 
 
@@ -122,6 +125,7 @@ def execute_rule(
 # Register all domain-agnostic rules here. Domain-specific rules are
 # loaded from domain KB via load_domain_rules() below.
 # ===========================================================================
+
 
 @register_inference_rule("infer_company_size_tier")
 def infer_company_size_tier(entity: dict, ctx: InferenceContext) -> InferenceResult | None:
@@ -198,7 +202,6 @@ def infer_email_domain_from_website(entity: dict, ctx: InferenceContext) -> Infe
 def infer_geography_from_postal_code(entity: dict, ctx: InferenceContext) -> InferenceResult | None:
     """Infer region/country from postal code prefix."""
     postal = entity.get("postal_code") or entity.get("zip_code")
-    country = entity.get("country")
     if not postal:
         return None
     postal_str = str(postal).strip().upper()
@@ -276,12 +279,15 @@ def infer_material_grade_from_mfi(entity: dict, ctx: InferenceContext) -> Infere
     kb = ctx.domain_kb.get("mfi_grade_map", {})
     # Default HDPE thresholds — can be overridden by KB
     if material in ("HDPE", "PE"):
-        grade_map = kb.get("HDPE", [
-            (0.5,  "HD_pipe",       0.88),
-            (2.0,  "HD_blow",       0.85),
-            (8.0,  "HD_injection",  0.83),
-            (float("inf"), "HD_fiber", 0.80),
-        ])
+        grade_map = kb.get(
+            "HDPE",
+            [
+                (0.5, "HD_pipe", 0.88),
+                (2.0, "HD_blow", 0.85),
+                (8.0, "HD_injection", 0.83),
+                (float("inf"), "HD_fiber", 0.80),
+            ],
+        )
     else:
         grade_map = kb.get(material, [(float("inf"), "generic", 0.60)])
     for threshold, grade, conf in grade_map:
@@ -306,10 +312,13 @@ def infer_contamination_tolerance(entity: dict, ctx: InferenceContext) -> Infere
     grade = entity.get("material_grade")
     if not tier or not grade:
         return None
-    _HIGH_TOLERANCE_TIERS = {"micro", "small"}
-    _LOW_GRADE_PATTERNS = {"fiber", "generic"}
-    tolerance = "high" if (tier in _HIGH_TOLERANCE_TIERS or
-                           any(p in str(grade).lower() for p in _LOW_GRADE_PATTERNS)) else "low"
+    high_tolerance_tiers = {"micro", "small"}
+    low_grade_patterns = {"fiber", "generic"}
+    tolerance = (
+        "high"
+        if (tier in high_tolerance_tiers or any(p in str(grade).lower() for p in low_grade_patterns))
+        else "low"
+    )
     conf = 0.78 if tolerance == "high" else 0.72
     return InferenceResult(
         field_name="contamination_tolerance",
@@ -324,7 +333,7 @@ def infer_contamination_tolerance(entity: dict, ctx: InferenceContext) -> Infere
 def infer_icp_fit_score(entity: dict, ctx: InferenceContext) -> InferenceResult | None:
     """
     Generic ICP fit scoring: weighted sum of known firmographic signals.
-    Returns a 0.0–1.0 score in the 'icp_fit_score' field.
+    Returns a 0.0-1.0 score in the 'icp_fit_score' field.
     """
     score = 0.0
     factors = 0
@@ -368,28 +377,39 @@ def infer_buyer_persona(entity: dict, ctx: InferenceContext) -> InferenceResult 
     title_lower = str(title).lower()
     if not title_lower:
         return None
-    _EXEC_KEYWORDS = {"ceo", "coo", "president", "owner", "founder", "vp", "svp", "evp"}
-    _OPS_KEYWORDS = {"operations", "ops", "plant", "facility", "production", "supply"}
-    _PROC_KEYWORDS = {"procurement", "purchasing", "buyer", "sourcing"}
-    _TECH_KEYWORDS = {"engineer", "technical", "r&d", "research", "quality"}
-    for kw in _EXEC_KEYWORDS:
+    exec_keywords = {"ceo", "coo", "president", "owner", "founder", "vp", "svp", "evp"}
+    ops_keywords = {"operations", "ops", "plant", "facility", "production", "supply"}
+    proc_keywords = {"procurement", "purchasing", "buyer", "sourcing"}
+    tech_keywords = {"engineer", "technical", "r&d", "research", "quality"}
+    for kw in exec_keywords:
         if kw in title_lower:
-            return InferenceResult("buyer_persona", "executive", 0.85, "infer_buyer_persona", rationale=f"title={title}")
-    for kw in _PROC_KEYWORDS:
+            return InferenceResult(
+                "buyer_persona", "executive", 0.85, "infer_buyer_persona", rationale=f"title={title}"
+            )
+    for kw in proc_keywords:
         if kw in title_lower:
-            return InferenceResult("buyer_persona", "procurement", 0.83, "infer_buyer_persona", rationale=f"title={title}")
-    for kw in _OPS_KEYWORDS:
+            return InferenceResult(
+                "buyer_persona", "procurement", 0.83, "infer_buyer_persona", rationale=f"title={title}"
+            )
+    for kw in ops_keywords:
         if kw in title_lower:
-            return InferenceResult("buyer_persona", "operations", 0.80, "infer_buyer_persona", rationale=f"title={title}")
-    for kw in _TECH_KEYWORDS:
+            return InferenceResult(
+                "buyer_persona", "operations", 0.80, "infer_buyer_persona", rationale=f"title={title}"
+            )
+    for kw in tech_keywords:
         if kw in title_lower:
-            return InferenceResult("buyer_persona", "technical", 0.78, "infer_buyer_persona", rationale=f"title={title}")
-    return InferenceResult("buyer_persona", "unknown", 0.55, "infer_buyer_persona", rationale=f"title={title} — no match")
+            return InferenceResult(
+                "buyer_persona", "technical", 0.78, "infer_buyer_persona", rationale=f"title={title}"
+            )
+    return InferenceResult(
+        "buyer_persona", "unknown", 0.55, "infer_buyer_persona", rationale=f"title={title} — no match"
+    )
 
 
 # ---------------------------------------------------------------------------
 # Dynamic domain rule loader (Gap-3: KB injection pathway)
 # ---------------------------------------------------------------------------
+
 
 def load_domain_rules(domain_kb: dict[str, Any]) -> int:
     """
@@ -461,7 +481,7 @@ def _register_condition_rule(rule_name: str, spec: dict[str, Any]) -> None:
             confidence=confidence,
             rule_name=rule_name,
             provenance="domain_kb",
-            rationale=f"condition rule from KB",
+            rationale="condition rule from KB",
         )
 
     _RULE_REGISTRY[rule_name] = _rule

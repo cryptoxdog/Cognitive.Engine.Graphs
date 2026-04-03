@@ -1,4 +1,5 @@
 """Integration tests — outcomes handler: SUCCEEDED, REJECTED, validation."""
+
 from __future__ import annotations
 
 import pytest
@@ -12,6 +13,7 @@ async def test_outcome_success_recorded(graph_driver, clean_db):
         database="neo4j",
     )
     from engine.handlers import handle_outcomes
+
     result = await handle_outcomes(
         "plasticos",
         {
@@ -33,6 +35,7 @@ async def test_outcome_rejected_recorded(graph_driver, clean_db):
         database="neo4j",
     )
     from engine.handlers import handle_outcomes
+
     result = await handle_outcomes(
         "plasticos",
         {
@@ -50,6 +53,7 @@ def test_outcome_invalid_payload_raises():
     try:
         from engine.models.payloads import OutcomePayload
         from pydantic import ValidationError
+
         with pytest.raises(ValidationError):
             OutcomePayload.model_validate({"was_selected": "yes_please"})
     except ImportError:

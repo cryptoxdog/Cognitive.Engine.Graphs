@@ -25,7 +25,6 @@ import pytest
 
 from engine.kge.cross_dimensional_ensemble import (
     CrossDimensionalEnsemble,
-    CrossDimensionalResult,
     DimensionalScore,
 )
 
