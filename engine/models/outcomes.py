@@ -10,12 +10,12 @@ status: active
 --- /L9_META ---
 
 engine/models/outcomes.py
-Milestone 2.2 — Outcome models for Pareto weight discovery
+Milestone 2.2 - Outcome models for Pareto weight discovery
 
 Provides:
 
-1. ``OutcomeRecord`` — Pydantic model for a single match outcome
-2. ``OutcomeHistoryStore`` — In-memory store for outcome history with
+1. ``OutcomeRecord`` - Pydantic model for a single match outcome
+2. ``OutcomeHistoryStore`` - In-memory store for outcome history with
    tenant isolation, TTL-based expiry, and serialization to the format
    expected by ``discover_pareto_weights()``.
 
@@ -23,12 +23,13 @@ The in-memory store is suitable for single-instance deployments.  For
 multi-instance production, replace with a PostgreSQL-backed implementation
 that reads from the ``transaction_outcomes`` table.
 """
+
 from __future__ import annotations
 
 import logging
 from collections import defaultdict
-from datetime import datetime, timedelta
-from typing import Any, Optional
+from datetime import UTC, datetime, timedelta
+from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -43,19 +44,15 @@ class OutcomeRecord(BaseModel):
 
     match_id: str = Field(description="ID of the match request that produced this outcome")
     candidate_id: str = Field(description="ID of the candidate entity")
-    dimension_scores: dict[str, float] = Field(
-        description="Per-dimension scores at the time of the match"
-    )
-    was_selected: bool = Field(
-        description="Whether the customer/user selected this candidate"
-    )
-    feedback_score: Optional[float] = Field(
+    dimension_scores: dict[str, float] = Field(description="Per-dimension scores at the time of the match")
+    was_selected: bool = Field(description="Whether the customer/user selected this candidate")
+    feedback_score: float | None = Field(
         default=None,
         ge=0.0,
         le=1.0,
         description="Optional explicit feedback score (0.0-1.0)",
     )
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
 # ── Store ────────────────────────────────────────────────────────────────────
@@ -103,7 +100,7 @@ class OutcomeHistoryStore:
             Each dict has ``dimension_scores`` (dict[str, float]) and
             ``was_selected`` (bool).
         """
-        cutoff = datetime.utcnow() - timedelta(days=days)
+        cutoff = datetime.now(UTC) - timedelta(days=days)
         bucket = self._history.get(tenant, [])
 
         recent = [

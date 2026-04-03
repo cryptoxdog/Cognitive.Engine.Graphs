@@ -1,10 +1,11 @@
 """
 Tests for GAP-5: audit_persistence.py
 """
+
 from __future__ import annotations
 
 import time
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
@@ -46,7 +47,9 @@ async def test_flush_inserts_rows() -> None:
     mock_conn.executemany = AsyncMock()
 
     mock_pool = MagicMock()
-    mock_pool.acquire = MagicMock(return_value=AsyncMock(__aenter__=AsyncMock(return_value=mock_conn), __aexit__=AsyncMock(return_value=False)))
+    mock_pool.acquire = MagicMock(
+        return_value=AsyncMock(__aenter__=AsyncMock(return_value=mock_conn), __aexit__=AsyncMock(return_value=False))
+    )
     audit_persistence._POOL = mock_pool
 
     result = await audit_persistence.flush_audit_entries(entries)

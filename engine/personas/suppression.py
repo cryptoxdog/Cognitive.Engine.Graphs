@@ -52,11 +52,7 @@ def build_constraint_block(persona: Persona) -> str:
 
     constraints = [_CONSTRAINT_TEMPLATE.format(behavior=b) for b in persona.forbidden_behaviors]
 
-    block = (
-        f"\n\n{_CONSTRAINT_BLOCK_START}\n"
-        + "\n".join(constraints)
-        + f"\n{_CONSTRAINT_BLOCK_END}\n"
-    )
+    block = f"\n\n{_CONSTRAINT_BLOCK_START}\n" + "\n".join(constraints) + f"\n{_CONSTRAINT_BLOCK_END}\n"
 
     logger.debug(
         "Built %d constraint(s) for persona '%s'",

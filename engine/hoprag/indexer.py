@@ -135,7 +135,7 @@ class GraphIndexBuilder:
             graph_store=neo4j_store,
         )
         result = await builder.build(passage_label="Passage")
-        print(f"Created {result.edges_created} edges")
+        edges_created = result.edges_created
     """
 
     def __init__(
@@ -234,11 +234,7 @@ class GraphIndexBuilder:
                             vertex_id=pq.passage_id,
                             question=triplet.question,
                             keywords=triplet.keywords,
-                            embedding=(
-                                __import__("numpy").array(triplet.embedding)
-                                if triplet.embedding
-                                else None
-                            ),
+                            embedding=(__import__("numpy").array(triplet.embedding) if triplet.embedding else None),
                         )
                     )
                 for triplet in pq.incoming:
@@ -247,11 +243,7 @@ class GraphIndexBuilder:
                             vertex_id=pq.passage_id,
                             question=triplet.question,
                             keywords=triplet.keywords,
-                            embedding=(
-                                __import__("numpy").array(triplet.embedding)
-                                if triplet.embedding
-                                else None
-                            ),
+                            embedding=(__import__("numpy").array(triplet.embedding) if triplet.embedding else None),
                         )
                     )
 

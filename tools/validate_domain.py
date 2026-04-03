@@ -43,50 +43,60 @@ def _check_cross_references(spec: DomainSpec) -> list[dict]:
     # Check edge from/to references
     for edge in spec.ontology.edges:
         if edge.from_ not in node_labels:
-            results.append({
-                "check": "W1-01-edge-source",
-                "status": "FAIL",
-                "message": f"Edge '{edge.type}' source '{edge.from_}' not in ontology nodes",
-                "path": f"ontology.edges[type={edge.type}].from",
-            })
+            results.append(
+                {
+                    "check": "W1-01-edge-source",
+                    "status": "FAIL",
+                    "message": f"Edge '{edge.type}' source '{edge.from_}' not in ontology nodes",
+                    "path": f"ontology.edges[type={edge.type}].from",
+                }
+            )
         if edge.to not in node_labels:
-            results.append({
-                "check": "W1-01-edge-target",
-                "status": "FAIL",
-                "message": f"Edge '{edge.type}' target '{edge.to}' not in ontology nodes",
-                "path": f"ontology.edges[type={edge.type}].to",
-            })
+            results.append(
+                {
+                    "check": "W1-01-edge-target",
+                    "status": "FAIL",
+                    "message": f"Edge '{edge.type}' target '{edge.to}' not in ontology nodes",
+                    "path": f"ontology.edges[type={edge.type}].to",
+                }
+            )
 
     # Check match entity references
     for candidate in spec.matchentities.candidate:
         if candidate.label not in node_labels:
-            results.append({
-                "check": "W1-01-candidate-label",
-                "status": "FAIL",
-                "message": f"Candidate label '{candidate.label}' not in ontology",
-                "path": f"matchentities.candidate[label={candidate.label}]",
-            })
+            results.append(
+                {
+                    "check": "W1-01-candidate-label",
+                    "status": "FAIL",
+                    "message": f"Candidate label '{candidate.label}' not in ontology",
+                    "path": f"matchentities.candidate[label={candidate.label}]",
+                }
+            )
 
     # Check gate edge references
     for gate in spec.gates:
         if gate.edgetype and gate.edgetype not in edge_types:
-            results.append({
-                "check": "W1-01-gate-edge",
-                "status": "FAIL",
-                "message": f"Gate '{gate.name}' references unknown edge type '{gate.edgetype}'",
-                "path": f"gates[name={gate.name}].edgetype",
-            })
+            results.append(
+                {
+                    "check": "W1-01-gate-edge",
+                    "status": "FAIL",
+                    "message": f"Gate '{gate.name}' references unknown edge type '{gate.edgetype}'",
+                    "path": f"gates[name={gate.name}].edgetype",
+                }
+            )
 
     # Check scoring weight sum
     if spec.scoring and spec.scoring.dimensions:
         weight_sum = sum(d.defaultweight for d in spec.scoring.dimensions)
         if weight_sum > 1.0 + 1e-9:
-            results.append({
-                "check": "W1-01-weight-sum",
-                "status": "FAIL",
-                "message": f"Scoring default weights sum to {weight_sum:.4f}, exceeding 1.0",
-                "path": "scoring.dimensions[*].defaultweight",
-            })
+            results.append(
+                {
+                    "check": "W1-01-weight-sum",
+                    "status": "FAIL",
+                    "message": f"Scoring default weights sum to {weight_sum:.4f}, exceeding 1.0",
+                    "path": "scoring.dimensions[*].defaultweight",
+                }
+            )
 
     if not results:
         results.append({"check": "W1-01-cross-ref", "status": "PASS", "message": "All cross-references valid"})
@@ -106,17 +116,21 @@ def _check_gate_compilation(spec: DomainSpec) -> list[dict]:
         for direction in directions:
             clause = compiler.compile_all_gates(direction)
             if clause:
-                results.append({
-                    "check": "W1-03-gate-compile",
-                    "status": "PASS",
-                    "message": f"Gates compile for direction '{direction}' ({len(clause)} chars)",
-                })
+                results.append(
+                    {
+                        "check": "W1-03-gate-compile",
+                        "status": "PASS",
+                        "message": f"Gates compile for direction '{direction}' ({len(clause)} chars)",
+                    }
+                )
     except Exception as exc:
-        results.append({
-            "check": "W1-03-gate-compile",
-            "status": "FAIL",
-            "message": f"Gate compilation failed: {exc}",
-        })
+        results.append(
+            {
+                "check": "W1-03-gate-compile",
+                "status": "FAIL",
+                "message": f"Gate compilation failed: {exc}",
+            }
+        )
 
     if not results:
         results.append({"check": "W1-03-gate-compile", "status": "PASS", "message": "No gates to compile"})
@@ -142,17 +156,21 @@ def _check_traversal(spec: DomainSpec) -> list[dict]:
                 for w in warnings:
                     results.append({"check": "W1-04-traversal", "status": "WARN", "message": w})
             else:
-                results.append({
-                    "check": "W1-04-traversal",
-                    "status": "PASS",
-                    "message": f"Traversal valid for direction '{direction}'",
-                })
+                results.append(
+                    {
+                        "check": "W1-04-traversal",
+                        "status": "PASS",
+                        "message": f"Traversal valid for direction '{direction}'",
+                    }
+                )
     except Exception as exc:
-        results.append({
-            "check": "W1-04-traversal",
-            "status": "FAIL",
-            "message": f"Traversal validation failed: {exc}",
-        })
+        results.append(
+            {
+                "check": "W1-04-traversal",
+                "status": "FAIL",
+                "message": f"Traversal validation failed: {exc}",
+            }
+        )
 
     return results
 
@@ -167,17 +185,21 @@ def _check_compliance(spec: DomainSpec) -> list[dict]:
         validator = ProhibitedFactorValidator(spec)
         for gate in spec.gates:
             validator.validate_gate(gate)
-        results.append({
-            "check": "W3-02-prohibited-factors",
-            "status": "PASS",
-            "message": "No prohibited factors in gates",
-        })
+        results.append(
+            {
+                "check": "W3-02-prohibited-factors",
+                "status": "PASS",
+                "message": "No prohibited factors in gates",
+            }
+        )
     except (ValueError, Exception) as exc:
-        results.append({
-            "check": "W3-02-prohibited-factors",
-            "status": "FAIL",
-            "message": f"Prohibited factor violation: {exc}",
-        })
+        results.append(
+            {
+                "check": "W3-02-prohibited-factors",
+                "status": "FAIL",
+                "message": f"Prohibited factor violation: {exc}",
+            }
+        )
 
     return results
 

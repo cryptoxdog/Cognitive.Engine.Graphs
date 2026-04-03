@@ -10,7 +10,6 @@ and using a simple numeric evaluator for score expressions.
 from __future__ import annotations
 
 import math
-import re
 import statistics
 
 import pytest
@@ -37,7 +36,6 @@ from engine.config.schema import (
 )
 from engine.scoring.assembler import ScoringAssembler
 from tests.fixtures.benchmark_data import BAD_PAIRS, GOOD_PAIRS, BenchmarkPair
-
 
 # ---------------------------------------------------------------------------
 # Helpers

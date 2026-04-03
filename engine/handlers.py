@@ -514,10 +514,7 @@ async def handle_match(tenant: str, payload: dict[str, Any]) -> dict[str, Any]:
                 results = apply_constraint_penalties(list(results), constraint_dicts)
 
             # Spec-driven Pareto filter using declared objectives
-            arb_dims = [
-                obj.dimension
-                for obj in domain_spec.decision_arbitration.pareto_config.objectives
-            ]
+            arb_dims = [obj.dimension for obj in domain_spec.decision_arbitration.pareto_config.objectives]
             if arb_dims and len(results) > 1:
                 arb_pareto = apply_pareto_filter(results, arb_dims)
                 if pareto_metadata is None:
@@ -1317,10 +1314,7 @@ async def handle_admin(tenant: str, payload: dict[str, Any]) -> dict[str, Any]:
                 tenant=tenant,
             )
 
-        dimension_names = [
-            obj.dimension
-            for obj in spec.decision_arbitration.pareto_config.objectives
-        ]
+        dimension_names = [obj.dimension for obj in spec.decision_arbitration.pareto_config.objectives]
 
         if not dimension_names:
             raise ValidationError(
@@ -1365,10 +1359,12 @@ async def handle_admin(tenant: str, payload: dict[str, Any]) -> dict[str, Any]:
                     continue
             if not isinstance(ds, dict):
                 continue
-            outcome_history.append({
-                "dimension_scores": {k: float(v) for k, v in ds.items()},
-                "was_selected": bool(rec.get("was_selected", False)),
-            })
+            outcome_history.append(
+                {
+                    "dimension_scores": {k: float(v) for k, v in ds.items()},
+                    "was_selected": bool(rec.get("was_selected", False)),
+                }
+            )
 
         if len(outcome_history) < 10:
             return {

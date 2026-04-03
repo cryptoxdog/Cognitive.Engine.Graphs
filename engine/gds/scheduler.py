@@ -215,8 +215,7 @@ class GDSScheduler:
 
         if cycle_members:
             logger.error(
-                "Circular dependency detected among GDS jobs: %s. "
-                "Placing in fallback wave.",
+                "Circular dependency detected among GDS jobs: %s. Placing in fallback wave.",
                 sorted(cycle_members),
             )
             waves.append([job_map[alg] for alg in sorted(cycle_members)])
@@ -244,10 +243,7 @@ class GDSScheduler:
         S2-15: Supports stability_runs for non-deterministic algorithms.
         """
         resolved_agg = self.resolve_aggregation_strategy(job_spec)
-        logger.info(
-            f"Starting GDS job {job_spec.name} — algorithm={job_spec.algorithm}, "
-            f"aggregation={resolved_agg}"
-        )
+        logger.info(f"Starting GDS job {job_spec.name} — algorithm={job_spec.algorithm}, aggregation={resolved_agg}")
         start = datetime.now()
         result = {}
 
@@ -710,26 +706,25 @@ class GDSScheduler:
                 result = await self._run_louvain(job_spec)
                 all_results.append(result)
             except Exception as e:
-                logger.warning(f"Stability run {i+1}/{runs} failed: {e}")
+                logger.warning(f"Stability run {i + 1}/{runs} failed: {e}")
 
         if not all_results:
             return {"status": "failed", "error": "All stability runs failed"}
 
         # Aggregate: average community count and modularity
-        avg_communities = sum(
-            r.get("communities", 0) or 0 for r in all_results
-        ) / len(all_results)
-        avg_modularity = sum(
-            r.get("modularity", 0.0) or 0.0 for r in all_results
-        ) / len(all_results)
+        avg_communities = sum(r.get("communities", 0) or 0 for r in all_results) / len(all_results)
+        avg_modularity = sum(r.get("modularity", 0.0) or 0.0 for r in all_results) / len(all_results)
 
         return {
             "communities": round(avg_communities),
             "modularity": round(avg_modularity, 6),
             "stability_runs": len(all_results),
             "stability_coefficient": round(
-                1.0 - (max(r.get("modularity", 0.0) or 0.0 for r in all_results)
-                       - min(r.get("modularity", 0.0) or 0.0 for r in all_results)),
+                1.0
+                - (
+                    max(r.get("modularity", 0.0) or 0.0 for r in all_results)
+                    - min(r.get("modularity", 0.0) or 0.0 for r in all_results)
+                ),
                 6,
             ),
         }

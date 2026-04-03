@@ -1,4 +1,5 @@
 """Integration tests — sync handler: merge, idempotency, unknown entity."""
+
 from __future__ import annotations
 
 import pytest
@@ -7,6 +8,7 @@ import pytest
 @pytest.mark.asyncio
 async def test_sync_merges_facilities(graph_driver, domain_loader, clean_db):
     from engine.handlers import handle_sync
+
     result = await handle_sync(
         "plasticos",
         {
@@ -25,6 +27,7 @@ async def test_sync_merges_facilities(graph_driver, domain_loader, clean_db):
 @pytest.mark.asyncio
 async def test_sync_idempotent_on_second_call(graph_driver, domain_loader, clean_db):
     from engine.handlers import handle_sync
+
     payload = {
         "entity_type": "facilities",
         "batch": [{"id": "fac-idem", "name": "Idem Facility"}],
@@ -38,6 +41,7 @@ async def test_sync_idempotent_on_second_call(graph_driver, domain_loader, clean
 def test_sync_unknown_entity_type_raises(domain_loader):
     """RULE 3: unknown entity_type raises, not silent pass-through."""
     from engine.sync.generator import SyncGenerator
+
     spec = domain_loader.load_domain("plasticos")
     gen = SyncGenerator(spec)
     with pytest.raises(Exception):

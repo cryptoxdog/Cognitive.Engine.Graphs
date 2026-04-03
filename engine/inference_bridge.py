@@ -7,6 +7,7 @@ forcing all callers to migrate to inference_bridge_v2.py (DAG engine).
 This eliminates silent bypass of the DerivationGraph topological sort
 and unlock-value targeting that the v1 bridge was causing.
 """
+
 raise ImportError(
     "engine.inference_bridge (v1) is DISABLED.\n\n"
     "It bypasses the DerivationGraph DAG engine, causing inference to fire "

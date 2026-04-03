@@ -21,6 +21,7 @@ Configuration via environment variables:
   - PACKET_STORE_POOL_MIN: Minimum pool connections (default: 2)
   - PACKET_STORE_POOL_MAX: Maximum pool connections (default: 10)
 """
+
 from __future__ import annotations
 
 import json
@@ -86,6 +87,7 @@ _INSERT_DELEGATION_SQL = """
 
 # ── Pool Management ──────────────────────────────────────────
 
+
 class _PoolManager:
     """Lazy-initialised asyncpg connection pool."""
 
@@ -98,18 +100,16 @@ class _PoolManager:
             return self._pool
 
         try:
-            import asyncpg  # noqa: F811
+            import asyncpg
         except ImportError as exc:
             raise RuntimeError(
-                "asyncpg is required for PacketStore persistence. "
-                "Install with: pip install asyncpg"
+                "asyncpg is required for PacketStore persistence. Install with: pip install asyncpg"
             ) from exc
 
         dsn = os.environ.get("PACKET_STORE_DSN")
         if not dsn:
             raise RuntimeError(
-                "PACKET_STORE_DSN environment variable is required. "
-                "Set it to your PostgreSQL connection string."
+                "PACKET_STORE_DSN environment variable is required. Set it to your PostgreSQL connection string."
             )
 
         min_size = int(os.environ.get("PACKET_STORE_POOL_MIN", "2"))
@@ -123,7 +123,8 @@ class _PoolManager:
         )
         logger.info(
             "PacketStore pool initialized: min=%d max=%d",
-            min_size, max_size,
+            min_size,
+            max_size,
         )
         return self._pool
 
@@ -139,6 +140,7 @@ _pool_manager = _PoolManager()
 
 
 # ── Extraction Helpers ───────────────────────────────────────
+
 
 def _extract_packet_row(packet: PacketEnvelope) -> tuple[Any, ...]:
     """Extract a flat tuple of values from a PacketEnvelope for INSERT."""
@@ -193,6 +195,7 @@ def _extract_packet_row(packet: PacketEnvelope) -> tuple[Any, ...]:
 
 # ── PacketStore ──────────────────────────────────────────────
 
+
 class PacketStore:
     """Async persistence layer for PacketEnvelope request/response pairs.
 
@@ -214,59 +217,57 @@ class PacketStore:
         """
         if not _PACKET_STORE_ENABLED:
             logger.debug(
-                "PacketStore is disabled. Set PACKET_STORE_ENABLED=true to enable. "
-                "packet_id=%s",
+                "PacketStore is disabled. Set PACKET_STORE_ENABLED=true to enable. packet_id=%s",
                 request.packet_id,
             )
             return
 
         pool = await _pool_manager.get_pool()
 
-        async with pool.acquire() as conn:
-            async with conn.transaction():
-                # Insert both packets
-                for packet in (request, response):
-                    row = _extract_packet_row(packet)
-                    await conn.execute(_INSERT_PACKET_SQL, *row)
+        async with pool.acquire() as conn, conn.transaction():
+            # Insert both packets
+            for packet in (request, response):
+                row = _extract_packet_row(packet)
+                await conn.execute(_INSERT_PACKET_SQL, *row)
 
-                    # Insert hop trace entries
-                    for seq, hop in enumerate(packet.hop_trace):
-                        await conn.execute(
-                            _INSERT_HOP_SQL,
-                            str(packet.packet_id),
-                            hop.node_id,
-                            hop.action,
-                            hop.entered_at,
-                            hop.exited_at,
-                            hop.status,
-                            hop.signature,
-                            seq,
-                        )
+                # Insert hop trace entries
+                for seq, hop in enumerate(packet.hop_trace):
+                    await conn.execute(
+                        _INSERT_HOP_SQL,
+                        str(packet.packet_id),
+                        hop.node_id,
+                        hop.action,
+                        hop.entered_at,
+                        hop.exited_at,
+                        hop.status,
+                        hop.signature,
+                        seq,
+                    )
 
-                    # Insert delegation chain entries
-                    for seq, deleg in enumerate(packet.delegation_chain):
-                        await conn.execute(
-                            _INSERT_DELEGATION_SQL,
-                            str(packet.packet_id),
-                            deleg.delegator,
-                            deleg.delegatee,
-                            list(deleg.scope),
-                            deleg.granted_at,
-                            deleg.expires_at,
-                            deleg.proof_hash,
-                            seq,
-                        )
+                # Insert delegation chain entries
+                for seq, deleg in enumerate(packet.delegation_chain):
+                    await conn.execute(
+                        _INSERT_DELEGATION_SQL,
+                        str(packet.packet_id),
+                        deleg.delegator,
+                        deleg.delegatee,
+                        list(deleg.scope),
+                        deleg.granted_at,
+                        deleg.expires_at,
+                        deleg.proof_hash,
+                        seq,
+                    )
 
-                    # Insert lineage graph edges
-                    for parent_id in packet.lineage.parent_ids:
-                        await conn.execute(
-                            _INSERT_LINEAGE_SQL,
-                            str(parent_id),
-                            str(packet.packet_id),
-                            packet.lineage.generation,
-                            packet.lineage.derivation_type,
-                            datetime.now(UTC),
-                        )
+                # Insert lineage graph edges
+                for parent_id in packet.lineage.parent_ids:
+                    await conn.execute(
+                        _INSERT_LINEAGE_SQL,
+                        str(parent_id),
+                        str(packet.packet_id),
+                        packet.lineage.generation,
+                        packet.lineage.derivation_type,
+                        datetime.now(UTC),
+                    )
 
         logger.info(
             "PacketStore persisted pair: request=%s response=%s",
