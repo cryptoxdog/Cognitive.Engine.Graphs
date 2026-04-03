@@ -44,6 +44,7 @@ from enum import StrEnum
 from typing import Any, Protocol
 
 import numpy as np
+import numpy.typing as npt
 
 logger = logging.getLogger(__name__)
 
@@ -94,7 +95,7 @@ class TraversalEdge:
     target_id: str
     question: str = ""
     keywords: frozenset[str] = frozenset()
-    embedding: np.ndarray | None = None
+    embedding: npt.NDArray[Any] | None = None
 
 
 @dataclass
@@ -206,7 +207,7 @@ class MultiHopTraverser:
     async def traverse(  # noqa: PLR0915
         self,
         start_vertices: list[str],
-        query_embedding: np.ndarray | None = None,
+        query_embedding: npt.NDArray[Any] | None = None,
         query_text: str = "",
     ) -> TraversalResult:
         """Execute multi-hop BFS traversal.
@@ -343,7 +344,7 @@ class MultiHopTraverser:
 
     def _select_by_similarity(
         self,
-        query_embedding: np.ndarray,
+        query_embedding: npt.NDArray[Any],
         edges: list[TraversalEdge],
     ) -> TraversalEdge | None:
         """Select the edge whose embedding is most similar to the query.
@@ -410,7 +411,7 @@ class MultiHopTraverser:
         return edges[0]
 
     @staticmethod
-    def _cosine_similarity(a: np.ndarray, b: np.ndarray) -> float:
+    def _cosine_similarity(a: npt.NDArray[Any], b: npt.NDArray[Any]) -> float:
         """Compute cosine similarity between two vectors.
 
         Args:

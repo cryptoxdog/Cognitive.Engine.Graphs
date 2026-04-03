@@ -40,8 +40,10 @@ from __future__ import annotations
 import logging
 import math
 from dataclasses import dataclass, field
+from typing import Any
 
 import numpy as np
+import numpy.typing as npt
 
 logger = logging.getLogger(__name__)
 
@@ -60,7 +62,7 @@ class EdgeTriplet:
     vertex_id: str
     question: str = ""
     keywords: frozenset[str] = frozenset()
-    embedding: np.ndarray | None = None
+    embedding: npt.NDArray[Any] | None = None
 
 
 @dataclass(frozen=True)
@@ -145,8 +147,8 @@ class EdgeMerger:
         self,
         keywords1: frozenset[str],
         keywords2: frozenset[str],
-        embedding1: np.ndarray | None,
-        embedding2: np.ndarray | None,
+        embedding1: npt.NDArray[Any] | None,
+        embedding2: npt.NDArray[Any] | None,
     ) -> tuple[float, float, float]:
         """Compute hybrid similarity between two triplets.
 
@@ -316,8 +318,8 @@ class EdgeMerger:
 
     @staticmethod
     def _cosine_similarity(
-        vec1: np.ndarray | None,
-        vec2: np.ndarray | None,
+        vec1: npt.NDArray[Any] | None,
+        vec2: npt.NDArray[Any] | None,
     ) -> float:
         """Compute cosine similarity between two vectors.
 

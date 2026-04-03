@@ -1,3 +1,15 @@
+"""
+--- L9_META ---
+l9_schema: 1
+origin: engine-specific
+engine: graph
+layer: [arbitration]
+tags: [arbitration, engine]
+owner: engine-team
+status: active
+--- /L9_META ---
+"""
+
 from __future__ import annotations
 
 from typing import Literal, Protocol
@@ -92,8 +104,12 @@ class ArbitrationEngine:
             msg = f"operator {operator!r} requires numeric operands"
             raise ValueError(msg)
 
-        actual_value = float(actual)
-        expected_value = float(expected)
+        try:
+            actual_value = float(actual)
+            expected_value = float(expected)
+        except (TypeError, ValueError) as exc:
+            msg = f"operator {operator!r} requires numeric operands"
+            raise ValueError(msg) from exc
 
         if operator == "lt":
             return actual_value < expected_value

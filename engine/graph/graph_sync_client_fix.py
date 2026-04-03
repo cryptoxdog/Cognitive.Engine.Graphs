@@ -1,4 +1,16 @@
 """
+--- L9_META ---
+l9_schema: 1
+origin: engine-specific
+engine: graph
+layer: [graph]
+tags: [graph, graph-sync-client-fix]
+owner: engine-team
+status: active
+--- /L9_META ---
+
+
+
 GAP-1 FIX: Replace the hand-built dict in GraphSyncClient with a canonical
 PacketEnvelope.  Eliminates the silent bypass of content_hash, envelope_hash,
 PacketLineage, and TenantContext.
@@ -10,7 +22,8 @@ the import at the call site.
 from __future__ import annotations
 
 import logging
-from typing import Any
+from collections.abc import Callable
+from typing import Any, Protocol
 
 from engine.contract_enforcement import (
     ContractViolationError,
@@ -19,6 +32,17 @@ from engine.contract_enforcement import (
 )
 
 logger = logging.getLogger(__name__)
+
+BatchRow = dict[str, Any]
+Batch = list[BatchRow]
+
+
+class WriteTransaction(Protocol):
+    async def run(self, query: str, /, **parameters: Any) -> Any: ...
+
+
+class GraphWriteDriver(Protocol):
+    async def execute_write(self, fn: Callable[..., Any], /, **kwargs: Any) -> Any: ...
 
 
 class GraphSyncClient:
@@ -35,7 +59,7 @@ class GraphSyncClient:
     ContractViolationError — hard fail, no silent degradation.
     """
 
-    def __init__(self, neo4j_driver, tenant_id: str, tenant_tier: str = "unknown"):
+    def __init__(self, neo4j_driver: GraphWriteDriver, tenant_id: str, tenant_tier: str = "unknown") -> None:
         self._driver = neo4j_driver
         self._tenant_id = tenant_id
         self._tenant_tier = tenant_tier
@@ -43,7 +67,7 @@ class GraphSyncClient:
     def _build_envelope(
         self,
         entity_type: str,
-        batch: list[dict[str, Any]],
+        batch: Batch,
         correlation_id: str | None = None,
     ) -> dict[str, Any]:
         """Build and validate a PacketEnvelope before sending."""
@@ -71,7 +95,7 @@ class GraphSyncClient:
     async def sync_entities(
         self,
         entity_type: str,
-        batch: list[dict[str, Any]],
+        batch: Batch,
         correlation_id: str | None = None,
     ) -> dict[str, Any]:
         """
@@ -107,7 +131,14 @@ class GraphSyncClient:
             raise
 
 
-async def _write_batch_tx(tx, *, entity_type: str, batch: list, tenant_id: str, packet_id: str):
+async def _write_batch_tx(
+    tx: WriteTransaction,
+    *,
+    entity_type: str,
+    batch: Batch,
+    tenant_id: str,
+    packet_id: str,
+) -> None:
     """Neo4j write transaction — MERGE on entity_id, set all properties."""
     cypher = """
     UNWIND $batch AS row

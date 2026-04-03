@@ -566,14 +566,20 @@ class TestContract16FileStructure:
         # Core dirs from contract 16 + known extensions added in Waves 1-4
         allowed = set(self.EXPECTED_DIRS) | {
             "__pycache__",
-            "kge",
-            "security",
-            "health",
-            "personas",
-            "intake",
+            "arbitration",
+            "auth",
             "causal",
+            "diagnostics",
             "feedback",
+            "health",
+            "hoprag",
+            "intake",
+            "kge",
+            "models",
+            "outcomes",
+            "personas",
             "resolution",
+            "security",
         }
         for item in ENGINE_DIR.iterdir():
             if item.is_dir() and not item.name.startswith("."):

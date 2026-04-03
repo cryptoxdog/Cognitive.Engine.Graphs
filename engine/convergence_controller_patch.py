@@ -1,4 +1,16 @@
 """
+--- L9_META ---
+l9_schema: 1
+origin: engine-specific
+engine: graph
+layer: [core]
+tags: [core, convergence-controller-patch]
+owner: engine-team
+status: active
+--- /L9_META ---
+
+
+
 GAP-2 + GAP-4 + GAP-7 + GAP-8 PATCH for convergence_controller.py
 
 This file is a DROP-IN PATCH: import and call `patch_convergence_controller()`
@@ -17,6 +29,7 @@ Changes:
 from __future__ import annotations
 
 import logging
+from collections.abc import Awaitable, Callable
 from typing import Any
 
 logger = logging.getLogger(__name__)
@@ -127,6 +140,8 @@ async def apply_return_channel_targets(
 async def emit_schema_proposal(
     proposed_fields: list[dict[str, Any]],
     tenant_id: str,
+    *,
+    emit_event_fn: Callable[[str, dict[str, Any]], Awaitable[None]] | None = None,
 ) -> dict[str, Any]:
     """
     Emit a schema_proposal PacketEnvelope for newly discovered fields.
@@ -146,22 +161,19 @@ async def emit_schema_proposal(
         proposed_fields=proposed_fields,
         provenance="convergence_loop_schema_discovery",
     )
-    # Emit to the schema evolution queue / event bus
-    # In the current architecture this goes to the chassis event router
-    try:
-        from chassis.events import emit_event
-
-        await emit_event(packet_type="schema_proposal", payload=packet)
+    # Emit to the schema evolution queue / event bus through an injected bridge.
+    # Engine code stays chassis-agnostic; boot/handlers may pass the actual emitter.
+    if emit_event_fn is not None:
+        await emit_event_fn("schema_proposal", packet)
         logger.info(
             "Emitted schema_proposal packet for tenant=%s with %d new fields (packet_id=%s)",
             tenant_id,
             len(proposed_fields),
             packet["packet_id"],
         )
-    except ImportError:
-        # chassis.events not yet wired — log and continue rather than blocking
+    else:
         logger.warning(
-            "chassis.events not available — schema_proposal packet queued in-memory only: tenant=%s fields=%s",
+            "schema_proposal emitter not provided — packet returned without dispatch: tenant=%s fields=%s",
             tenant_id,
             [f.get("name") for f in proposed_fields],
         )

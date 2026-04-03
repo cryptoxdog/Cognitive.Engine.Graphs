@@ -1,4 +1,16 @@
 """
+--- L9_META ---
+l9_schema: 1
+origin: engine-specific
+engine: graph
+layer: [core]
+tags: [core, graph-return-channel]
+owner: engine-team
+status: active
+--- /L9_META ---
+
+
+
 GAP-2 FIX: GRAPH → ENRICH bidirectional return channel.
 
 Receives GRAPH inference outputs and converts them into deterministic

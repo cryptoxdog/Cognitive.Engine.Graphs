@@ -1,4 +1,16 @@
 """
+--- L9_META ---
+l9_schema: 1
+origin: engine-specific
+engine: graph
+layer: [core]
+tags: [core, startup-wiring]
+owner: engine-team
+status: active
+--- /L9_META ---
+
+
+
 GAP-FIX STARTUP WIRING
 Add these calls to your application lifespan / startup handler in order.
 This file is a recipe — adapt paths to match your actual app entrypoint.
@@ -7,13 +19,24 @@ This file is a recipe — adapt paths to match your actual app entrypoint.
 from __future__ import annotations
 
 import logging
+from typing import Any, Protocol
 
 import asyncpg
 
 logger = logging.getLogger(__name__)
 
 
-async def apply_all_gap_fixes(pg_dsn: str, neo4j_driver, domain_pack_loader) -> None:
+class DomainSpecLike(Protocol):
+    kb: dict[str, Any] | None
+
+
+class DomainPackLoader(Protocol):
+    def list_domains(self) -> list[str]: ...
+
+    def load_domain(self, domain_id: str) -> DomainSpecLike | None: ...
+
+
+async def apply_all_gap_fixes(pg_dsn: str, neo4j_driver: Any, domain_pack_loader: DomainPackLoader) -> None:
     """
     Call once during application startup, before serving requests.
     Parameters:

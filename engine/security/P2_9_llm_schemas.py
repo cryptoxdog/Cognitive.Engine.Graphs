@@ -41,6 +41,10 @@ _slog = structlog.get_logger(__name__)
 T = TypeVar("T", bound=BaseModel)
 
 
+class LLMBackendNotConfiguredError(RuntimeError):
+    """Raised when the configured LLM backend is unavailable."""
+
+
 # ── Output Schemas ───────────────────────────────────────────
 
 
@@ -217,7 +221,7 @@ class ValidatedLLMClient:
     input sanitisation + output schema validation on every call.
 
     Configuration is read from environment variables (see _LLMBackend).
-    Falls back to FeatureNotEnabled if OPENAI_API_KEY is not set.
+    Raises a local configuration error if OPENAI_API_KEY is not set.
     """
 
     def __init__(self, model: str = "gpt-4-turbo"):
@@ -230,19 +234,12 @@ class ValidatedLLMClient:
         Execute an LLM call via the configured backend.
 
         Returns the raw text/JSON string from the model.
-        Raises FeatureNotEnabled if the LLM backend is not configured.
+        Raises LLMBackendNotConfiguredError if the LLM backend is not configured.
         """
         try:
             return _llm_backend.call(self.model, system, user)
         except RuntimeError as exc:
-            # Convert to FeatureNotEnabled for graceful degradation
-            from chassis.errors import FeatureNotEnabled
-
-            raise FeatureNotEnabled(
-                "LLM SDK",
-                flag="OPENAI_API_KEY",
-                message=str(exc),
-            ) from exc
+            raise LLMBackendNotConfiguredError(str(exc)) from exc
 
     # ---- public API ------------------------------------------------
 

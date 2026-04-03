@@ -217,7 +217,7 @@ def default_gds_config_for_category(category: EdgeCategory | str) -> dict[str, s
     """
     from engine.gds.scheduler import _EDGE_CATEGORY_DEFAULTS
 
-    cat: str = category if isinstance(category, str) else category.value  # type: ignore[union-attr]
+    cat = category.value if isinstance(category, EdgeCategory) else category
     return _EDGE_CATEGORY_DEFAULTS.get(
         cat,
         {"algorithm": "louvain", "aggregation": "mean"},
