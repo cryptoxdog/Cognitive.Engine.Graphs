@@ -19,7 +19,7 @@ hop_trusts = [
     hop_trust_from_entry(
         status=hop.status,
         duration_ms=hop.duration_ms,
-        timeout_ms=packet_with_hop.header.timeout_ms,
+        timeout_ms=response_packet.metadata.timeout_ms,
     )
     for hop in response_packet.hop_trace
 ]

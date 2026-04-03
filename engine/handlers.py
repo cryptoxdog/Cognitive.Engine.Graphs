@@ -596,10 +596,9 @@ async def handle_match(tenant: str, payload: dict[str, Any]) -> dict[str, Any]:
                     c["match_explanation"] = explanation
 
     # --- Belief Propagation Re-ranking (ToTh §3) ---
-    # Applies entropy-penalized Bayesian composite scoring after all
-    # deterministic scoring/filtering is complete and before response assembly.
-    # Position: after confidence checker + causal BFS, before Pareto (Pareto
-    # operates on belief_score-ranked list in the next iteration if enabled).
+    # Creates a NEW field belief_score alongside score. Deterministic score
+    # remains the primary ranking signal for existing Pareto behavior unless a
+    # downstream stage explicitly opts into belief_score.
     intelligence_quality: dict[str, Any] = {}
     if candidates_out:
         from engine.scoring.belief_propagation import rescore_candidates
@@ -609,7 +608,7 @@ async def handle_match(tenant: str, payload: dict[str, Any]) -> dict[str, Any]:
             candidates_out = rescore_candidates(
                 candidates_out,
                 dimension_keys,
-                prior_key="confidence",   # Neo4j node property; defaults to 0.5 if absent
+                prior_key="confidence",   # node confidence; defaults to 0.5 if absent
                 score_key="belief_score",
             )
             intelligence_quality = {
