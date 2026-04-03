@@ -27,8 +27,9 @@ import asyncio
 import enum
 import logging
 import time
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
-from typing import Any, Awaitable, Callable, TypeVar
+from typing import Any, TypeVar
 
 logger = logging.getLogger(__name__)
 
@@ -57,9 +58,7 @@ class CircuitOpenError(Exception):
     def __init__(self, breaker_name: str, retry_after: float) -> None:
         self.breaker_name = breaker_name
         self.retry_after = retry_after
-        super().__init__(
-            f"Circuit breaker '{breaker_name}' is OPEN. Retry after {retry_after:.1f}s."
-        )
+        super().__init__(f"Circuit breaker '{breaker_name}' is OPEN. Retry after {retry_after:.1f}s.")
 
 
 # ---------------------------------------------------------------------------

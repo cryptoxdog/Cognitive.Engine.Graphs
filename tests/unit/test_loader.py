@@ -4,7 +4,6 @@ import pytest
 
 from engine.config.loader import DomainSpecLoader
 
-
 SPEC_PATH = Path("domains/plasticos/spec.yaml")
 
 

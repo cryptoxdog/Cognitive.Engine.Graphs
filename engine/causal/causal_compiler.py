@@ -59,16 +59,22 @@ class CausalCompiler:
             confidence_clause = f"AND $confidence >= {edge_spec.confidence_threshold}\n"
 
         cypher = (
-            f"MATCH (source:{source_label} {{entity_id: $source_id}})\n"
-            f"MATCH (target:{target_label} {{entity_id: $target_id}})\n"
-            f"{temporal_clause}"
-            f"{confidence_clause}"
-            f"MERGE (source)-[r:{edge_type} {{\n"
-            f"    confidence: $confidence,\n"
-            f"    mechanism: $mechanism,\n"
-            f"    created_at: datetime()\n"
-            f"}}]->(target)\n"
-            f"RETURN r"
+            "MATCH (source:"
+            + source_label
+            + " {entity_id: $source_id})\n"
+            + "MATCH (target:"
+            + target_label
+            + " {entity_id: $target_id})\n"
+            + temporal_clause
+            + confidence_clause
+            + "MERGE (source)-[r:"
+            + edge_type
+            + " {\n"
+            + "    confidence: $confidence,\n"
+            + "    mechanism: $mechanism,\n"
+            + "    created_at: datetime()\n"
+            + "}]->(target)\n"
+            + "RETURN r"
         )
 
         return cypher

@@ -21,8 +21,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from engine.state import get_state, _reset_singleton
-
 from engine.handlers import (
     EngineError,
     ExecutionError,
@@ -35,6 +33,7 @@ from engine.handlers import (
     init_dependencies,
     register_all,
 )
+from engine.state import _reset_singleton, get_state
 
 # ============================================================================
 # FIXTURES

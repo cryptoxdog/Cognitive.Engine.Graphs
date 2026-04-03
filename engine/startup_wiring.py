@@ -20,9 +20,12 @@ FIX(RULE-2): top-level `graph/` package references have been removed.
               the canonical location per the fixed file structure (§1 of build
               protocol). The orphan `graph/` package is no longer referenced.
 """
+
 from __future__ import annotations
 
 import logging
+
+import asyncpg
 
 logger = logging.getLogger(__name__)
 
@@ -39,8 +42,8 @@ async def apply_all_gap_fixes(
     prevents the engine from coming up with partially-wired infrastructure.
 
     Args:
-        pg_dsn:             asyncpg-compatible DSN string (required, non-empty).
-        neo4j_driver:       GraphDriver instance (already connected).
+        pg_dsn: asyncpg-compatible DSN string (required, non-empty).
+        neo4j_driver: GraphDriver instance (already connected).
         domain_pack_loader: DomainPackLoader instance (already configured).
     """
     if not pg_dsn:
@@ -50,9 +53,7 @@ async def apply_all_gap_fixes(
     # ── Gap-5: Wire PostgreSQL audit pool ────────────────────────────────────
     # FIX(RULE-9 + GAP-5): audit pool MUST exist before compliance flush runs.
     # Without this, every ce.flush_audit() call silently no-ops or warns.
-    import asyncpg
-
-    from shared.audit_persistence import configure_audit_pool
+    from engine.compliance.audit_persistence import configure_audit_pool
 
     pg_pool = await asyncpg.create_pool(pg_dsn, min_size=2, max_size=10)
     await configure_audit_pool(pg_pool)
@@ -84,9 +85,6 @@ async def apply_all_gap_fixes(
     # FIX(RULE-2 + RULE-9 + GAP-6): import path corrected from orphan `graph/`
     # package to canonical `engine.gds.community_export`. GDSScheduler is
     # imported from `engine.gds.scheduler` (the only registered scheduler).
-    # If register_post_job_hook raises AttributeError the method is not yet
-    # implemented on GDSScheduler — this surfaces at boot rather than silently
-    # skipping the hook registration.
     from engine.gds.community_export import export_community_labels_to_enrich
     from engine.gds.scheduler import GDSScheduler
 

@@ -153,9 +153,7 @@ class GraphLifecycle(LifecycleHook):
             )
 
         # W4-04: Start periodic compliance audit flush task
-        self._compliance_flush_task = asyncio.create_task(
-            self._compliance_flush_loop()
-        )
+        self._compliance_flush_task = asyncio.create_task(self._compliance_flush_loop())
         logger.info(
             "W4-04: Compliance flush task started (interval=%ds, buffer_max=%d)",
             settings.compliance_flush_interval,

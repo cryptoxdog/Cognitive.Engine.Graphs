@@ -37,7 +37,7 @@ experimental findings (n_hop=4, top_k=12, alpha=0.5).
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from enum import StrEnum
 from typing import Any
 
@@ -191,9 +191,6 @@ class HopRAGConfig:
             The effective ReasoningMode.
         """
         if self.reasoning_mode == ReasoningMode.LLM and self.traversal_model == TraversalModel.NONE:
-            logger.warning(
-                "reasoning_mode='llm' but traversal_model='none', "
-                "falling back to 'similarity'"
-            )
+            logger.warning("reasoning_mode='llm' but traversal_model='none', falling back to 'similarity'")
             return ReasoningMode.SIMILARITY
         return ReasoningMode(self.reasoning_mode)

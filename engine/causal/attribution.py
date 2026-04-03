@@ -69,12 +69,14 @@ class AttributionCalculator:
 
         # Trace backward from outcome to find contributing touchpoints
         cypher = (
-            f"MATCH (outcome:{outcome_label} {{outcome_id: $outcome_id}})\n"
-            f"MATCH path = (touchpoint)-{rel_pattern}->(outcome)\n"
-            f"RETURN touchpoint.entity_id AS touchpoint_id,\n"
-            f"       length(path) AS distance,\n"
-            f"       [r IN relationships(path) | r.confidence] AS confidences\n"
-            f"ORDER BY distance ASC"
+            "MATCH (outcome:"
+            + outcome_label
+            + " {outcome_id: $outcome_id})\n"
+            + f"MATCH path = (touchpoint)-{rel_pattern}->(outcome)\n"
+            + "RETURN touchpoint.entity_id AS touchpoint_id,\n"
+            + "       length(path) AS distance,\n"
+            + "       [r IN relationships(path) | r.confidence] AS confidences\n"
+            + "ORDER BY distance ASC"
         )
 
         results = await self._driver.execute_query(
