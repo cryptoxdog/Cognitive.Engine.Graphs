@@ -6,7 +6,9 @@ from l9_core.models import PacketEnvelope, make_root_packet
 
 
 class PacketBridge:
-    def inflate_ingress(self, *, tenant_id: str, actor: str, packet_type: str, payload: dict[str, Any]) -> PacketEnvelope:
+    def inflate_ingress(
+        self, *, tenant_id: str, actor: str, packet_type: str, payload: dict[str, Any]
+    ) -> PacketEnvelope:
         return make_root_packet(packet_type=packet_type, tenant_id=tenant_id, actor=actor, payload=payload)
 
     def attach_entity_semantics(

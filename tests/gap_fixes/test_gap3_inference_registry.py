@@ -1,6 +1,7 @@
 """
 Tests for GAP-3: inference_rule_registry.py
 """
+
 from __future__ import annotations
 
 import pytest

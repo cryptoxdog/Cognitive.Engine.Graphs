@@ -153,10 +153,12 @@ class TestBlendPersonas:
         p1 = _make_persona("p1", analytical_depth=0.8, creativity=0.2)
         p2 = _make_persona("p2", analytical_depth=0.4, creativity=0.6)
 
-        result = blend_personas([
-            {"persona": p1, "weight": 1.0},
-            {"persona": p2, "weight": 1.0},
-        ])
+        result = blend_personas(
+            [
+                {"persona": p1, "weight": 1.0},
+                {"persona": p2, "weight": 1.0},
+            ]
+        )
 
         assert result.analytical_depth == pytest.approx(0.6)
         assert result.creativity == pytest.approx(0.4)
@@ -166,10 +168,12 @@ class TestBlendPersonas:
         p1 = _make_persona("p1", precision=1.0)
         p2 = _make_persona("p2", precision=0.0)
 
-        result = blend_personas([
-            {"persona": p1, "weight": 3.0},
-            {"persona": p2, "weight": 1.0},
-        ])
+        result = blend_personas(
+            [
+                {"persona": p1, "weight": 3.0},
+                {"persona": p2, "weight": 1.0},
+            ]
+        )
 
         assert result.precision == pytest.approx(0.75)
 
@@ -199,10 +203,12 @@ class TestBlendPersonas:
         p1 = _make_persona("p1", analytical_depth=1.0, creativity=1.0)
         p2 = _make_persona("p2", analytical_depth=1.0, creativity=1.0)
 
-        result = blend_personas([
-            {"persona": p1, "weight": 5.0},
-            {"persona": p2, "weight": 5.0},
-        ])
+        result = blend_personas(
+            [
+                {"persona": p1, "weight": 5.0},
+                {"persona": p2, "weight": 5.0},
+            ]
+        )
 
         for dim in result.dimensions():
             val = getattr(result, dim)
@@ -239,10 +245,13 @@ class TestCreateCompositePersona:
         p2 = _make_persona("p2", forbidden=["overconfidence", "speculation"])
 
         fv = FeatureVector()
-        composite = create_composite_persona(fv, [
-            {"persona": p1, "score": 0.5},
-            {"persona": p2, "score": 0.3},
-        ])
+        composite = create_composite_persona(
+            fv,
+            [
+                {"persona": p1, "score": 0.5},
+                {"persona": p2, "score": 0.3},
+            ],
+        )
 
         assert "speculation" in composite.forbidden_behaviors
         assert "hedging" in composite.forbidden_behaviors
@@ -256,10 +265,13 @@ class TestCreateCompositePersona:
         p2 = _make_persona("p2", analytical_depth=0.0, creativity=1.0)
 
         fv = FeatureVector(analytical_depth=0.5, creativity=0.5)
-        composite = create_composite_persona(fv, [
-            {"persona": p1, "score": 0.6},
-            {"persona": p2, "score": 0.4},
-        ])
+        composite = create_composite_persona(
+            fv,
+            [
+                {"persona": p1, "score": 0.6},
+                {"persona": p2, "score": 0.4},
+            ],
+        )
 
         # Weighted: (0.6*1.0 + 0.4*0.0) / 1.0 = 0.6
         assert composite.trait_vector.analytical_depth == pytest.approx(0.6)
@@ -272,10 +284,13 @@ class TestCreateCompositePersona:
         p2 = _make_persona("p2", "Creative", system_prompt="Think creatively.")
 
         fv = FeatureVector(analytical_depth=0.8, creativity=0.8)
-        composite = create_composite_persona(fv, [
-            {"persona": p1, "score": 0.6},
-            {"persona": p2, "score": 0.4},
-        ])
+        composite = create_composite_persona(
+            fv,
+            [
+                {"persona": p1, "score": 0.6},
+                {"persona": p2, "score": 0.4},
+            ],
+        )
 
         assert "Analyst" in composite.system_prompt
         assert "Creative" in composite.system_prompt
@@ -292,10 +307,13 @@ class TestCreateCompositePersona:
         p2 = _make_persona("beta")
 
         fv = FeatureVector()
-        composite = create_composite_persona(fv, [
-            {"persona": p1, "score": 0.5},
-            {"persona": p2, "score": 0.3},
-        ])
+        composite = create_composite_persona(
+            fv,
+            [
+                {"persona": p1, "score": 0.5},
+                {"persona": p2, "score": 0.3},
+            ],
+        )
 
         assert composite.id.startswith("composite_")
         assert "alpha" in composite.id

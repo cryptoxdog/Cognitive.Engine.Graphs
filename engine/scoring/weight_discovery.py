@@ -26,6 +26,7 @@ Usage::
         n_samples=50,
     )
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -72,7 +73,7 @@ async def adaptive_weight_discovery(
 
     # Build uniform baseline from dimension names
     k = len(dimension_names)
-    current_weights = {d: 1.0 / k for d in dimension_names}
+    current_weights = dict.fromkeys(dimension_names, 1.0 / k)
 
     # Delegate CPU-bound work to thread pool
     loop = asyncio.get_running_loop()
@@ -88,8 +89,7 @@ async def adaptive_weight_discovery(
     )
 
     logger.info(
-        "Adaptive weight discovery: %d Pareto-optimal vectors from %d samples "
-        "(pruned %.1f%%)",
+        "Adaptive weight discovery: %d Pareto-optimal vectors from %d samples (pruned %.1f%%)",
         len(front),
         n_samples,
         round((1.0 - len(front) / max(n_samples, 1)) * 100, 1),

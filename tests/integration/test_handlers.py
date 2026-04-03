@@ -1,10 +1,9 @@
-from pathlib import Path
 import asyncio
+from pathlib import Path
 
 from engine.config.loader import DomainSpecLoader
 from engine.graph.driver import GraphDriver
 from engine.handlers import handle_admin, handle_match, handle_sync, init_dependencies
-
 
 SPEC_PATH = Path("domains/plasticos/spec.yaml")
 

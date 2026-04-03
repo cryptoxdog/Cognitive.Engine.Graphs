@@ -40,7 +40,6 @@ from __future__ import annotations
 import logging
 import math
 from dataclasses import dataclass, field
-from typing import Any
 
 import numpy as np
 
@@ -119,7 +118,7 @@ class EdgeMerger:
             incoming_triplets=target_triplets,
             vertex_count=1000,
         )
-        print(len(result.edges))  # <= n * log(n)
+        edge_count = len(result.edges)  # <= n * log(n)
     """
 
     def __init__(
@@ -205,9 +204,7 @@ class EdgeMerger:
 
         # Infer vertex count if not provided
         if vertex_count is None:
-            vertex_ids = {t.vertex_id for t in outgoing_triplets} | {
-                t.vertex_id for t in incoming_triplets
-            }
+            vertex_ids = {t.vertex_id for t in outgoing_triplets} | {t.vertex_id for t in incoming_triplets}
             vertex_count = len(vertex_ids)
 
         density_limit = self.compute_density_limit(vertex_count)

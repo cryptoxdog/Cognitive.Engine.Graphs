@@ -23,7 +23,6 @@ Usage:
 from __future__ import annotations
 
 import json
-import os
 import sys
 from pathlib import Path
 
@@ -92,26 +91,30 @@ def generate_report(contracts: list[dict], repo_root: Path) -> list[dict]:
         has_scanner = check_scanner_rules(c, scanner_path)
         tests = check_test_exists(c, repo_root)
 
-        coverage_count = sum([
-            has_scanner,
-            tests["unit"],
-            tests["contract"],
-            tests["integration"],
-            tests["property"],
-        ])
+        coverage_count = sum(
+            [
+                has_scanner,
+                tests["unit"],
+                tests["contract"],
+                tests["integration"],
+                tests["property"],
+            ]
+        )
 
-        rows.append({
-            "id": cid,
-            "name": name,
-            "layer": layer,
-            "level": level,
-            "scanner": "✓" if has_scanner else "—",
-            "unit_test": "✓" if tests["unit"] else "—",
-            "contract_test": "✓" if tests["contract"] else "—",
-            "integration_test": "✓" if tests["integration"] else "—",
-            "property_test": "✓" if tests["property"] else "—",
-            "coverage": f"{coverage_count}/5",
-        })
+        rows.append(
+            {
+                "id": cid,
+                "name": name,
+                "layer": layer,
+                "level": level,
+                "scanner": "✓" if has_scanner else "—",
+                "unit_test": "✓" if tests["unit"] else "—",
+                "contract_test": "✓" if tests["contract"] else "—",
+                "integration_test": "✓" if tests["integration"] else "—",
+                "property_test": "✓" if tests["property"] else "—",
+                "coverage": f"{coverage_count}/5",
+            }
+        )
 
     return rows
 

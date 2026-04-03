@@ -140,15 +140,11 @@ def build_synthesis_prompt(
     contributions: list[str] = []
     for entry in weighted:
         pct = round(entry["weight"] * 100, 1)
-        contributions.append(
-            f"--- [{entry['output'].persona_name}] (relevance: {pct}%) ---\n{entry['output'].content}"
-        )
+        contributions.append(f"--- [{entry['output'].persona_name}] (relevance: {pct}%) ---\n{entry['output'].content}")
 
     prompt = (
         "You are synthesizing multiple cognitive perspectives into a single coherent response.\n\n"
-        "Weight contributions based on relevance scores:\n"
-        + "\n".join(weight_lines)
-        + "\n\n"
+        "Weight contributions based on relevance scores:\n" + "\n".join(weight_lines) + "\n\n"
         "Prioritize insights from higher-relevance perspectives. "
         "Remove persona identity traces from the final output.\n\n"
     )

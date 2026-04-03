@@ -71,9 +71,7 @@ class TestT503ChassisImportContract:
                 if stripped.startswith("#"):
                     continue
                 if re.match(r"^(from|import)\s+chassis\b", stripped):
-                    pytest.fail(
-                        f"T5-03: {f.relative_to(ROOT)} imports chassis — only {allowed} may do this"
-                    )
+                    pytest.fail(f"T5-03: {f.relative_to(ROOT)} imports chassis — only {allowed} may do this")
 
 
 @pytest.mark.finding("T5-04")

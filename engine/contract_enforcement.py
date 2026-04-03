@@ -28,6 +28,7 @@ logger = logging.getLogger(__name__)
 # Error hierarchy
 # ---------------------------------------------------------------------------
 
+
 class ContractViolationError(RuntimeError):
     """Raised whenever an inter-service packet fails contract validation.
 
@@ -53,9 +54,9 @@ _ALLOWED_PACKET_TYPES: frozenset[str] = frozenset(
         "enrich_result",
         "inference_result",
         "graph_sync",
-        "graph_inference_result",   # Gap-2: new type for return channel
-        "schema_proposal",          # Gap-10: was missing, caused ValidationError
-        "community_export",         # Gap-6: community label export to ENRICH
+        "graph_inference_result",  # Gap-2: new type for return channel
+        "schema_proposal",  # Gap-10: was missing, caused ValidationError
+        "community_export",  # Gap-6: community label export to ENRICH
         "health_check",
         "admin_command",
     ]
@@ -82,6 +83,7 @@ _REQUIRED_FIELDS: dict[str, list[str]] = {
 # ---------------------------------------------------------------------------
 # Core enforcement function
 # ---------------------------------------------------------------------------
+
 
 def enforce_packet_envelope(
     packet: Any,
@@ -157,9 +159,17 @@ def _verify_content_hash(
 ) -> None:
     """Recompute SHA-256 over the canonical content payload and compare."""
     # Content payload = everything except hash fields and metadata
-    _HASH_EXCLUDED = {"content_hash", "envelope_hash", "packet_id", "packet_type",
-                      "type", "created_at", "lineage", "tenant_context"}
-    content_payload = {k: v for k, v in packet.items() if k not in _HASH_EXCLUDED}
+    hash_excluded = {
+        "content_hash",
+        "envelope_hash",
+        "packet_id",
+        "packet_type",
+        "type",
+        "created_at",
+        "lineage",
+        "tenant_context",
+    }
+    content_payload = {k: v for k, v in packet.items() if k not in hash_excluded}
     try:
         payload_bytes = json.dumps(content_payload, sort_keys=True, default=str).encode()
     except (TypeError, ValueError) as exc:
@@ -181,6 +191,7 @@ def _verify_content_hash(
 # GraphSyncClient wrapper — Gap-1 targeted fix
 # ---------------------------------------------------------------------------
 
+
 def build_graph_sync_packet(
     *,
     tenant_id: str,
@@ -194,7 +205,8 @@ def build_graph_sync_packet(
     Previously GraphSyncClient sent a bare dict with no hashes.
     Use this factory everywhere instead.
     """
-    import uuid, time
+    import time
+    import uuid
 
     content_payload: dict[str, Any] = {
         "entity_type": entity_type,
@@ -208,9 +220,7 @@ def build_graph_sync_packet(
 
     packet_id = f"gs_{uuid.uuid4().hex}"
     envelope_meta = {"packet_id": packet_id, "tenant_id": tenant_id, "content_hash": content_hash}
-    envelope_hash = hashlib.sha256(
-        json.dumps(envelope_meta, sort_keys=True).encode()
-    ).hexdigest()
+    envelope_hash = hashlib.sha256(json.dumps(envelope_meta, sort_keys=True).encode()).hexdigest()
 
     packet = {
         "packet_id": packet_id,
@@ -242,7 +252,8 @@ def build_schema_proposal_packet(
     Gap-4 + Gap-10 fix: Build a valid schema_proposal PacketEnvelope.
     Previously SchemaProposal was computed but never emitted.
     """
-    import uuid, time
+    import time
+    import uuid
 
     content_payload: dict[str, Any] = {
         "proposed_fields": proposed_fields,
@@ -252,9 +263,7 @@ def build_schema_proposal_packet(
     content_hash = hashlib.sha256(payload_bytes).hexdigest()
     packet_id = f"sp_{uuid.uuid4().hex}"
     envelope_meta = {"packet_id": packet_id, "tenant_id": tenant_id, "content_hash": content_hash}
-    envelope_hash = hashlib.sha256(
-        json.dumps(envelope_meta, sort_keys=True).encode()
-    ).hexdigest()
+    envelope_hash = hashlib.sha256(json.dumps(envelope_meta, sort_keys=True).encode()).hexdigest()
 
     packet = {
         "packet_id": packet_id,
