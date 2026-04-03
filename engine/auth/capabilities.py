@@ -31,7 +31,7 @@ import logging
 import secrets
 import time
 from dataclasses import dataclass, field
-from typing import Any, ClassVar
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -98,8 +98,7 @@ class Capability:
     revoked: bool = field(default=False, init=False)
 
     def __post_init__(self) -> None:
-        if isinstance(self.allowed_actions, set):
-            object.__setattr__(self, "allowed_actions", frozenset(self.allowed_actions))
+        object.__setattr__(self, "allowed_actions", frozenset(self.allowed_actions))
         self.proof_hash = self._compute_proof_hash()
 
     def _compute_proof_hash(self) -> str:
@@ -173,7 +172,7 @@ class CapabilityValidator:
         """Register a capability (e.g. root capabilities from config)."""
         self._registry[capability.capability_id] = capability
 
-    def validate_action(self, capability: Capability, action: str, tenant: str) -> bool:
+    def validate_action(self, capability: object, action: str, tenant: str) -> bool:
         """Return True if capability authorises ``action`` for ``tenant``.
 
         Checks: registered, integrity, active, tenant match, action allowed.
@@ -184,14 +183,12 @@ class CapabilityValidator:
             return False
         if not capability.is_active():
             return False
-        if capability.tenant_id != tenant and capability.tenant_id != "*":
+        if capability.tenant_id not in {tenant, "*"}:
             return False
         if action not in capability.allowed_actions:
             return False
         registered = self._registry.get(capability.capability_id)
-        if registered is None or registered.revoked:
-            return False
-        return True
+        return not (registered is None or registered.revoked)
 
     def derive_capability(
         self,
@@ -209,7 +206,7 @@ class CapabilityValidator:
 
         # Monotonicity: domain
         child_domain = scope_restriction.get("domain_id", parent.domain_id)
-        if parent.domain_id != "*" and child_domain != parent.domain_id:
+        if parent.domain_id not in {"*", child_domain}:
             msg = (
                 f"Monotonicity violation: parent domain '{parent.domain_id}' "
                 f"cannot derive child domain '{child_domain}'"
@@ -218,13 +215,15 @@ class CapabilityValidator:
 
         # Monotonicity: actions
         child_actions_raw = scope_restriction.get("allowed_actions", parent.allowed_actions)
-        child_actions = frozenset(child_actions_raw) if not isinstance(child_actions_raw, frozenset) else child_actions_raw
+        child_actions_iterable: frozenset[str] | set[str]
+        if isinstance(child_actions_raw, frozenset):
+            child_actions_iterable = child_actions_raw
+        else:
+            child_actions_iterable = set(child_actions_raw)
+        child_actions = frozenset(child_actions_iterable)
         excess = child_actions - parent.allowed_actions
         if excess:
-            msg = (
-                f"Monotonicity violation: child requests actions {excess} "
-                f"not in parent {parent.capability_id!r}"
-            )
+            msg = f"Monotonicity violation: child requests actions {excess} not in parent {parent.capability_id!r}"
             raise PermissionError(msg)
 
         # Expiry: child cannot outlive parent
@@ -259,9 +258,7 @@ class CapabilityValidator:
         cap.revoked = True
 
         children = [
-            d.child_capability
-            for d in self._derivations.values()
-            if d.parent_capability.capability_id == capability_id
+            d.child_capability for d in self._derivations.values() if d.parent_capability.capability_id == capability_id
         ]
         for child in children:
             self.revoke_capability(child.capability_id)
@@ -336,10 +333,7 @@ class CapabilitySet:
         return tenant in subjects or "*" in subjects
 
     def to_dict(self) -> dict[str, Any]:
-        return {
-            action: sorted(subjects)
-            for action, subjects in self._action_subjects.items()
-        }
+        return {action: sorted(subjects) for action, subjects in self._action_subjects.items()}
 
 
 # ── W3-03: Action Permission Check ─────────────────────────────

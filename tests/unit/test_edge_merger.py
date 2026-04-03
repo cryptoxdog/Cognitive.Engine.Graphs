@@ -22,7 +22,6 @@ import pytest
 from engine.traversal.edge_merger import (
     EdgeMerger,
     EdgeTriplet,
-    MergedEdge,
     MergeResult,
 )
 
@@ -215,14 +214,8 @@ class TestEdgeMerger:
         """Number of edges should not exceed density limit."""
         merger = EdgeMerger(density_factor=0.1)
         # Create many triplets
-        outgoing = [
-            _make_triplet(f"s{i}", f"Q_out_{i}", frozenset({f"k{i}"}), [float(i) / 10, 0.5])
-            for i in range(20)
-        ]
-        incoming = [
-            _make_triplet(f"t{i}", f"Q_in_{i}", frozenset({f"k{i}"}), [0.5, float(i) / 10])
-            for i in range(20)
-        ]
+        outgoing = [_make_triplet(f"s{i}", f"Q_out_{i}", frozenset({f"k{i}"}), [float(i) / 10, 0.5]) for i in range(20)]
+        incoming = [_make_triplet(f"t{i}", f"Q_in_{i}", frozenset({f"k{i}"}), [0.5, float(i) / 10]) for i in range(20)]
         result = merger.merge_edges(outgoing, incoming, vertex_count=40)
         density_limit = merger.compute_density_limit(40)
         assert len(result.edges) <= density_limit

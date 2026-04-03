@@ -59,16 +59,22 @@ class CausalCompiler:
             confidence_clause = f"AND $confidence >= {edge_spec.confidence_threshold}\n"
 
         cypher = (
-            f"MATCH (source:{source_label} {{entity_id: $source_id}})\n"
-            f"MATCH (target:{target_label} {{entity_id: $target_id}})\n"
-            f"{temporal_clause}"
-            f"{confidence_clause}"
-            f"MERGE (source)-[r:{edge_type} {{\n"
-            f"    confidence: $confidence,\n"
-            f"    mechanism: $mechanism,\n"
-            f"    created_at: datetime()\n"
-            f"}}]->(target)\n"
-            f"RETURN r"
+            "MATCH (source:"
+            + source_label
+            + " {entity_id: $source_id})\n"
+            + "MATCH (target:"
+            + target_label
+            + " {entity_id: $target_id})\n"
+            + temporal_clause
+            + confidence_clause
+            + "MERGE (source)-[r:"
+            + edge_type
+            + " {\n"
+            + "    confidence: $confidence,\n"
+            + "    mechanism: $mechanism,\n"
+            + "    created_at: datetime()\n"
+            + "}]->(target)\n"
+            + "RETURN r"
         )
 
         return cypher
@@ -100,12 +106,18 @@ class CausalCompiler:
         else:
             rel_pattern = f"[*1..{depth}]"
 
-        cypher = (
-            f"MATCH path = (root:{safe_root})-{rel_pattern}->(effect)\n"
-            f"RETURN root, nodes(path) AS chain_nodes,\n"
-            f"       relationships(path) AS chain_edges,\n"
-            f"       length(path) AS chain_depth\n"
-            f"ORDER BY chain_depth DESC"
+        cypher = "".join(
+            [
+                "MATCH path = (root:",
+                safe_root,
+                ")-",
+                rel_pattern,
+                "->(effect)\n",
+                "RETURN root, nodes(path) AS chain_nodes,\n",
+                "       relationships(path) AS chain_edges,\n",
+                "       length(path) AS chain_depth\n",
+                "ORDER BY chain_depth DESC",
+            ]
         )
 
         return cypher

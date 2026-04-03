@@ -68,7 +68,7 @@ class HelpfulnessScorer:
 
         scorer = HelpfulnessScorer(alpha=0.5)
         result = scorer.compute(similarity=0.82, importance=0.45)
-        print(result.score)  # 0.635
+        score = result.score  # 0.635
     """
 
     def __init__(self, alpha: float = 0.5) -> None:

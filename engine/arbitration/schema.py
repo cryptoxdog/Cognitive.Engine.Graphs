@@ -1,9 +1,20 @@
+"""
+--- L9_META ---
+l9_schema: 1
+origin: engine-specific
+engine: graph
+layer: [arbitration]
+tags: [arbitration, schema]
+owner: engine-team
+status: active
+--- /L9_META ---
+"""
+
 from __future__ import annotations
 
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, model_validator
-
 
 DecisionState = Literal["approve", "reject", "defer", "escalate"]
 
@@ -18,7 +29,7 @@ class ArbitrationInput(BaseModel):
     compliance_pass: bool
 
     @model_validator(mode="after")
-    def validate_ranges(self) -> "ArbitrationInput":
+    def validate_ranges(self) -> ArbitrationInput:
         for field_name in ("revenue", "margin", "risk", "capacity"):
             value = getattr(self, field_name)
             if value < 0.0 or value > 1.0:

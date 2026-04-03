@@ -1,10 +1,13 @@
 """Unit tests — PacketEnvelope bridge: hash determinism, payload sensitivity."""
+
 from __future__ import annotations
 
 
 def test_packet_envelope_content_hash_is_deterministic():
-    from engine.packet.packet_envelope import PacketEnvelope, PacketType, Action
     from engine.chassis.tenant_context import TenantContext
+
+    from engine.packet.packet_envelope import PacketEnvelope, PacketType
+
     tenant = TenantContext(tenant_id="test", actor="unit-test")
     p1 = PacketEnvelope(
         packet_type=PacketType.REQUEST,
@@ -21,8 +24,10 @@ def test_packet_envelope_content_hash_is_deterministic():
 
 
 def test_packet_envelope_hash_changes_with_payload():
-    from engine.packet.packet_envelope import PacketEnvelope, PacketType
     from engine.chassis.tenant_context import TenantContext
+
+    from engine.packet.packet_envelope import PacketEnvelope, PacketType
+
     tenant = TenantContext(tenant_id="test", actor="unit-test")
     p1 = PacketEnvelope(
         packet_type=PacketType.REQUEST,
@@ -39,6 +44,7 @@ def test_packet_envelope_hash_changes_with_payload():
 
 def test_packet_bridge_inflate_ingress():
     from engine.packet.bridge import PacketBridge
+
     bridge = PacketBridge()
     packet = bridge.inflate_ingress(
         tenant_id="tenant-a",
@@ -53,6 +59,7 @@ def test_packet_bridge_inflate_ingress():
 
 def test_packet_bridge_derive_preserves_lineage():
     from engine.packet.bridge import PacketBridge
+
     bridge = PacketBridge()
     root = bridge.inflate_ingress(
         tenant_id="tenant-a",

@@ -1,12 +1,49 @@
+"""
+--- L9_META ---
+l9_schema: 1
+origin: engine-specific
+engine: graph
+layer: [outcomes]
+tags: [outcomes, engine]
+owner: engine-team
+status: active
+--- /L9_META ---
+"""
+
 from __future__ import annotations
 
-from engine.graph.driver import GraphDriver
+from typing import Protocol
+
 from engine.outcomes.schema import OutcomeEvent, ReinforcementResult
-from engine.scoring.assembler import ScoringAssembler
+
+
+class OutcomeGraphRecord(Protocol):
+    applied: bool
+
+
+class OutcomeGraphDriver(Protocol):
+    def apply_outcome_edge_update(
+        self,
+        *,
+        event_id: str,
+        entity_id: str,
+        outcome_state: str,
+        canonical_label: str,
+    ) -> OutcomeGraphRecord: ...
+
+
+class OutcomeScoringAssembler(Protocol):
+    def apply_outcome_feedback(
+        self,
+        *,
+        entity_id: str,
+        outcome_state: str,
+        event_id: str,
+    ) -> float: ...
 
 
 class OutcomeEngine:
-    def __init__(self, graph_driver: GraphDriver, scoring_assembler: ScoringAssembler):
+    def __init__(self, graph_driver: OutcomeGraphDriver, scoring_assembler: OutcomeScoringAssembler):
         self.graph_driver = graph_driver
         self.scoring_assembler = scoring_assembler
 

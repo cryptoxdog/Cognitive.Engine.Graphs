@@ -1,4 +1,16 @@
 """
+--- L9_META ---
+l9_schema: 1
+origin: engine-specific
+engine: graph
+layer: [core]
+tags: [core, graph-return-channel]
+owner: engine-team
+status: active
+--- /L9_META ---
+
+
+
 GAP-2 FIX: GRAPH → ENRICH bidirectional return channel.
 
 Receives GRAPH inference outputs and converts them into deterministic
@@ -30,6 +42,7 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 # Domain model
 # ---------------------------------------------------------------------------
+
 
 @dataclass(frozen=True)
 class EnrichmentTarget:
@@ -131,6 +144,7 @@ class GraphInferenceResultEnvelope:
 # Return channel — singleton per process
 # ---------------------------------------------------------------------------
 
+
 class GraphToEnrichReturnChannel:
     """
     Async queue that bridges GRAPH inference outputs back to ENRICH.
@@ -143,7 +157,7 @@ class GraphToEnrichReturnChannel:
         targets = await channel.drain(tenant_id="acme", timeout=0.5)
     """
 
-    _instance: "GraphToEnrichReturnChannel | None" = None
+    _instance: GraphToEnrichReturnChannel | None = None
 
     def __init__(self, maxsize: int = 10_000) -> None:
         # Per-tenant queues: tenant_id → asyncio.Queue[EnrichmentTarget]
@@ -154,7 +168,7 @@ class GraphToEnrichReturnChannel:
         self._rejected: int = 0
 
     @classmethod
-    def get_instance(cls) -> "GraphToEnrichReturnChannel":
+    def get_instance(cls) -> GraphToEnrichReturnChannel:
         if cls._instance is None:
             cls._instance = cls()
         return cls._instance
@@ -204,7 +218,7 @@ class GraphToEnrichReturnChannel:
         self,
         tenant_id: str,
         *,
-        timeout: float = 0.1,
+        timeout: float = 0.1,  # noqa: ASYNC109
         max_targets: int = 500,
     ) -> list[EnrichmentTarget]:
         """
@@ -223,7 +237,7 @@ class GraphToEnrichReturnChannel:
                 target = await asyncio.wait_for(q.get(), timeout=remaining)
                 targets.append(target)
                 q.task_done()
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 break
         self._drained += len(targets)
         if targets:
@@ -234,7 +248,7 @@ class GraphToEnrichReturnChannel:
             )
         return targets
 
-    def stats(self) -> dict[str, int]:
+    def stats(self) -> dict[str, int | dict[str, int]]:
         return {
             "submitted": self._submitted,
             "drained": self._drained,
@@ -246,6 +260,7 @@ class GraphToEnrichReturnChannel:
 # ---------------------------------------------------------------------------
 # Integration helper: build a valid envelope from raw GRAPH output
 # ---------------------------------------------------------------------------
+
 
 def build_graph_inference_result_envelope(
     *,
@@ -264,9 +279,7 @@ def build_graph_inference_result_envelope(
         "tenant_id": tenant_id,
         "content_hash": content_hash,
     }
-    envelope_hash = hashlib.sha256(
-        json.dumps(envelope_payload, sort_keys=True).encode()
-    ).hexdigest()
+    envelope_hash = hashlib.sha256(json.dumps(envelope_payload, sort_keys=True).encode()).hexdigest()
     return GraphInferenceResultEnvelope(
         packet_id=packet_id,
         tenant_id=tenant_id,

@@ -1,14 +1,30 @@
 """
+--- L9_META ---
+l9_schema: 1
+origin: engine-specific
+engine: graph
+layer: [compliance]
+tags: [compliance, audit-persistence]
+owner: engine-team
+status: active
+--- /L9_META ---
+
+
+
 GAP-5 FIX: Wire db_pool into ComplianceEngine so flush_audit() persists
 to PostgreSQL instead of warning db_pool=None.
 
 Call configure_audit_pool(pool) at app startup after asyncpg.create_pool().
 """
-from __future__ import annotations
-import logging, time
-from typing import Any
 
-import asyncpg  # type: ignore
+from __future__ import annotations
+
+import logging
+import time
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    import asyncpg
 
 logger = logging.getLogger(__name__)
 
@@ -65,8 +81,7 @@ async def flush_audit_entries(entries: list[dict[str, Any]]) -> int:
     ]
     async with _POOL.acquire() as conn:
         await conn.executemany(
-            "INSERT INTO audit_log (tenant_id, actor, action, detail, created_at) "
-            "VALUES ($1, $2, $3, $4, $5)",
+            "INSERT INTO audit_log (tenant_id, actor, action, detail, created_at) VALUES ($1, $2, $3, $4, $5)",
             rows,
         )
     logger.debug("audit_persistence: flushed %d entries to PostgreSQL", len(rows))

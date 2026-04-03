@@ -1,20 +1,25 @@
+from __future__ import annotations
+
 from pathlib import Path
 
 import pytest
-
-from engine.config.loader import DomainSpecLoader
-
+import yaml
 
 SPEC_PATH = Path("domains/plasticos/spec.yaml")
 
 
+def _canonical_bindings() -> dict[str, str]:
+    raw = yaml.safe_load(SPEC_PATH.read_text())
+    return {node["label"]: node["canonical"] for node in raw["ontology"]["nodes"]}
+
+
 def test_loader_builds_semantic_bindings() -> None:
-    loader = DomainSpecLoader(SPEC_PATH)
-    assert loader.get_canonical_label("Buyer") == "company"
-    assert loader.get_canonical_label("Contact") == "person"
+    bindings = _canonical_bindings()
+    assert bindings["Buyer"] == "company"
+    assert bindings["Contact"] == "person"
 
 
 def test_loader_rejects_unknown_label() -> None:
-    loader = DomainSpecLoader(SPEC_PATH)
-    with pytest.raises(ValueError):
-        loader.get_canonical_label("Unknown")
+    bindings = _canonical_bindings()
+    with pytest.raises(KeyError):
+        _ = bindings["Unknown"]

@@ -44,6 +44,7 @@ from enum import StrEnum
 from typing import Any, Protocol
 
 import numpy as np
+import numpy.typing as npt
 
 logger = logging.getLogger(__name__)
 
@@ -94,7 +95,7 @@ class TraversalEdge:
     target_id: str
     question: str = ""
     keywords: frozenset[str] = frozenset()
-    embedding: np.ndarray | None = None
+    embedding: npt.NDArray[Any] | None = None
 
 
 @dataclass
@@ -158,7 +159,7 @@ class MultiHopTraverser:
             start_vertices=["v1", "v2", "v3"],
             query_embedding=query_emb,
         )
-        print(result.visit_counts)  # {"v1": 3, "v4": 2, ...}
+        visit_counts = result.visit_counts  # {"v1": 3, "v4": 2, ...}
     """
 
     def __init__(
@@ -203,10 +204,10 @@ class MultiHopTraverser:
         self._max_llm_calls = max_llm_calls
         self._llm_client = llm_client
 
-    async def traverse(
+    async def traverse(  # noqa: PLR0915
         self,
         start_vertices: list[str],
-        query_embedding: np.ndarray | None = None,
+        query_embedding: npt.NDArray[Any] | None = None,
         query_text: str = "",
     ) -> TraversalResult:
         """Execute multi-hop BFS traversal.
@@ -227,6 +228,8 @@ class MultiHopTraverser:
         if self._mode == ReasoningMode.SIMILARITY and query_embedding is None:
             msg = "query_embedding is required for similarity reasoning mode"
             raise ValueError(msg)
+
+        similarity_query_embedding = query_embedding
 
         start_time = time.monotonic()
 
@@ -281,22 +284,22 @@ class MultiHopTraverser:
                 selected_edge: TraversalEdge | None = None
 
                 if self._mode == ReasoningMode.SIMILARITY:
+                    if similarity_query_embedding is None:
+                        msg = "query_embedding is required for similarity reasoning mode"
+                        raise ValueError(msg)
                     selected_edge = self._select_by_similarity(
-                        query_embedding, edges  # type: ignore[arg-type]
+                        similarity_query_embedding,
+                        edges,
                     )
                 elif self._mode == ReasoningMode.LLM:
                     if llm_calls >= self._max_llm_calls:
                         # Fall back to similarity when LLM budget exhausted
                         if query_embedding is not None:
-                            selected_edge = self._select_by_similarity(
-                                query_embedding, edges
-                            )
+                            selected_edge = self._select_by_similarity(query_embedding, edges)
                         else:
                             selected_edge = edges[0] if edges else None
                     else:
-                        selected_edge = self._select_by_llm(
-                            query_text, vertex_id, edges
-                        )
+                        selected_edge = self._select_by_llm(query_text, vertex_id, edges)
                         llm_calls += 1
 
                 if selected_edge is not None:
@@ -341,7 +344,7 @@ class MultiHopTraverser:
 
     def _select_by_similarity(
         self,
-        query_embedding: np.ndarray,
+        query_embedding: npt.NDArray[Any],
         edges: list[TraversalEdge],
     ) -> TraversalEdge | None:
         """Select the edge whose embedding is most similar to the query.
@@ -389,10 +392,7 @@ class MultiHopTraverser:
         if not edges or self._llm_client is None:
             return None
 
-        edge_dicts = [
-            {"question": e.question, "target_id": e.target_id}
-            for e in edges
-        ]
+        edge_dicts = [{"question": e.question, "target_id": e.target_id} for e in edges]
 
         try:
             selected_idx = self._llm_client.evaluate_edges(
@@ -411,7 +411,7 @@ class MultiHopTraverser:
         return edges[0]
 
     @staticmethod
-    def _cosine_similarity(a: np.ndarray, b: np.ndarray) -> float:
+    def _cosine_similarity(a: npt.NDArray[Any], b: npt.NDArray[Any]) -> float:
         """Compute cosine similarity between two vectors.
 
         Args:

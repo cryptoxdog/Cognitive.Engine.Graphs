@@ -43,6 +43,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 import numpy as np
+import numpy.typing as npt
 
 logger = logging.getLogger(__name__)
 
@@ -61,7 +62,7 @@ class EdgeTriplet:
     vertex_id: str
     question: str = ""
     keywords: frozenset[str] = frozenset()
-    embedding: np.ndarray | None = None
+    embedding: npt.NDArray[Any] | None = None
 
 
 @dataclass(frozen=True)
@@ -119,7 +120,7 @@ class EdgeMerger:
             incoming_triplets=target_triplets,
             vertex_count=1000,
         )
-        print(len(result.edges))  # <= n * log(n)
+        edge_count = len(result.edges)  # <= n * log(n)
     """
 
     def __init__(
@@ -146,8 +147,8 @@ class EdgeMerger:
         self,
         keywords1: frozenset[str],
         keywords2: frozenset[str],
-        embedding1: np.ndarray | None,
-        embedding2: np.ndarray | None,
+        embedding1: npt.NDArray[Any] | None,
+        embedding2: npt.NDArray[Any] | None,
     ) -> tuple[float, float, float]:
         """Compute hybrid similarity between two triplets.
 
@@ -205,9 +206,7 @@ class EdgeMerger:
 
         # Infer vertex count if not provided
         if vertex_count is None:
-            vertex_ids = {t.vertex_id for t in outgoing_triplets} | {
-                t.vertex_id for t in incoming_triplets
-            }
+            vertex_ids = {t.vertex_id for t in outgoing_triplets} | {t.vertex_id for t in incoming_triplets}
             vertex_count = len(vertex_ids)
 
         density_limit = self.compute_density_limit(vertex_count)
@@ -319,8 +318,8 @@ class EdgeMerger:
 
     @staticmethod
     def _cosine_similarity(
-        vec1: np.ndarray | None,
-        vec2: np.ndarray | None,
+        vec1: npt.NDArray[Any] | None,
+        vec2: npt.NDArray[Any] | None,
     ) -> float:
         """Compute cosine similarity between two vectors.
 

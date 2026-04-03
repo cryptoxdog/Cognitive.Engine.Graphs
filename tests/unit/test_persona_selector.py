@@ -127,10 +127,7 @@ class TestSelectPersonas:
 
     def test_max_personas_limit(self) -> None:
         """Selection never exceeds max_personas (3)."""
-        personas = [
-            _make_persona(f"p{i}", f"P{i}", analytical_depth=0.9 - i * 0.01)
-            for i in range(5)
-        ]
+        personas = [_make_persona(f"p{i}", f"P{i}", analytical_depth=0.9 - i * 0.01) for i in range(5)]
 
         fv = FeatureVector(analytical_depth=1.0)
         active = select_personas(fv, personas)

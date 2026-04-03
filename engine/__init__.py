@@ -21,10 +21,22 @@ Chassis Integration:
 __version__ = "1.1.0"
 __author__ = "L9 Venture Forge"
 
+from typing import TYPE_CHECKING
+
 from engine.config.loader import DomainPackLoader
 from engine.config.schema import DomainSpec
-from engine.graph.driver import GraphDriver
 from engine.handlers import init_dependencies, register_all
+
+if TYPE_CHECKING:
+    from engine.graph.driver import GraphDriver
+else:
+    try:
+        from engine.graph.driver import GraphDriver
+    except ModuleNotFoundError:  # pragma: no cover - optional runtime dependency in light environments
+
+        class GraphDriver:  # type: ignore[no-redef]
+            pass
+
 
 __all__ = [
     "DomainPackLoader",

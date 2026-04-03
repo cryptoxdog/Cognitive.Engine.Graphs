@@ -1,7 +1,49 @@
+"""
+--- L9_META ---
+l9_schema: 1
+origin: engine-specific
+engine: graph
+layer: [arbitration]
+tags: [arbitration, engine]
+owner: engine-team
+status: active
+--- /L9_META ---
+"""
+
 from __future__ import annotations
 
+from typing import Literal, Protocol
+
 from engine.arbitration.schema import ArbitrationInput, ArbitrationResult
-from engine.config.schema import DecisionPolicy
+
+DecisionState = Literal["approve", "reject", "defer", "escalate"]
+ConstraintOperator = Literal["eq", "lt", "lte", "gt", "gte"]
+
+
+class ConstraintPolicy(Protocol):
+    metric: str
+    operator: ConstraintOperator
+    value: object
+
+
+class PolicyWeights(Protocol):
+    revenue: float
+    margin: float
+    risk: float
+    capacity: float
+
+
+class PolicyThresholds(Protocol):
+    approve_threshold: float
+    reject_threshold: float
+    conflict_tolerance: float
+
+
+class DecisionPolicy(Protocol):
+    version: str
+    hard_constraints: list[ConstraintPolicy]
+    weights: PolicyWeights
+    thresholds: PolicyThresholds
 
 
 class ArbitrationEngine:
@@ -24,8 +66,11 @@ class ArbitrationEngine:
             - (data.risk * weights.risk)
             + (data.capacity * weights.capacity)
         )
-        spread = max(data.revenue, data.margin, data.risk, data.capacity) - min(data.revenue, data.margin, data.risk, data.capacity)
+        spread = max(data.revenue, data.margin, data.risk, data.capacity) - min(
+            data.revenue, data.margin, data.risk, data.capacity
+        )
 
+        state: DecisionState
         if composite >= policy.thresholds.approve_threshold:
             state = "approve"
             reason = "composite score met approve threshold"
@@ -47,15 +92,31 @@ class ArbitrationEngine:
         )
 
     @staticmethod
-    def _evaluate(actual: object, operator: str, expected: object) -> bool:
+    def _evaluate(actual: object, operator: ConstraintOperator, expected: object) -> bool:
         if operator == "eq":
             return actual == expected
+
+        if isinstance(actual, bool) or isinstance(expected, bool):
+            msg = f"operator {operator!r} requires numeric operands"
+            raise ValueError(msg)
+
+        if not isinstance(actual, int | float) or not isinstance(expected, int | float):
+            msg = f"operator {operator!r} requires numeric operands"
+            raise ValueError(msg)
+
+        try:
+            actual_value = float(actual)
+            expected_value = float(expected)
+        except (TypeError, ValueError) as exc:
+            msg = f"operator {operator!r} requires numeric operands"
+            raise ValueError(msg) from exc
+
         if operator == "lt":
-            return actual < expected
+            return actual_value < expected_value
         if operator == "lte":
-            return actual <= expected
+            return actual_value <= expected_value
         if operator == "gt":
-            return actual > expected
+            return actual_value > expected_value
         if operator == "gte":
-            return actual >= expected
+            return actual_value >= expected_value
         raise ValueError(f"unsupported operator: {operator}")

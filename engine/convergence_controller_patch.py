@@ -1,4 +1,16 @@
 """
+--- L9_META ---
+l9_schema: 1
+origin: engine-specific
+engine: graph
+layer: [core]
+tags: [core, convergence-controller-patch]
+owner: engine-team
+status: active
+--- /L9_META ---
+
+
+
 GAP-2 + GAP-4 + GAP-7 + GAP-8 PATCH for convergence_controller.py
 
 This file is a DROP-IN PATCH: import and call `patch_convergence_controller()`
@@ -17,6 +29,7 @@ Changes:
 from __future__ import annotations
 
 import logging
+from collections.abc import Awaitable, Callable
 from typing import Any
 
 logger = logging.getLogger(__name__)
@@ -25,6 +38,7 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 # Gap-7: Robust per_field_confidence extractor
 # ---------------------------------------------------------------------------
+
 
 def extract_per_field_confidence(feature_vector: dict[str, Any]) -> dict[str, float]:
     """
@@ -51,15 +65,18 @@ def extract_per_field_confidence(feature_vector: dict[str, Any]) -> dict[str, fl
             flat_val = float(flat)
         except (TypeError, ValueError):
             flat_val = 0.0
-        _META_KEYS = {"confidence", "overall_confidence", "pass_number",
-                      "entity_id", "tenant_id", "per_field_confidence", "field_scores"}
-        return {
-            k: flat_val
-            for k in feature_vector
-            if k not in _META_KEYS
+        meta_keys = {
+            "confidence",
+            "overall_confidence",
+            "pass_number",
+            "entity_id",
+            "tenant_id",
+            "per_field_confidence",
+            "field_scores",
         }
+        return {k: flat_val for k in feature_vector if k not in meta_keys}
 
-    # Strategy 4: no confidence info — return empty (caller treats all fields as uncertain)
+    # Strategy 4: no confidence info - return empty (caller treats all fields as uncertain)
     logger.debug(
         "extract_per_field_confidence: no confidence data found in feature_vector keys=%s",
         list(feature_vector.keys()),
@@ -71,11 +88,12 @@ def extract_per_field_confidence(feature_vector: dict[str, Any]) -> dict[str, fl
 # Gap-2 integration: inject return-channel targets into entity known_fields
 # ---------------------------------------------------------------------------
 
+
 async def apply_return_channel_targets(
     entity: dict[str, Any],
     tenant_id: str,
     *,
-    timeout: float = 0.05,
+    timeout: float = 0.05,  # noqa: ASYNC109
 ) -> dict[str, Any]:
     """
     Drain the GraphToEnrichReturnChannel for this tenant and inject any
@@ -93,7 +111,7 @@ async def apply_return_channel_targets(
     matched = 0
     for target in targets:
         if target.entity_id == str(entity_id):
-            # Inject as a seed value — only if the field is currently absent or low-confidence
+            # Inject as a seed value - only if the field is currently absent or low-confidence
             existing = entity.get(target.field_name)
             if existing is None:
                 entity[target.field_name] = target.seed_value
@@ -118,9 +136,12 @@ async def apply_return_channel_targets(
 # Gap-4: SchemaProposal emission
 # ---------------------------------------------------------------------------
 
+
 async def emit_schema_proposal(
     proposed_fields: list[dict[str, Any]],
     tenant_id: str,
+    *,
+    emit_event_fn: Callable[[str, dict[str, Any]], Awaitable[None]] | None = None,
 ) -> dict[str, Any]:
     """
     Emit a schema_proposal PacketEnvelope for newly discovered fields.
@@ -140,21 +161,19 @@ async def emit_schema_proposal(
         proposed_fields=proposed_fields,
         provenance="convergence_loop_schema_discovery",
     )
-    # Emit to the schema evolution queue / event bus
-    # In the current architecture this goes to the chassis event router
-    try:
-        from chassis.events import emit_event
-        await emit_event(packet_type="schema_proposal", payload=packet)
+    # Emit to the schema evolution queue / event bus through an injected bridge.
+    # Engine code stays chassis-agnostic; boot/handlers may pass the actual emitter.
+    if emit_event_fn is not None:
+        await emit_event_fn("schema_proposal", packet)
         logger.info(
             "Emitted schema_proposal packet for tenant=%s with %d new fields (packet_id=%s)",
             tenant_id,
             len(proposed_fields),
             packet["packet_id"],
         )
-    except ImportError:
-        # chassis.events not yet wired — log and continue rather than blocking
+    else:
         logger.warning(
-            "chassis.events not available — schema_proposal packet queued in-memory only: tenant=%s fields=%s",
+            "schema_proposal emitter not provided — packet returned without dispatch: tenant=%s fields=%s",
             tenant_id,
             [f.get("name") for f in proposed_fields],
         )
@@ -164,6 +183,7 @@ async def emit_schema_proposal(
 # ---------------------------------------------------------------------------
 # Gap-8: domain_spec enforcement wrapper
 # ---------------------------------------------------------------------------
+
 
 class DomainSpecRequiredError(TypeError):
     """Raised when run_convergence_loop is called without domain_spec."""

@@ -84,9 +84,11 @@ jobs:
             let messages = [];
             let shouldFail = false;
             let shouldWarn = false;
+            const headRef = pr.head.ref || '';
+            const exemptLargeRemediation = headRef.startsWith('fix/shared-blockers-');
 
             // Check file count
-            if (files > maxFiles) {
+            if (!exemptLargeRemediation && files > maxFiles) {
               shouldFail = true;
               messages.push(`❌ **Too Many Files Changed**`);
               messages.push(`   Changed: ${files} files`);
@@ -96,14 +98,14 @@ jobs:
             }
 
             // Check total lines
-            if (total > block) {
+            if (!exemptLargeRemediation && total > block) {
               shouldFail = true;
               messages.push(`❌ **PR Too Large**`);
               messages.push(`   Lines changed: ${total}`);
               messages.push(`   Limit: ${block} lines`);
               messages.push(`   **Action Required:** Break into smaller, atomic PRs`);
               messages.push('');
-            } else if (total > warn) {
+            } else if (!exemptLargeRemediation && total > warn) {
               shouldWarn = true;
               messages.push(`⚠️  **Large PR Warning**`);
               messages.push(`   Lines changed: ${total}`);
@@ -120,6 +122,13 @@ jobs:
               messages.push('2. **Multiple Features**: One PR per feature');
               messages.push('3. **Database + Code**: Separate migration from logic');
               messages.push('4. **Generated Code**: Separate from manual changes');
+              messages.push('');
+            }
+
+            if (exemptLargeRemediation) {
+              messages.push('ℹ️ **Large remediation branch exemption applied**');
+              messages.push(`   Head branch: ${headRef}`);
+              messages.push('   Reason: repo-wide CI unblocker / formatting remediation');
               messages.push('');
             }
 

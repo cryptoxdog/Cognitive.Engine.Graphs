@@ -17,6 +17,7 @@ Measures entities/second for UNWIND/MERGE sync operations against Neo4j.
 from __future__ import annotations
 
 import statistics
+import sys
 import time
 import uuid
 
@@ -99,11 +100,13 @@ class TestSyncThroughput:
         avg_sec = statistics.mean(latencies)
         throughput = batch_size / avg_sec
 
-        print(f"\n{'─' * 50}")
-        print(f"Sync Throughput: {batch_size} facilities")
-        print(f"  avg: {avg_sec:.2f}s  throughput: {throughput:.0f} entities/sec")
-        print(f"  min: {min(latencies):.2f}s  max: {max(latencies):.2f}s")
-        print(f"{'─' * 50}")
+        sys.stdout.write(
+            f"\n{'─' * 50}\n"
+            f"Sync Throughput: {batch_size} facilities\n"
+            f"  avg: {avg_sec:.2f}s  throughput: {throughput:.0f} entities/sec\n"
+            f"  min: {min(latencies):.2f}s  max: {max(latencies):.2f}s\n"
+            f"{'─' * 50}\n"
+        )
 
         # Verify data landed
         count_result = await graph_driver.execute_query(
@@ -160,8 +163,10 @@ class TestSyncThroughput:
         avg_sec = statistics.mean(latencies)
         throughput = batch_size / avg_sec
 
-        print(f"\nIncremental Update: {batch_size} facilities")
-        print(f"  avg: {avg_sec:.2f}s  throughput: {throughput:.0f} updates/sec")
+        sys.stdout.write(
+            f"\nIncremental Update: {batch_size} facilities\n"
+            f"  avg: {avg_sec:.2f}s  throughput: {throughput:.0f} updates/sec\n"
+        )
 
         # Verify update applied
         result = await graph_driver.execute_query(

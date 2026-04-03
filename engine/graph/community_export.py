@@ -1,18 +1,42 @@
 """
+--- L9_META ---
+l9_schema: 1
+origin: engine-specific
+engine: graph
+layer: [graph]
+tags: [graph, community-export]
+owner: engine-team
+status: active
+--- /L9_META ---
+
+
+
 GAP-6 FIX: Export Louvain community labels from Neo4j back to ENRICH
 as known_fields context so convergence_controller uses them in Pass N+1.
 
 Attach to GDSScheduler post-job completion hook for "louvain" jobs.
 """
+
 from __future__ import annotations
+
 import logging
-from typing import Any
+from typing import Any, Protocol
 
 logger = logging.getLogger(__name__)
 
 
+class QueryDriver(Protocol):
+    async def execute_query(
+        self,
+        *,
+        cypher: str,
+        parameters: dict[str, Any],
+        database: str,
+    ) -> list[dict[str, Any]]: ...
+
+
 async def export_community_labels_to_enrich(
-    graph_driver,
+    graph_driver: QueryDriver,
     tenant_id: str,
     domain_id: str,
 ) -> dict[str, Any]:
@@ -38,9 +62,7 @@ async def export_community_labels_to_enrich(
             database=domain_id,
         )
     except Exception:
-        logger.exception(
-            "community_export: failed to query community labels tenant=%s", tenant_id
-        )
+        logger.exception("community_export: failed to query community labels tenant=%s", tenant_id)
         return {"status": "error", "exported": 0}
 
     if not records:
@@ -52,7 +74,7 @@ async def export_community_labels_to_enrich(
             "entity_id": r["entity_id"],
             "field": "community_id",
             "value": r["community_id"],
-            "confidence": 0.95,   # Louvain is deterministic
+            "confidence": 0.95,  # Louvain is deterministic
             "rule": "louvain_community_detection",
         }
         for r in records
@@ -70,6 +92,7 @@ async def export_community_labels_to_enrich(
     count = await channel.submit(envelope)
     logger.info(
         "community_export: submitted %d community label targets tenant=%s",
-        count, tenant_id,
+        count,
+        tenant_id,
     )
     return {"status": "ok", "exported": count, "packet_id": envelope.packet_id}

@@ -28,17 +28,21 @@ import json
 import logging
 import os
 import re
-from typing import Any, TypeVar
+from typing import Any, TypeVar, cast
 
 import structlog
+from pydantic import BaseModel, Field, ValidationError, field_validator
 
 # These come from P1-5 (engine/security/llm.py)
 from engine.security.llm import sanitize_llm_input, track_llm_usage
-from pydantic import BaseModel, Field, ValidationError, field_validator
 
 logger = logging.getLogger(__name__)
 _slog = structlog.get_logger(__name__)
 T = TypeVar("T", bound=BaseModel)
+
+
+class LLMBackendNotConfiguredError(RuntimeError):
+    """Raised when the configured LLM backend is unavailable."""
 
 
 # ── Output Schemas ───────────────────────────────────────────
@@ -135,10 +139,7 @@ class _LLMBackend:
         try:
             from openai import OpenAI
         except ImportError as exc:
-            raise RuntimeError(
-                "openai package is required for LLM features. "
-                "Install with: pip install openai"
-            ) from exc
+            raise RuntimeError("openai package is required for LLM features. Install with: pip install openai") from exc
 
         api_key = os.environ.get("OPENAI_API_KEY")
         if not api_key:
@@ -204,7 +205,7 @@ class _LLMBackend:
                 total_tokens=response.usage.total_tokens,
             )
 
-        return content
+        return cast("str", content)
 
 
 # Module-level singleton — shared across all ValidatedLLMClient instances
@@ -220,7 +221,7 @@ class ValidatedLLMClient:
     input sanitisation + output schema validation on every call.
 
     Configuration is read from environment variables (see _LLMBackend).
-    Falls back to FeatureNotEnabled if OPENAI_API_KEY is not set.
+    Raises a local configuration error if OPENAI_API_KEY is not set.
     """
 
     def __init__(self, model: str = "gpt-4-turbo"):
@@ -233,18 +234,12 @@ class ValidatedLLMClient:
         Execute an LLM call via the configured backend.
 
         Returns the raw text/JSON string from the model.
-        Raises FeatureNotEnabled if the LLM backend is not configured.
+        Raises LLMBackendNotConfiguredError if the LLM backend is not configured.
         """
         try:
             return _llm_backend.call(self.model, system, user)
         except RuntimeError as exc:
-            # Convert to FeatureNotEnabled for graceful degradation
-            from chassis.errors import FeatureNotEnabled
-            raise FeatureNotEnabled(
-                "LLM SDK",
-                flag="OPENAI_API_KEY",
-                message=str(exc),
-            ) from exc
+            raise LLMBackendNotConfiguredError(str(exc)) from exc
 
     # ---- public API ------------------------------------------------
 

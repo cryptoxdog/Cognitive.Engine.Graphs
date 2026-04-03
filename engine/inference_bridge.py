@@ -1,4 +1,16 @@
 """
+--- L9_META ---
+l9_schema: 1
+origin: engine-specific
+engine: graph
+layer: [core]
+tags: [core, inference-bridge]
+owner: engine-team
+status: active
+--- /L9_META ---
+"""
+
+"""
 GAP-9 FIX: Replace engine/inference_bridge.py with this file.
 
 Any direct import of the v1 bridge now raises ImportError immediately,
@@ -7,6 +19,7 @@ forcing all callers to migrate to inference_bridge_v2.py (DAG engine).
 This eliminates silent bypass of the DerivationGraph topological sort
 and unlock-value targeting that the v1 bridge was causing.
 """
+
 raise ImportError(
     "engine.inference_bridge (v1) is DISABLED.\n\n"
     "It bypasses the DerivationGraph DAG engine, causing inference to fire "
