@@ -19,6 +19,7 @@ RULE 7 (L9 Contract): DomainPackLoader is instantiated with
 DOMAINS_DIR uses Path(__file__).parent.parent to resolve
 from tests/ → repo root → domains/.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -37,6 +38,7 @@ DOMAINS_DIR: Path = Path(__file__).parent.parent / "domains"
 
 # ── Event Loop ─────────────────────────────────────────────────────────────────
 
+
 @pytest.fixture(scope="session")
 def event_loop():
     """Session-scoped event loop for all async tests."""
@@ -46,6 +48,7 @@ def event_loop():
 
 
 # ── Neo4j Testcontainer ────────────────────────────────────────────────────────
+
 
 @pytest.fixture(scope="session")
 def neo4j_container():
@@ -82,6 +85,7 @@ def neo4j_container():
 
 # ── Graph Driver ───────────────────────────────────────────────────────────────
 
+
 @pytest_asyncio.fixture(scope="session")
 async def graph_driver(neo4j_container) -> AsyncGenerator:
     """
@@ -105,9 +109,7 @@ async def graph_driver(neo4j_container) -> AsyncGenerator:
         parameters={"id": "smoke-probe"},
         database="neo4j",
     )
-    assert result.get("nodes_created", 0) == 1, (
-        f"Smoke write failed — Neo4j driver not live. Result: {result}"
-    )
+    assert result.get("nodes_created", 0) == 1, f"Smoke write failed — Neo4j driver not live. Result: {result}"
     # Clean up smoke node
     await driver.execute_write(
         cypher="MATCH (n:_SmokeTest) DETACH DELETE n",
@@ -121,14 +123,17 @@ async def graph_driver(neo4j_container) -> AsyncGenerator:
 
 # ── DomainPackLoader ───────────────────────────────────────────────────────────
 
+
 @pytest.fixture(scope="session")
 def domain_loader():
     """Session-scoped domain loader — RULE 7: exact signature."""
     from engine.config.loader import DomainPackLoader
+
     return DomainPackLoader(domains_dir=DOMAINS_DIR)
 
 
 # ── Domain Spec ────────────────────────────────────────────────────────────────
+
 
 @pytest.fixture(scope="session")
 def domain_spec(domain_loader):
@@ -140,6 +145,7 @@ def domain_spec(domain_loader):
 def minimal_domain_spec():
     """Minimal in-memory domain spec for unit tests that don't need full YAML."""
     from engine.config.schema import DomainSpec
+
     raw = {
         "domain": {"id": "test", "name": "Test Domain", "version": "0.0.1"},
         "ontology": {
@@ -170,6 +176,7 @@ def minimal_domain_spec():
 
 # ── Test Isolation ─────────────────────────────────────────────────────────────
 
+
 @pytest_asyncio.fixture(autouse=False)
 async def clean_db(graph_driver) -> AsyncGenerator[None, None]:
     """Wipe all nodes after each integration test that opts in."""
@@ -182,6 +189,7 @@ async def clean_db(graph_driver) -> AsyncGenerator[None, None]:
 
 
 # ── Tenant Fixtures ────────────────────────────────────────────────────────────
+
 
 @pytest.fixture
 def test_tenant() -> str:

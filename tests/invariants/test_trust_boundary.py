@@ -7,10 +7,9 @@ and asserts the fix prevents it.
 
 from __future__ import annotations
 
-import os
 import re
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 
@@ -65,10 +64,9 @@ class TestT103TenantIsolation:
 
     def test_tenant_allowlist_rejects_unauthorized(self):
         """_validate_tenant_access raises for tenants not in allowlist."""
-        from engine.handlers import ValidationError, _validate_tenant_access
-
         # Simulate an allowlist
         import engine.handlers as h
+        from engine.handlers import ValidationError, _validate_tenant_access
 
         original = h._tenant_allowlist
         try:
@@ -80,9 +78,8 @@ class TestT103TenantIsolation:
 
     def test_tenant_allowlist_allows_authorized(self):
         """Authorized tenants pass the check."""
-        from engine.handlers import _validate_tenant_access
-
         import engine.handlers as h
+        from engine.handlers import _validate_tenant_access
 
         original = h._tenant_allowlist
         try:
@@ -94,9 +91,8 @@ class TestT103TenantIsolation:
 
     def test_no_allowlist_permits_all(self):
         """When allowlist is None (dev mode), all tenants allowed."""
-        from engine.handlers import _validate_tenant_access
-
         import engine.handlers as h
+        from engine.handlers import _validate_tenant_access
 
         original = h._tenant_allowlist
         try:
@@ -161,7 +157,9 @@ def _build_minimal_spec_for_resolver(derived=None):
             ],
             edges=[
                 EdgeSpec(
-                    type="R", **{"from": "N"}, to="Q",
+                    type="R",
+                    **{"from": "N"},
+                    to="Q",
                     direction=EdgeDirection.DIRECTED,
                     category=EdgeCategory.CAPABILITY,
                     managedby=ManagedByType.SYNC,

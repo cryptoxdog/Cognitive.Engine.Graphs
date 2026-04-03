@@ -1,4 +1,5 @@
 """Integration tests — GraphDriver: write, read, empty result."""
+
 from __future__ import annotations
 
 import pytest

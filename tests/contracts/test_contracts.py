@@ -9,12 +9,15 @@ without requiring a running Neo4j instance.
 from __future__ import annotations
 
 import ast
-import importlib
 import inspect
 import re
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pytest
+
+if TYPE_CHECKING:
+    from engine.config.schema import DomainSpec
 
 # Root directories
 ROOT = Path(__file__).resolve().parent.parent.parent
@@ -53,7 +56,7 @@ def _read_imports(filepath: Path) -> list[str]:
 
 
 # ============================================================================
-# LAYER 1 — CHASSIS BOUNDARY (contracts 1–5)
+# LAYER 1 - CHASSIS BOUNDARY (contracts 1-5)
 # ============================================================================
 
 
@@ -174,7 +177,7 @@ class TestContract05InfrastructureIsTemplate:
 
 
 # ============================================================================
-# LAYER 2 — PACKET PROTOCOL (contracts 6–8)
+# LAYER 2 - PACKET PROTOCOL (contracts 6-8)
 # ============================================================================
 
 
@@ -261,7 +264,7 @@ class TestContract08LineageAudit:
 
 
 # ============================================================================
-# LAYER 3 — SECURITY (contracts 9–11)
+# LAYER 3 - SECURITY (contracts 9-11)
 # ============================================================================
 
 
@@ -323,16 +326,17 @@ class TestContract10ProhibitedFactors:
         from engine.compliance.prohibited_factors import ProhibitedFactorValidator
         from engine.config.schema import (
             ComplianceSpec,
-            DomainSpec,
             GateSpec,
             GateType,
             ProhibitedFactorsSpec,
         )
 
         blocked_fields = ["race", "ethnicity", "religion", "gender", "age", "disability"]
-        spec = _build_minimal_spec(extra_gates=[
-            GateSpec(name="bad_gate", type=GateType.BOOLEAN, candidateprop="race", queryparam="race"),
-        ])
+        spec = _build_minimal_spec(
+            extra_gates=[
+                GateSpec(name="bad_gate", type=GateType.BOOLEAN, candidateprop="race", queryparam="race"),
+            ]
+        )
         # Add compliance config with prohibited factors
         spec = spec.model_copy(
             update={
@@ -364,20 +368,18 @@ class TestContract11PIIHandling:
     def test_no_pii_logging_in_engine(self):
         """Engine should not log known PII field names as values."""
         pii_log_patterns = [
-            r'logger\.\w+\(.*ssn.*=',
-            r'logger\.\w+\(.*social_security.*=',
-            r'logger\.\w+\(.*password.*=',
+            r"logger\.\w+\(.*ssn.*=",
+            r"logger\.\w+\(.*social_security.*=",
+            r"logger\.\w+\(.*password.*=",
         ]
         for f in _engine_py_files():
             content = f.read_text(encoding="utf-8")
             for pat in pii_log_patterns:
-                assert not re.search(pat, content, re.IGNORECASE), (
-                    f"{f.relative_to(ROOT)} may log PII: {pat}"
-                )
+                assert not re.search(pat, content, re.IGNORECASE), f"{f.relative_to(ROOT)} may log PII: {pat}"
 
 
 # ============================================================================
-# LAYER 4 — ENGINE ARCHITECTURE (contracts 12–16)
+# LAYER 4 - ENGINE ARCHITECTURE (contracts 12-16)
 # ============================================================================
 
 
@@ -415,9 +417,15 @@ class TestContract13GateThenScore:
         from engine.config.schema import ComputationType
 
         expected = {
-            "geodecay", "lognormalized", "communitymatch", "inverselinear",
-            "candidateproperty", "weightedrate", "pricealignment",
-            "temporalproximity", "customcypher",
+            "geodecay",
+            "lognormalized",
+            "communitymatch",
+            "inverselinear",
+            "candidateproperty",
+            "weightedrate",
+            "pricealignment",
+            "temporalproximity",
+            "customcypher",
         }
         actual = {ct.value for ct in ComputationType}
         assert expected.issubset(actual), f"Missing computation types: {expected - actual}"
@@ -428,12 +436,15 @@ class TestContract13GateThenScore:
         from engine.config.schema import GateSpec, GateType
         from engine.gates.compiler import GateCompiler
 
-        spec = _build_minimal_spec(extra_gates=[
-            GateSpec(name="test_bool", type=GateType.BOOLEAN, candidateprop="active", queryparam="is_active"),
-        ])
+        spec = _build_minimal_spec(
+            extra_gates=[
+                GateSpec(name="test_bool", type=GateType.BOOLEAN, candidateprop="active", queryparam="is_active"),
+            ]
+        )
         compiler = GateCompiler(spec)
         result = compiler.compile_all_gates("buyer_to_seller")
-        assert result and result != "true"
+        assert result
+        assert result != "true"
 
     @pytest.mark.contract
     def test_scoring_assembles_with_clause(self):
@@ -503,15 +514,17 @@ class TestContract15BidirectionalMatching:
         from engine.config.schema import GateSpec, GateType
         from engine.gates.compiler import GateCompiler
 
-        spec = _build_minimal_spec(extra_gates=[
-            GateSpec(
-                name="directional",
-                type=GateType.BOOLEAN,
-                candidateprop="active",
-                queryparam="is_active",
-                matchdirections=["buyer_to_seller"],
-            ),
-        ])
+        spec = _build_minimal_spec(
+            extra_gates=[
+                GateSpec(
+                    name="directional",
+                    type=GateType.BOOLEAN,
+                    candidateprop="active",
+                    queryparam="is_active",
+                    matchdirections=["buyer_to_seller"],
+                ),
+            ]
+        )
         compiler = GateCompiler(spec)
         # Should compile for matching direction
         result_match = compiler.compile_all_gates("buyer_to_seller")
@@ -525,8 +538,16 @@ class TestContract16FileStructure:
     """CONTRACT 16: Fixed file structure layout."""
 
     EXPECTED_DIRS = [
-        "config", "gates", "scoring", "traversal", "sync",
-        "gds", "graph", "compliance", "packet", "utils",
+        "config",
+        "gates",
+        "scoring",
+        "traversal",
+        "sync",
+        "gds",
+        "graph",
+        "compliance",
+        "packet",
+        "utils",
     ]
 
     @pytest.mark.contract
@@ -544,18 +565,23 @@ class TestContract16FileStructure:
         """Engine contains only expected subdirectories (plus known extensions)."""
         # Core dirs from contract 16 + known extensions added in Waves 1-4
         allowed = set(self.EXPECTED_DIRS) | {
-            "__pycache__", "kge", "security", "health", "personas",
-            "intake", "causal", "feedback", "resolution",
+            "__pycache__",
+            "kge",
+            "security",
+            "health",
+            "personas",
+            "intake",
+            "causal",
+            "feedback",
+            "resolution",
         }
         for item in ENGINE_DIR.iterdir():
             if item.is_dir() and not item.name.startswith("."):
-                assert item.name in allowed, (
-                    f"Unexpected directory in engine/: {item.name}"
-                )
+                assert item.name in allowed, f"Unexpected directory in engine/: {item.name}"
 
 
 # ============================================================================
-# LAYER 5 — TESTING + QUALITY (contracts 17–18)
+# LAYER 5 - TESTING + QUALITY (contracts 17-18)
 # ============================================================================
 
 
@@ -594,7 +620,7 @@ class TestContract18L9Meta:
 
 
 # ============================================================================
-# LAYER 6 — GRAPH INTELLIGENCE (contracts 19–20)
+# LAYER 6 - GRAPH INTELLIGENCE (contracts 19-20)
 # ============================================================================
 
 
@@ -647,11 +673,15 @@ class TestContract20KGEEmbeddings:
 # ============================================================================
 
 
-def _build_minimal_spec(extra_gates: list | None = None) -> "DomainSpec":
+def _build_minimal_spec(extra_gates: list | None = None) -> DomainSpec:
     """Build a minimal DomainSpec for testing without YAML."""
     from engine.config.schema import (
         DomainMetadata,
         DomainSpec,
+        EdgeCategory,
+        EdgeDirection,
+        EdgeSpec,
+        ManagedByType,
         MatchEntitiesSpec,
         MatchEntitySpec,
         NodeSpec,
@@ -660,14 +690,7 @@ def _build_minimal_spec(extra_gates: list | None = None) -> "DomainSpec":
         PropertyType,
         QueryFieldSpec,
         QuerySchemaSpec,
-        ScoringDimensionSpec,
-        ScoringSource,
         ScoringSpec,
-        ComputationType,
-        EdgeDirection,
-        EdgeCategory,
-        EdgeSpec,
-        ManagedByType,
     )
 
     nodes = [
@@ -717,7 +740,7 @@ def _build_minimal_spec(extra_gates: list | None = None) -> "DomainSpec":
     )
 
 
-def _build_minimal_spec_with_scoring() -> "DomainSpec":
+def _build_minimal_spec_with_scoring() -> DomainSpec:
     """Build a minimal DomainSpec with scoring dimensions."""
     from engine.config.schema import (
         ComputationType,

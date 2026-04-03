@@ -4,7 +4,6 @@ from engine.config.loader import DomainSpecLoader
 from engine.sync.generator import SyncGenerator
 from engine.traversal.assembler import TraversalAssembler
 
-
 SPEC_PATH = Path("domains/plasticos/spec.yaml")
 
 

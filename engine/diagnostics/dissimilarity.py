@@ -20,6 +20,7 @@ is raised.
 This implements the "Algorithmic Fingerprinting" diagnostic described
 in the CEG Integration Blueprint.
 """
+
 from __future__ import annotations
 
 import logging
@@ -32,6 +33,7 @@ logger = logging.getLogger(__name__)
 
 
 # ── Chi-Squared Dissimilarity ────────────────────────────────
+
 
 def chi_squared_dissimilarity(
     baseline: dict[str, float],
@@ -79,10 +81,11 @@ def _euclidean_distance(vec_a: list[float], vec_b: list[float]) -> float:
         vec_a = vec_a + [0.0] * (max_len - len(vec_a))
         vec_b = vec_b + [0.0] * (max_len - len(vec_b))
 
-    return sum((a - b) ** 2 for a, b in zip(vec_a, vec_b)) ** 0.5
+    return sum((a - b) ** 2 for a, b in zip(vec_a, vec_b, strict=True)) ** 0.5
 
 
 # ── Drift Detection ─────────────────────────────────────────
+
 
 @dataclass(frozen=True)
 class DriftReport:
@@ -102,6 +105,7 @@ class DriftReport:
         drift_reasons: List of human-readable reasons for drift detection.
         severity: "none" | "low" | "medium" | "high" based on magnitude.
     """
+
     persona_id: str
     baseline_window: str
     current_window: str
@@ -166,16 +170,13 @@ def detect_drift(
     if baseline.persona_id != current.persona_id:
         logger.warning(
             "Comparing fingerprints from different personas: %s vs %s",
-            baseline.persona_id, current.persona_id,
+            baseline.persona_id,
+            current.persona_id,
         )
 
     # Compute metrics
-    score_dissim = chi_squared_dissimilarity(
-        baseline.score_distribution, current.score_distribution
-    )
-    dim_dissim = chi_squared_dissimilarity(
-        baseline.dimension_dominance, current.dimension_dominance
-    )
+    score_dissim = chi_squared_dissimilarity(baseline.score_distribution, current.score_distribution)
+    dim_dissim = chi_squared_dissimilarity(baseline.dimension_dominance, current.dimension_dominance)
 
     vec_a = baseline.to_vector()
     vec_b = current.to_vector()
@@ -188,31 +189,22 @@ def detect_drift(
     reasons: list[str] = []
 
     if score_dissim > score_threshold:
-        reasons.append(
-            f"Score distribution shifted: chi2={score_dissim:.4f} > {score_threshold}"
-        )
+        reasons.append(f"Score distribution shifted: chi2={score_dissim:.4f} > {score_threshold}")
 
     if dim_dissim > dimension_threshold:
-        reasons.append(
-            f"Dimension dominance shifted: chi2={dim_dissim:.4f} > {dimension_threshold}"
-        )
+        reasons.append(f"Dimension dominance shifted: chi2={dim_dissim:.4f} > {dimension_threshold}")
 
     if vec_dist > vector_threshold:
-        reasons.append(
-            f"Full vector distance: {vec_dist:.4f} > {vector_threshold}"
-        )
+        reasons.append(f"Full vector distance: {vec_dist:.4f} > {vector_threshold}")
 
     if abs(entropy_delta) > entropy_threshold:
         direction = "increased" if entropy_delta > 0 else "decreased"
-        reasons.append(
-            f"Entropy {direction}: delta={entropy_delta:.4f}, |delta| > {entropy_threshold}"
-        )
+        reasons.append(f"Entropy {direction}: delta={entropy_delta:.4f}, |delta| > {entropy_threshold}")
 
     if abs(concentration_delta) > concentration_threshold:
         direction = "increased" if concentration_delta > 0 else "decreased"
         reasons.append(
-            f"Concentration {direction}: delta={concentration_delta:.4f}, "
-            f"|delta| > {concentration_threshold}"
+            f"Concentration {direction}: delta={concentration_delta:.4f}, |delta| > {concentration_threshold}"
         )
 
     drift_detected = len(reasons) > 0
@@ -244,12 +236,16 @@ def detect_drift(
     if drift_detected:
         logger.warning(
             "Drift detected for persona=%s severity=%s reasons=%d",
-            current.persona_id, severity, len(reasons),
+            current.persona_id,
+            severity,
+            len(reasons),
         )
     else:
         logger.info(
             "No drift detected for persona=%s (score_chi2=%.4f dim_chi2=%.4f)",
-            current.persona_id, score_dissim, dim_dissim,
+            current.persona_id,
+            score_dissim,
+            dim_dissim,
         )
 
     return report
