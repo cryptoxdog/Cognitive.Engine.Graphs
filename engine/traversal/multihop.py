@@ -228,6 +228,8 @@ class MultiHopTraverser:
             msg = "query_embedding is required for similarity reasoning mode"
             raise ValueError(msg)
 
+        similarity_query_embedding = query_embedding
+
         start_time = time.monotonic()
 
         # Initialize BFS
@@ -281,9 +283,12 @@ class MultiHopTraverser:
                 selected_edge: TraversalEdge | None = None
 
                 if self._mode == ReasoningMode.SIMILARITY:
+                    if similarity_query_embedding is None:
+                        msg = "query_embedding is required for similarity reasoning mode"
+                        raise ValueError(msg)
                     selected_edge = self._select_by_similarity(
-                        query_embedding,
-                        edges,  # type: ignore[arg-type]
+                        similarity_query_embedding,
+                        edges,
                     )
                 elif self._mode == ReasoningMode.LLM:
                     if llm_calls >= self._max_llm_calls:

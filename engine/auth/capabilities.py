@@ -98,8 +98,7 @@ class Capability:
     revoked: bool = field(default=False, init=False)
 
     def __post_init__(self) -> None:
-        if isinstance(self.allowed_actions, set):
-            object.__setattr__(self, "allowed_actions", frozenset(self.allowed_actions))
+        object.__setattr__(self, "allowed_actions", frozenset(self.allowed_actions))
         self.proof_hash = self._compute_proof_hash()
 
     def _compute_proof_hash(self) -> str:
@@ -173,7 +172,7 @@ class CapabilityValidator:
         """Register a capability (e.g. root capabilities from config)."""
         self._registry[capability.capability_id] = capability
 
-    def validate_action(self, capability: Capability, action: str, tenant: str) -> bool:
+    def validate_action(self, capability: object, action: str, tenant: str) -> bool:
         """Return True if capability authorises ``action`` for ``tenant``.
 
         Checks: registered, integrity, active, tenant match, action allowed.
@@ -216,9 +215,12 @@ class CapabilityValidator:
 
         # Monotonicity: actions
         child_actions_raw = scope_restriction.get("allowed_actions", parent.allowed_actions)
-        child_actions = (
-            frozenset(child_actions_raw) if not isinstance(child_actions_raw, frozenset) else child_actions_raw
-        )
+        child_actions_iterable: frozenset[str] | set[str]
+        if isinstance(child_actions_raw, frozenset):
+            child_actions_iterable = child_actions_raw
+        else:
+            child_actions_iterable = set(child_actions_raw)
+        child_actions = frozenset(child_actions_iterable)
         excess = child_actions - parent.allowed_actions
         if excess:
             msg = f"Monotonicity violation: child requests actions {excess} not in parent {parent.capability_id!r}"

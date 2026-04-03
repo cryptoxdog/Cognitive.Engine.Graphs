@@ -28,7 +28,7 @@ import json
 import logging
 import os
 import re
-from typing import Any, TypeVar
+from typing import Any, TypeVar, cast
 
 import structlog
 from pydantic import BaseModel, Field, ValidationError, field_validator
@@ -201,7 +201,7 @@ class _LLMBackend:
                 total_tokens=response.usage.total_tokens,
             )
 
-        return content
+        return cast("str", content)
 
 
 # Module-level singleton — shared across all ValidatedLLMClient instances

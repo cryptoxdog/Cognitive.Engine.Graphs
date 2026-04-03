@@ -47,12 +47,23 @@ class GraphSyncClient:
         correlation_id: str | None = None,
     ) -> dict[str, Any]:
         """Build and validate a PacketEnvelope before sending."""
+        tenant_context = {
+            "tenant_id": self._tenant_id,
+            "tenant_tier": self._tenant_tier,
+        }
+        lineage = {
+            "origin_service": "graph_sync_client",
+            "hop_count": 0,
+        }
+        if correlation_id is not None:
+            lineage["correlation_id"] = correlation_id
+
         packet = build_graph_sync_packet(
             tenant_id=self._tenant_id,
             entity_type=entity_type,
             batch=batch,
-            tenant_tier=self._tenant_tier,
-            correlation_id=correlation_id,
+            tenant_context=tenant_context,
+            lineage=lineage,
         )
         # Enforce immediately — hard fail on violation
         return enforce_packet_envelope(packet, expected_type="graph_sync")

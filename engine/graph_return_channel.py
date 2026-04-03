@@ -236,7 +236,7 @@ class GraphToEnrichReturnChannel:
             )
         return targets
 
-    def stats(self) -> dict[str, int]:
+    def stats(self) -> dict[str, int | dict[str, int]]:
         return {
             "submitted": self._submitted,
             "drained": self._drained,
