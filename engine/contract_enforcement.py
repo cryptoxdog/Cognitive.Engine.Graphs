@@ -177,6 +177,7 @@ def _verify_content_hash(
         "packet_id",
         "packet_type",
         "type",
+        "tenant_id",
         "created_at",
         "lineage",
         "tenant_context",
