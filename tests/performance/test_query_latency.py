@@ -18,6 +18,7 @@ Requires: pytest-benchmark or manual timing.
 from __future__ import annotations
 
 import statistics
+import sys
 import time
 
 import pytest
@@ -87,10 +88,12 @@ class TestMatchQueryLatency:
         p99 = sorted(latencies)[int(len(latencies) * 0.99)]
         avg = statistics.mean(latencies)
 
-        print(f"\n{'─' * 50}")
-        print(f"Match Query Latency (n=50, {len(seeded_graph['facility_ids'])} facilities)")
-        print(f"  avg: {avg:.1f}ms  p50: {p50:.1f}ms  p95: {p95:.1f}ms  p99: {p99:.1f}ms")
-        print(f"{'─' * 50}")
+        sys.stdout.write(
+            f"\n{'─' * 50}\n"
+            f"Match Query Latency (n=50, {len(seeded_graph['facility_ids'])} facilities)\n"
+            f"  avg: {avg:.1f}ms  p50: {p50:.1f}ms  p95: {p95:.1f}ms  p99: {p99:.1f}ms\n"
+            f"{'─' * 50}\n"
+        )
 
         assert p95 < 100, f"p95 latency {p95:.1f}ms exceeds 100ms target"
 
@@ -130,6 +133,6 @@ class TestMatchQueryLatency:
         p95 = sorted(latencies)[int(len(latencies) * 0.95)]
         avg = statistics.mean(latencies)
 
-        print(f"\nRelaxed Match: avg={avg:.1f}ms  p95={p95:.1f}ms")
+        sys.stdout.write(f"\nRelaxed Match: avg={avg:.1f}ms  p95={p95:.1f}ms\n")
 
         assert p95 < 200, f"p95 latency {p95:.1f}ms exceeds 200ms target"

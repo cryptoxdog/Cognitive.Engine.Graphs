@@ -514,10 +514,7 @@ async def handle_match(tenant: str, payload: dict[str, Any]) -> dict[str, Any]:
                 results = apply_constraint_penalties(list(results), constraint_dicts)
 
             # Spec-driven Pareto filter using declared objectives
-            arb_dims = [
-                obj.dimension
-                for obj in domain_spec.decision_arbitration.pareto_config.objectives
-            ]
+            arb_dims = [obj.dimension for obj in domain_spec.decision_arbitration.pareto_config.objectives]
             if arb_dims and len(results) > 1:
                 arb_pareto = apply_pareto_filter(results, arb_dims)
                 if pareto_metadata is None:
@@ -598,6 +595,28 @@ async def handle_match(tenant: str, payload: dict[str, Any]) -> dict[str, Any]:
                     )
                     c["match_explanation"] = explanation
 
+    # --- Belief Propagation Re-ranking (ToTh §3) ---
+    # Creates a NEW field belief_score alongside score. Deterministic score
+    # remains the primary ranking signal for existing Pareto behavior unless a
+    # downstream stage explicitly opts into belief_score.
+    intelligence_quality: dict[str, Any] = {}
+    if candidates_out:
+        from engine.scoring.belief_propagation import rescore_candidates
+
+        dimension_keys = scoring_assembler.last_active_dimension_names or []
+        if dimension_keys:
+            candidates_out = rescore_candidates(
+                candidates_out,
+                dimension_keys,
+                prior_key="confidence",   # node confidence; defaults to 0.5 if absent
+                score_key="belief_score",
+            )
+            intelligence_quality = {
+                "method": "entropy_penalized_composite",  # ToTh §3
+                "dimensions_used": dimension_keys,
+                "prior_source": "node.confidence",
+            }
+
     response = {
         "candidates": candidates_out,
         "query_id": f"q_{uuid.uuid4().hex[:12]}",
@@ -608,6 +627,8 @@ async def handle_match(tenant: str, payload: dict[str, Any]) -> dict[str, Any]:
     }
     if pareto_metadata:
         response["pareto"] = pareto_metadata
+    if intelligence_quality:
+        response["intelligence_quality"] = intelligence_quality
 
     # Flush audit entries (currently logs warning since db_pool=None;
     # will persist to PostgreSQL once provisioned)
@@ -1317,10 +1338,7 @@ async def handle_admin(tenant: str, payload: dict[str, Any]) -> dict[str, Any]:
                 tenant=tenant,
             )
 
-        dimension_names = [
-            obj.dimension
-            for obj in spec.decision_arbitration.pareto_config.objectives
-        ]
+        dimension_names = [obj.dimension for obj in spec.decision_arbitration.pareto_config.objectives]
 
         if not dimension_names:
             raise ValidationError(
@@ -1365,10 +1383,12 @@ async def handle_admin(tenant: str, payload: dict[str, Any]) -> dict[str, Any]:
                     continue
             if not isinstance(ds, dict):
                 continue
-            outcome_history.append({
-                "dimension_scores": {k: float(v) for k, v in ds.items()},
-                "was_selected": bool(rec.get("was_selected", False)),
-            })
+            outcome_history.append(
+                {
+                    "dimension_scores": {k: float(v) for k, v in ds.items()},
+                    "was_selected": bool(rec.get("was_selected", False)),
+                }
+            )
 
         if len(outcome_history) < 10:
             return {

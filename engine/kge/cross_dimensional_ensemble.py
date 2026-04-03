@@ -108,10 +108,7 @@ class CrossDimensionalEnsemble:
             ValueError: If propagation_depth is outside [1, 5].
         """
         if not 1 <= propagation_depth <= 5:
-            msg = (
-                f"propagation_depth must be 1-5 (got {propagation_depth}). "
-                f"HGKR paper shows L>3 causes overfitting."
-            )
+            msg = f"propagation_depth must be 1-5 (got {propagation_depth}). HGKR paper shows L>3 causes overfitting."
             raise ValueError(msg)
         self._depth = propagation_depth
 
@@ -150,9 +147,7 @@ class CrossDimensionalEnsemble:
         # Pass 2+: Iterative context-aware refinement
         current_score = pass_1_score
         for _iteration in range(1, self._depth):
-            attention_weights = self._compute_context_attention(
-                dimensional_scores, query_context, current_score
-            )
+            attention_weights = self._compute_context_attention(dimensional_scores, query_context, current_score)
             current_score = self._attention_fusion(dimensional_scores, attention_weights)
             # Update contributions with attention-reweighted values
             for ds in dimensional_scores:
@@ -235,9 +230,7 @@ class CrossDimensionalEnsemble:
 
         Replaces static configured weights with context-aware attention.
         """
-        weighted_sum = sum(
-            ds.score * attention_weights.get(ds.dimension_name, ds.weight) for ds in scores
-        )
+        weighted_sum = sum(ds.score * attention_weights.get(ds.dimension_name, ds.weight) for ds in scores)
         total_weight = sum(attention_weights.values())
         return weighted_sum / total_weight if total_weight > 0 else 0.0
 

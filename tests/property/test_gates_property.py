@@ -7,14 +7,11 @@ that compilation always produces safe, well-formed output.
 
 from __future__ import annotations
 
-from hypothesis import given, settings, assume
+from hypothesis import given, settings
 from hypothesis import strategies as st
-
-import pytest
 
 from engine.config.schema import GateSpec, GateType, NullBehavior
 from engine.gates.compiler import GateCompiler
-
 
 # ---------------------------------------------------------------------------
 # Custom Hypothesis strategies
@@ -162,9 +159,7 @@ class TestGateCompilationProperties:
         spec = _build_spec_with_gates([gate])
         compiler = GateCompiler(spec)
         result = compiler.compile(gate)
-        assert result.count("(") == result.count(")"), (
-            f"Unbalanced parens in: {result}"
-        )
+        assert result.count("(") == result.count(")"), f"Unbalanced parens in: {result}"
 
     @given(gate=gate_spec_strategy())
     @settings(max_examples=50, deadline=5000)

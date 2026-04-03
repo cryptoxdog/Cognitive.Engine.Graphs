@@ -24,7 +24,9 @@ class ArbitrationEngine:
             - (data.risk * weights.risk)
             + (data.capacity * weights.capacity)
         )
-        spread = max(data.revenue, data.margin, data.risk, data.capacity) - min(data.revenue, data.margin, data.risk, data.capacity)
+        spread = max(data.revenue, data.margin, data.risk, data.capacity) - min(
+            data.revenue, data.margin, data.risk, data.capacity
+        )
 
         if composite >= policy.thresholds.approve_threshold:
             state = "approve"

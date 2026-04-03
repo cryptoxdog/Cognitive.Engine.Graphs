@@ -22,7 +22,6 @@ Reference:
 from __future__ import annotations
 
 import pytest
-from unittest.mock import MagicMock
 
 from engine.config.schema import GDSJobScheduleSpec, GDSJobSpec, GDSProjectionSpec
 from engine.gds.scheduler import GDSScheduler

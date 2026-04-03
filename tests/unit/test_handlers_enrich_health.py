@@ -179,7 +179,7 @@ class TestHandleHealthcheck:
         """handle_healthcheck should return health status dict."""
         from unittest.mock import AsyncMock, MagicMock
 
-        from engine.state import get_state, _reset_singleton
+        from engine.state import _reset_singleton, get_state
 
         _reset_singleton()
         mock_driver = MagicMock()
@@ -213,7 +213,7 @@ class TestHandleEnrich:
         """handle_enrich should require entity_type in payload."""
         from unittest.mock import MagicMock
 
-        from engine.state import get_state, _reset_singleton
+        from engine.state import _reset_singleton, get_state
 
         _reset_singleton()
         mock_driver = MagicMock()
@@ -237,7 +237,7 @@ class TestHandleEnrich:
         """handle_enrich should return 0 count for empty enrichments."""
         from unittest.mock import MagicMock
 
-        from engine.state import get_state, _reset_singleton
+        from engine.state import _reset_singleton, get_state
 
         _reset_singleton()
         mock_driver = MagicMock()
@@ -269,7 +269,7 @@ class TestHandleEnrich:
         """handle_enrich should validate expressions before execution."""
         from unittest.mock import MagicMock
 
-        from engine.state import get_state, _reset_singleton
+        from engine.state import _reset_singleton, get_state
 
         _reset_singleton()
         mock_driver = MagicMock()
@@ -301,7 +301,7 @@ class TestHandleEnrich:
         """handle_enrich should execute valid enrichments."""
         from unittest.mock import AsyncMock, MagicMock
 
-        from engine.state import get_state, _reset_singleton
+        from engine.state import _reset_singleton, get_state
 
         _reset_singleton()
         mock_driver = MagicMock()
