@@ -6,14 +6,16 @@ PacketLineage, and TenantContext.
 Usage: Drop this over GraphSyncClient in graph/sync/client.py and update
 the import at the call site.
 """
+
 from __future__ import annotations
+
 import logging
 from typing import Any
 
 from engine.contract_enforcement import (
+    ContractViolationError,
     build_graph_sync_packet,
     enforce_packet_envelope,
-    ContractViolationError,
 )
 
 logger = logging.getLogger(__name__)
@@ -71,7 +73,7 @@ class GraphSyncClient:
         envelope = self._build_envelope(entity_type, batch, correlation_id)
 
         try:
-            result = await self._driver.execute_write(
+            await self._driver.execute_write(
                 _write_batch_tx,
                 entity_type=entity_type,
                 batch=envelope["content"]["batch"],
@@ -80,16 +82,17 @@ class GraphSyncClient:
             )
             logger.info(
                 "GraphSyncClient: synced %d %s entities tenant=%s packet_id=%s",
-                len(batch), entity_type, self._tenant_id, envelope["packet_id"],
+                len(batch),
+                entity_type,
+                self._tenant_id,
+                envelope["packet_id"],
             )
             return {"status": "ok", "synced": len(batch), "packet_id": envelope["packet_id"]}
 
         except ContractViolationError:
             raise
-        except Exception as exc:
-            logger.exception(
-                "GraphSyncClient: write failed for packet_id=%s", envelope.get("packet_id")
-            )
+        except Exception:
+            logger.exception("GraphSyncClient: write failed for packet_id=%s", envelope.get("packet_id"))
             raise
 
 

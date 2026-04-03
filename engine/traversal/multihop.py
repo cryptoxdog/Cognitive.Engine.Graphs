@@ -158,7 +158,7 @@ class MultiHopTraverser:
             start_vertices=["v1", "v2", "v3"],
             query_embedding=query_emb,
         )
-        print(result.visit_counts)  # {"v1": 3, "v4": 2, ...}
+        visit_counts = result.visit_counts  # {"v1": 3, "v4": 2, ...}
     """
 
     def __init__(
@@ -203,7 +203,7 @@ class MultiHopTraverser:
         self._max_llm_calls = max_llm_calls
         self._llm_client = llm_client
 
-    async def traverse(
+    async def traverse(  # noqa: PLR0915
         self,
         start_vertices: list[str],
         query_embedding: np.ndarray | None = None,
@@ -282,21 +282,18 @@ class MultiHopTraverser:
 
                 if self._mode == ReasoningMode.SIMILARITY:
                     selected_edge = self._select_by_similarity(
-                        query_embedding, edges  # type: ignore[arg-type]
+                        query_embedding,
+                        edges,  # type: ignore[arg-type]
                     )
                 elif self._mode == ReasoningMode.LLM:
                     if llm_calls >= self._max_llm_calls:
                         # Fall back to similarity when LLM budget exhausted
                         if query_embedding is not None:
-                            selected_edge = self._select_by_similarity(
-                                query_embedding, edges
-                            )
+                            selected_edge = self._select_by_similarity(query_embedding, edges)
                         else:
                             selected_edge = edges[0] if edges else None
                     else:
-                        selected_edge = self._select_by_llm(
-                            query_text, vertex_id, edges
-                        )
+                        selected_edge = self._select_by_llm(query_text, vertex_id, edges)
                         llm_calls += 1
 
                 if selected_edge is not None:
@@ -389,10 +386,7 @@ class MultiHopTraverser:
         if not edges or self._llm_client is None:
             return None
 
-        edge_dicts = [
-            {"question": e.question, "target_id": e.target_id}
-            for e in edges
-        ]
+        edge_dicts = [{"question": e.question, "target_id": e.target_id} for e in edges]
 
         try:
             selected_idx = self._llm_client.evaluate_edges(

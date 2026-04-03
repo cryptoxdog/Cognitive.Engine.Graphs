@@ -447,16 +447,16 @@ class TestComplianceEngineSingleton:
 
         spec = self._make_domain_spec()
 
-        with patch("engine.handlers.ComplianceEngine") as MockCE:
+        with patch("engine.handlers.ComplianceEngine") as mock_ce_cls:
             mock_ce = MagicMock()
-            MockCE.return_value = mock_ce
+            mock_ce_cls.return_value = mock_ce
 
             ce1 = _get_compliance_engine(spec)
             ce2 = _get_compliance_engine(spec)
 
             assert ce1 is ce2
             # Should only be created once
-            MockCE.assert_called_once()
+            mock_ce_cls.assert_called_once()
 
     def test_different_domains_get_different_engines(self) -> None:
         from engine.handlers import _get_compliance_engine
@@ -468,14 +468,14 @@ class TestComplianceEngineSingleton:
         spec_a = self._make_domain_spec("domain_a")
         spec_b = self._make_domain_spec("domain_b")
 
-        with patch("engine.handlers.ComplianceEngine") as MockCE:
-            MockCE.side_effect = [MagicMock(), MagicMock()]
+        with patch("engine.handlers.ComplianceEngine") as mock_ce_cls:
+            mock_ce_cls.side_effect = [MagicMock(), MagicMock()]
 
             ce_a = _get_compliance_engine(spec_a)
             ce_b = _get_compliance_engine(spec_b)
 
             assert ce_a is not ce_b
-            assert MockCE.call_count == 2
+            assert mock_ce_cls.call_count == 2
 
     @pytest.mark.asyncio
     async def test_shutdown_clears_compliance_pool(self) -> None:
@@ -578,7 +578,6 @@ class TestHandlersUseEngineState:
 
     def test_require_deps_uses_engine_state(self) -> None:
         from engine.handlers import _require_deps, init_dependencies
-        from engine.state import get_state
 
         mock_driver = MagicMock()
         mock_loader = MagicMock()

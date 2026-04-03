@@ -169,9 +169,7 @@ def create_composite_persona(
         raise ValueError(msg)
 
     # Use scores as weights for blending
-    blend_input: list[WeightedPersona] = [
-        {"persona": p["persona"], "weight": p["score"]} for p in selected
-    ]
+    blend_input: list[WeightedPersona] = [{"persona": p["persona"], "weight": p["score"]} for p in selected]
     blended_vector = blend_personas(blend_input)
 
     # Build hybrid system prompt from relevant parts

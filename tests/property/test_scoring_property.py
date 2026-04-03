@@ -7,13 +7,10 @@ that assembled score expressions maintain [0, 1] bounds and idempotency.
 
 from __future__ import annotations
 
-from hypothesis import given, settings, assume
+from hypothesis import assume, given, settings
 from hypothesis import strategies as st
 
-import pytest
-
 from engine.scoring.assembler import ScoringAssembler
-
 
 # ---------------------------------------------------------------------------
 # Custom strategies
@@ -97,9 +94,7 @@ class TestScoringProperties:
         weighted_sum = sum(weights[i] * scores[i] for i in range(n))
         weight_total = sum(weights[:n])
 
-        assert weighted_sum <= weight_total + 1e-9, (
-            f"Weighted sum {weighted_sum} exceeds weight total {weight_total}"
-        )
+        assert weighted_sum <= weight_total + 1e-9, f"Weighted sum {weighted_sum} exceeds weight total {weight_total}"
 
     def test_clamp_expression_cypher_structure(self):
         """ScoringAssembler._clamp_expression produces valid CASE structure."""
@@ -114,7 +109,6 @@ class TestScoringProperties:
     def test_build_score_expression_empty(self):
         """Empty weight list returns '0.0'."""
         from engine.config.schema import (
-            ComputationType,
             DomainMetadata,
             DomainSpec,
             EdgeCategory,
@@ -125,8 +119,6 @@ class TestScoringProperties:
             MatchEntitySpec,
             NodeSpec,
             OntologySpec,
-            PropertyType,
-            QueryFieldSpec,
             QuerySchemaSpec,
             ScoringSpec,
         )

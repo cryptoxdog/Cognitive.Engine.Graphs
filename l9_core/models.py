@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
-from hashlib import sha256
 import json
+from datetime import UTC, datetime
+from hashlib import sha256
 from typing import Any
 from uuid import uuid4
 
@@ -32,7 +32,7 @@ class PacketEnvelope(BaseModel):
     tenant: TenantContext
     payload: dict[str, Any]
     lineage: PacketLineage
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     content_hash: str = ""
 
     @field_validator("packet_type")
@@ -60,7 +60,7 @@ class PacketEnvelope(BaseModel):
         )
         return sha256(canonical_json.encode("utf-8")).hexdigest()
 
-    def derive(self, packet_type: str, payload: dict[str, Any]) -> "PacketEnvelope":
+    def derive(self, packet_type: str, payload: dict[str, Any]) -> PacketEnvelope:
         return PacketEnvelope(
             packet_type=packet_type,
             tenant=self.tenant,

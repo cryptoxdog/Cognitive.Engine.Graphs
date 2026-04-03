@@ -22,6 +22,7 @@ A fingerprint captures *what kinds of results* a persona produces:
 This is the foundation for the dissimilarity module which detects
 when a persona's behavior has changed significantly.
 """
+
 from __future__ import annotations
 
 import logging
@@ -50,6 +51,7 @@ def _bucket_label(score: float, boundaries: tuple[float, ...], labels: tuple[str
 
 # ── Fingerprint Data Structure ───────────────────────────────
 
+
 @dataclass(frozen=True)
 class AlgorithmicFingerprint:
     """
@@ -66,6 +68,7 @@ class AlgorithmicFingerprint:
         top_dimension: The dimension that most frequently dominates.
         concentration_ratio: Fraction of candidates in the single most common bucket.
     """
+
     persona_id: str
     window_id: str
     sample_count: int
@@ -89,6 +92,7 @@ class AlgorithmicFingerprint:
 
 
 # ── Computation ──────────────────────────────────────────────
+
 
 def compute_fingerprint(
     persona_id: str,
@@ -127,7 +131,7 @@ def compute_fingerprint(
             persona_id=persona_id,
             window_id=window_id,
             sample_count=0,
-            score_distribution={label: 0.0 for label in bucket_labels},
+            score_distribution=dict.fromkeys(bucket_labels, 0.0),
             dimension_dominance={},
             entropy=0.0,
             top_dimension="none",
@@ -152,10 +156,7 @@ def compute_fingerprint(
         # Dimension dominance
         dim_scores = candidate.get(dimension_scores_key, {})
         if isinstance(dim_scores, dict) and dim_scores:
-            numeric_dims = {
-                k: v for k, v in dim_scores.items()
-                if isinstance(v, (int, float))
-            }
+            numeric_dims = {k: v for k, v in dim_scores.items() if isinstance(v, (int, float))}
             if numeric_dims:
                 top_dim = max(numeric_dims, key=lambda k: abs(numeric_dims[k]))
                 dimension_wins[top_dim] += 1
@@ -164,10 +165,7 @@ def compute_fingerprint(
     score_distribution = {label: bucket_counts.get(label, 0) / n for label in bucket_labels}
 
     total_dim_wins = sum(dimension_wins.values()) or 1
-    dimension_dominance = {
-        dim: count / total_dim_wins
-        for dim, count in dimension_wins.most_common()
-    }
+    dimension_dominance = {dim: count / total_dim_wins for dim, count in dimension_wins.most_common()}
 
     # Shannon entropy of score distribution
     entropy = 0.0
@@ -192,7 +190,11 @@ def compute_fingerprint(
 
     logger.info(
         "Computed fingerprint: persona=%s window=%s n=%d entropy=%.4f top_dim=%s",
-        persona_id, window_id, n, entropy, top_dimension,
+        persona_id,
+        window_id,
+        n,
+        entropy,
+        top_dimension,
     )
 
     return fingerprint

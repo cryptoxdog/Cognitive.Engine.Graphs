@@ -69,7 +69,8 @@ class TestComputePrimitiveAlignment:
     def test_multi_primitive_alignment(self) -> None:
         """Alignment across multiple primitive dimensions."""
         output = _make_output(
-            "p1", "Multi",
+            "p1",
+            "Multi",
             verification_need=0.8,
             comparison_need=0.6,
             generation_need=0.4,

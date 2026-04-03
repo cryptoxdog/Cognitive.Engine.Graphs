@@ -200,9 +200,7 @@ class ConfidenceChecker:
 
         # S2-07: Also check dimensional agreement
         agreement_flags = self.check_dimensional_agreement(candidates)
-        agreement_map: dict[int, dict[str, Any]] = {
-            f["candidate_index"]: f for f in agreement_flags
-        }
+        agreement_map: dict[int, dict[str, Any]] = {f["candidate_index"]: f for f in agreement_flags}
 
         for idx, candidate in enumerate(candidates):
             flags_list: list[str] = []

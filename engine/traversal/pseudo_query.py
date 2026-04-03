@@ -38,7 +38,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from typing import Any, Protocol
+from typing import Protocol
 
 logger = logging.getLogger(__name__)
 
@@ -182,8 +182,8 @@ class PseudoQueryGenerator:
             n_incoming=2,
             m_outgoing=4,
         )
-        print(len(result.incoming))   # 2
-        print(len(result.outgoing))   # 4
+        incoming_count = len(result.incoming)  # 2
+        outgoing_count = len(result.outgoing)  # 4
     """
 
     def __init__(
