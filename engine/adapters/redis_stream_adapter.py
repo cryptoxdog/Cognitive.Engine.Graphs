@@ -13,6 +13,7 @@ import logging
 from typing import Any
 
 import redis.asyncio as aioredis
+from redis.exceptions import RedisError
 
 from engine.config.settings import Settings
 
@@ -75,6 +76,13 @@ class RedisStreamAdapter:
                 maxlen=STREAM_MAXLEN,
                 approximate=True,
             )
+        except RedisError as exc:
+            logger.warning(
+                "inference_event_publish_failed",
+                extra={"entity_id": entity_id, "error": str(exc)},
+            )
+            return None
+        else:
             logger.debug(
                 "inference_event_published",
                 extra={
@@ -85,9 +93,3 @@ class RedisStreamAdapter:
                 },
             )
             return msg_id
-        except Exception as exc:
-            logger.warning(
-                "inference_event_publish_failed",
-                extra={"entity_id": entity_id, "error": str(exc)},
-            )
-            return None
