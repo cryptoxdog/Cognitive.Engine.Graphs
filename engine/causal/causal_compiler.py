@@ -106,12 +106,18 @@ class CausalCompiler:
         else:
             rel_pattern = f"[*1..{depth}]"
 
-        cypher = (
-            f"MATCH path = (root:{safe_root})-{rel_pattern}->(effect)\n"
-            f"RETURN root, nodes(path) AS chain_nodes,\n"
-            f"       relationships(path) AS chain_edges,\n"
-            f"       length(path) AS chain_depth\n"
-            f"ORDER BY chain_depth DESC"
+        cypher = "".join(
+            [
+                "MATCH path = (root:",
+                safe_root,
+                ")-",
+                rel_pattern,
+                "->(effect)\n",
+                "RETURN root, nodes(path) AS chain_nodes,\n",
+                "       relationships(path) AS chain_edges,\n",
+                "       length(path) AS chain_depth\n",
+                "ORDER BY chain_depth DESC",
+            ]
         )
 
         return cypher

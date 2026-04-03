@@ -315,9 +315,7 @@ def infer_contamination_tolerance(entity: dict, ctx: InferenceContext) -> Infere
     high_tolerance_tiers = {"micro", "small"}
     low_grade_patterns = {"fiber", "generic"}
     tolerance = (
-        "high"
-        if (tier in high_tolerance_tiers or any(p in str(grade).lower() for p in low_grade_patterns))
-        else "low"
+        "high" if (tier in high_tolerance_tiers or any(p in str(grade).lower() for p in low_grade_patterns)) else "low"
     )
     conf = 0.78 if tolerance == "high" else 0.72
     return InferenceResult(
