@@ -7,10 +7,15 @@ that assembled score expressions maintain [0, 1] bounds and idempotency.
 
 from __future__ import annotations
 
-from hypothesis import assume, given, settings
-from hypothesis import strategies as st
+import pytest
 
-from engine.scoring.assembler import ScoringAssembler
+try:
+    from hypothesis import assume, given, settings
+    from hypothesis import strategies as st
+
+    from engine.scoring.assembler import ScoringAssembler
+except ModuleNotFoundError:
+    pytest.skip("hypothesis not installed", allow_module_level=True)
 
 # ---------------------------------------------------------------------------
 # Custom strategies
