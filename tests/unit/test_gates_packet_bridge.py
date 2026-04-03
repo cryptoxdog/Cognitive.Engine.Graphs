@@ -8,10 +8,7 @@ Coverage:
 """
 from __future__ import annotations
 
-import pytest
-
 from engine.gates.packet_bridge import validate_packet, wrap_response
-
 
 _VALID_PACKET = {
     "header": {

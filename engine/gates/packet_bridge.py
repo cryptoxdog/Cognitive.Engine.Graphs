@@ -27,7 +27,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 from uuid import uuid4
 
@@ -131,7 +131,7 @@ def wrap_response(
         "packet_id": f"pkt_{uuid4().hex[:12]}",
         "tenant_id": request_header.get("tenant_id", "unknown"),
         "action": request_header.get("action", "unknown"),
-        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "timestamp": datetime.now(UTC).isoformat(),
         "lineage": [
             *request_header.get("lineage", []),
             request_header.get("packet_id", "unknown"),

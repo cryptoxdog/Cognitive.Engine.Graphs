@@ -31,6 +31,8 @@ from typing import Any
 
 import structlog
 
+from engine.utils.security import sanitize_label
+
 logger = structlog.get_logger("graph_query")
 
 
@@ -79,15 +81,23 @@ async def execute_match_query(
     return_fields.append("target.confidence AS confidence")
     return_clause = ", ".join(return_fields)
 
-    # entity_type used as a label (structural, not a value) — safe for interpolation
-    # Values (entity_id, limit) always parameterized
-    query = f"""
-    MATCH (source {{id: $entity_id}})-[r:COMPATIBLE_WITH]-(target)
-    WHERE source:{entity_type}
-    RETURN {return_clause}
-    ORDER BY r.composite_score DESC
-    LIMIT $limit
-    """
+    safe_entity_type = sanitize_label(entity_type)
+
+    # entity_type is structural and therefore sanitized before insertion.
+    # Values (entity_id, limit) always remain parameterized.
+    query = "".join(
+        [
+            "MATCH (source {id: $entity_id})-[r:COMPATIBLE_WITH]-(target) ",
+            "WHERE source:",
+            safe_entity_type,
+            " ",
+            "RETURN ",
+            return_clause,
+            " ",
+            "ORDER BY r.composite_score DESC ",
+            "LIMIT $limit",
+        ]
+    )
 
     params = {
         "entity_id": entity_id,
@@ -104,10 +114,6 @@ async def execute_match_query(
 
     try:
         records = await driver.execute_query(query, params)
-        results = [dict(record) for record in records]
-        logger.info("match_query_completed", results_count=len(results))
-        return results
-
     except Exception as e:
         logger.error(
             "match_query_failed",
@@ -116,6 +122,10 @@ async def execute_match_query(
             entity_id=entity_id,
         )
         raise
+    else:
+        results = [dict(record) for record in records]
+        logger.info("match_query_completed", results_count=len(results))
+        return results
 
 
 async def execute_gate_lookup(
@@ -153,13 +163,6 @@ async def execute_gate_lookup(
 
     try:
         records = await driver.execute_query(query, params)
-        if not records:
-            logger.warning("gate_not_found", target_service=target_service, action=action)
-            return None
-        result = dict(records[0])
-        logger.info("gate_found", endpoint=result.get("endpoint"))
-        return result
-
     except Exception as e:
         logger.error(
             "gate_lookup_failed",
@@ -168,3 +171,10 @@ async def execute_gate_lookup(
             action=action,
         )
         raise
+    else:
+        if not records:
+            logger.warning("gate_not_found", target_service=target_service, action=action)
+            return None
+        result = dict(records[0])
+        logger.info("gate_found", endpoint=result.get("endpoint"))
+        return result

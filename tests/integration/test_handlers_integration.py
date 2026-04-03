@@ -5,8 +5,6 @@ No Neo4j required — uses in-process mocks.
 """
 from __future__ import annotations
 
-import pytest
-
 from engine.compliance.validator import validate_enrichment_request, validate_gate_response
 from engine.gates.packet_bridge import validate_packet, wrap_response
 from engine.scoring.belief_propagation import rescore_candidates
@@ -75,7 +73,7 @@ class TestGateResponseValidation:
             "header": {"packet_id": "pkt_1", "status": "COMPLETED"},
             "hop_trace": "not_a_list",
         }
-        is_valid, error = validate_gate_response(response)
+        is_valid, _error = validate_gate_response(response)
         assert not is_valid
 
 
