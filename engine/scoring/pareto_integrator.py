@@ -22,6 +22,7 @@ primitives.  Provides:
 3. ``apply_constraint_penalties()`` — enforces hard/soft constraints from
    the ``DecisionArbitrationSpec``
 """
+
 from __future__ import annotations
 
 import logging
@@ -136,10 +137,9 @@ def apply_constraint_penalties(
                 if is_hard:
                     rejected = True
                     break
-                else:
-                    # Apply soft penalty to the overall score
-                    if "score" in candidate:
-                        candidate["score"] = candidate["score"] * penalty
+                # Apply soft penalty to the overall score
+                if "score" in candidate:
+                    candidate["score"] = candidate["score"] * penalty
 
         if not rejected:
             filtered.append(candidate)
@@ -182,9 +182,7 @@ def apply_pareto_filter(
         ``frontsize`` — number of non-dominated candidates
         ``pruned_pct`` — percentage of candidates pruned
     """
-    pareto_candidates = build_pareto_candidates(
-        candidates, dimension_names, candidate_id_key=candidate_id_key
-    )
+    pareto_candidates = build_pareto_candidates(candidates, dimension_names, candidate_id_key=candidate_id_key)
 
     if not pareto_candidates:
         return {

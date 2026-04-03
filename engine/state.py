@@ -197,7 +197,7 @@ _ENGINE_STATE: EngineState | None = None
 
 def get_state() -> EngineState:
     """Return the process-singleton EngineState instance (lazy-created)."""
-    global _ENGINE_STATE  # noqa: PLW0603
+    global _ENGINE_STATE
     if _ENGINE_STATE is None:
         _ENGINE_STATE = EngineState()
     return _ENGINE_STATE
@@ -205,7 +205,7 @@ def get_state() -> EngineState:
 
 def _reset_singleton() -> None:
     """Reset the process-singleton for test isolation. Do NOT call in production."""
-    global _ENGINE_STATE  # noqa: PLW0603
+    global _ENGINE_STATE
     if _ENGINE_STATE is not None:
         _ENGINE_STATE.reset()
     _ENGINE_STATE = None

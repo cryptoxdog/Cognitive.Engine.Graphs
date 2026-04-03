@@ -8,7 +8,6 @@ fixes from Wave 1-4 remain in place.
 from __future__ import annotations
 
 import inspect
-from unittest.mock import MagicMock
 
 import pytest
 
@@ -27,8 +26,10 @@ class TestT301GDSSchedulerStart:
         """Manual trigger_gds must be available."""
         from engine.gds.scheduler import GDSScheduler
 
-        assert hasattr(GDSScheduler, "trigger_job") or hasattr(GDSScheduler, "trigger_gds") or hasattr(
-            GDSScheduler, "run_job"
+        assert (
+            hasattr(GDSScheduler, "trigger_job")
+            or hasattr(GDSScheduler, "trigger_gds")
+            or hasattr(GDSScheduler, "run_job")
         ), "GDSScheduler missing manual trigger method"
 
 
@@ -39,9 +40,7 @@ class TestT302AuditFlush:
     def test_flush_audit_is_coroutine(self):
         from engine.compliance.engine import ComplianceEngine
 
-        assert inspect.iscoroutinefunction(ComplianceEngine.flush_audit), (
-            "flush_audit must be async (awaitable)"
-        )
+        assert inspect.iscoroutinefunction(ComplianceEngine.flush_audit), "flush_audit must be async (awaitable)"
 
 
 @pytest.mark.finding("T3-05")
