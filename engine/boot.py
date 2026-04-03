@@ -80,7 +80,7 @@ class GraphLifecycle(LifecycleHook):
 
     # --- lifecycle ----------------------------------------------------------
 
-    async def startup(self) -> None:  # noqa: PLR0912
+    async def startup(self) -> None:
         from engine.gds.scheduler import GDSScheduler
 
         logger.info("GraphLifecycle.startup → connecting Neo4j")
@@ -285,20 +285,20 @@ async def _apply_gap_fixes(
     This is the ONLY call site for apply_all_gap_fixes. The function is
     idempotent: safe to call once per process lifetime.
 
-    Fail-closed: raises on missing POSTGRES_DSN or pool creation failure.
+    Fail-closed: raises on missing L9_POSTGRES_DSN or pool creation failure.
     The engine MUST NOT serve requests with an uninitialized audit pool.
     """
-    if not settings.postgres_dsn:
+    if not settings.l9_postgres_dsn:
         msg = (
-            "POSTGRES_DSN is not set. Gap-5 (audit pool) cannot be wired. "
-            "Set POSTGRES_DSN in .env or environment before starting the engine."
+            "L9_POSTGRES_DSN is not set. Gap-5 (audit pool) cannot be wired. "
+            "Set L9_POSTGRES_DSN in .env or environment before starting the engine."
         )
         raise RuntimeError(msg)
 
     from engine.startup_wiring import apply_all_gap_fixes
 
     await apply_all_gap_fixes(
-        pg_dsn=settings.postgres_dsn,
+        pg_dsn=settings.l9_postgres_dsn,
         neo4j_driver=graph_driver,
         domain_pack_loader=domain_loader,
     )

@@ -30,14 +30,10 @@ Test philosophy:
 
 from __future__ import annotations
 
-import asyncio
-import hashlib
-import json
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Fixtures
@@ -54,14 +50,14 @@ def _reset_return_channel() -> None:
     GraphToEnrichReturnChannel.reset_instance()
 
 
-@pytest.fixture()
+@pytest.fixture
 def mock_neo4j_driver() -> MagicMock:
     driver = MagicMock()
     driver.execute_query = AsyncMock(return_value=[])
     return driver
 
 
-@pytest.fixture()
+@pytest.fixture
 def mock_domain_loader() -> MagicMock:
     loader = MagicMock()
     loader.list_domains.return_value = ["plasticos"]
@@ -400,30 +396,33 @@ async def test_community_export_empty_result(
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Test F — settings.postgres_dsn field exists and validates
+# Test F — settings.l9_postgres_dsn field exists and validates
 # ─────────────────────────────────────────────────────────────────────────────
 
 
-def test_settings_has_postgres_dsn_field() -> None:
-    """FIX(RULE-9 + GAP-5): postgres_dsn must exist on the Settings model.
+def test_settings_has_l9_postgres_dsn_field() -> None:
+    """FIX(RULE-9 + GAP-5): l9_postgres_dsn must exist on the Settings model.
 
     Asserts:
-        - The settings singleton has a postgres_dsn attribute.
+        - The settings singleton has an l9_postgres_dsn attribute.
         - The default value is a non-empty string.
-        - It does NOT start with a blank string.
+        - The backward-compatible postgres_dsn alias still resolves.
     """
     from engine.config.settings import settings
 
-    assert hasattr(settings, "postgres_dsn")
-    assert isinstance(settings.postgres_dsn, str)
-    assert settings.postgres_dsn.strip() != ""
+    assert hasattr(settings, "l9_postgres_dsn")
+    assert isinstance(settings.l9_postgres_dsn, str)
+    assert settings.l9_postgres_dsn.strip() != ""
+    assert settings.postgres_dsn == settings.l9_postgres_dsn
 
 
-def test_settings_postgres_dsn_rejects_default_in_production() -> None:
-    """FIX(RULE-9 + GAP-5): default postgres_dsn must be rejected in production."""
+def test_settings_l9_postgres_dsn_rejects_default_in_production() -> None:
+    """FIX(RULE-9 + GAP-5): default l9_postgres_dsn must be rejected in production."""
     import os
 
     from pydantic import ValidationError
+
+    from engine.config.settings import Settings
 
     with patch.dict(
         os.environ,
@@ -431,13 +430,8 @@ def test_settings_postgres_dsn_rejects_default_in_production() -> None:
             "L9_ENV": "prod",
             "NEO4J_PASSWORD": "real-neo4j-password",
             "API_SECRET_KEY": "real-api-key",
-            "POSTGRES_DSN": "postgresql://l9:change-me-in-production@localhost:5432/l9_audit",
+            "L9_POSTGRES_DSN": "postgresql://l9:change-me-in-production@localhost:5432/l9_audit",
         },
     ):
-        with pytest.raises(ValidationError, match="postgres_dsn"):
-            from pydantic_settings import BaseSettings
-
-            # Re-instantiate to pick up env overrides
-            from engine.config.settings import Settings
-
+        with pytest.raises(ValidationError, match="l9_postgres_dsn"):
             Settings()

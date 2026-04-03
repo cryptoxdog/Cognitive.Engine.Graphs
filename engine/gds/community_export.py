@@ -29,17 +29,13 @@ The top-level `graph/` package must not be imported anywhere in the engine.
 
 from __future__ import annotations
 
-import hashlib
-import json
 import logging
-import uuid
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from engine.graph.driver import GraphDriver
 
 from engine.graph_return_channel import (
-    GraphInferenceResultEnvelope,
     GraphToEnrichReturnChannel,
     build_graph_inference_result_envelope,
 )
@@ -97,19 +93,27 @@ async def export_community_labels_to_enrich(
 
     # FIX(RULE-4): ALL values use $param — zero f-string value interpolation.
     # Label and property names have been sanitized and are f-string safe per RULE-4.
-    cypher = (
-        f"MATCH (n:{safe_label}) "
-        f"WHERE n.{safe_prop} IS NOT NULL "
-        f"WITH n.{safe_prop} AS community_id, collect(n.entity_id) AS members "
-        f"WHERE size(members) >= $min_size "
-        f"UNWIND members AS entity_id "
-        f"RETURN entity_id, community_id "
-        f"ORDER BY community_id, entity_id"
+    cypher = "".join(
+        [
+            "MATCH (n:",
+            safe_label,
+            ") ",
+            "WHERE n.",
+            safe_prop,
+            " IS NOT NULL AND n.tenant_id = $tenant_id ",
+            "WITH n.",
+            safe_prop,
+            " AS community_id, collect(n.entity_id) AS members ",
+            "WHERE size(members) >= $min_size ",
+            "UNWIND members AS entity_id ",
+            "RETURN entity_id, community_id ",
+            "ORDER BY community_id, entity_id",
+        ]
     )
 
     results = await driver.execute_query(
         cypher=cypher,
-        parameters={"min_size": min_community_size},
+        parameters={"min_size": min_community_size, "tenant_id": tenant_id},
         database=domain_id,
     )
 

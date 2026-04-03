@@ -48,11 +48,11 @@ class Settings(BaseSettings):
     neo4j_connection_acquisition_timeout: int = 60
 
     # --- PostgreSQL (audit persistence) ---
-    # FIX(RULE-9 + GAP-5): postgres_dsn is REQUIRED for audit pool wiring.
+    # FIX(RULE-9 + GAP-5): L9_POSTGRES_DSN is REQUIRED for audit pool wiring.
     # apply_all_gap_fixes() reads this at startup and raises RuntimeError if absent.
-    # Set POSTGRES_DSN in .env or environment. Production: use a secrets manager DSN.
+    # Set L9_POSTGRES_DSN in .env or environment. Production: use a secrets manager DSN.
     # Format: postgresql://user:pass@host:port/dbname
-    postgres_dsn: str = "postgresql://l9:change-me-in-production@localhost:5432/l9_audit"
+    l9_postgres_dsn: str = "postgresql://l9:change-me-in-production@localhost:5432/l9_audit"
 
     # --- Redis ---
     redis_url: str = "redis://localhost:6379/0"
@@ -127,6 +127,7 @@ class Settings(BaseSettings):
     tenant_auth_enabled: bool = True        # W3-01: JWT allowed_tenants enforcement
     tenant_auth_bypass_key: str = ""        # W3-01: service-to-service bypass key
     capability_auth_enabled: bool = True    # W3-02/W3-03: domain-spec capability model
+    tenant_allowlist: str = ""              # W3-01: comma-separated tenant IDs; empty = all allowed
 
     # --- Wave 4: State Management & Resilience (seL4-inspired) ---
     neo4j_circuit_threshold: int = 5        # W4-02: consecutive failures before circuit opens
@@ -147,12 +148,17 @@ class Settings(BaseSettings):
             if self.api_secret_key in _DEFAULT_SECRETS:
                 msg = "api_secret_key must be changed from default in production"
                 raise ValueError(msg)
-            # FIX(RULE-9 + GAP-5): postgres_dsn default is rejected in production.
-            # Operators must set POSTGRES_DSN to a real DSN via secrets manager.
-            if "change-me-in-production" in self.postgres_dsn:
-                msg = "postgres_dsn must be set to a real DSN in production"
+            # FIX(RULE-9 + GAP-5): l9_postgres_dsn default is rejected in production.
+            # Operators must set L9_POSTGRES_DSN to a real DSN via secrets manager.
+            if "change-me-in-production" in self.l9_postgres_dsn:
+                msg = "l9_postgres_dsn must be set to a real DSN in production"
                 raise ValueError(msg)
         return self
+
+    @property
+    def postgres_dsn(self) -> str:
+        """Backward-compatible alias for older callers/tests."""
+        return self.l9_postgres_dsn
 
     @property
     def is_production(self) -> bool:
