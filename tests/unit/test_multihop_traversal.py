@@ -14,7 +14,6 @@ Unit tests for engine.traversal.multihop module.
 
 from __future__ import annotations
 
-import asyncio
 from typing import Any
 
 import numpy as np

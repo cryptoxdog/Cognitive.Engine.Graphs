@@ -30,7 +30,6 @@ from __future__ import annotations
 
 import json
 import logging
-import sys
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -109,11 +108,7 @@ def compute_retrieval_metrics(
     true_positives = len(retrieved_set & relevant_set)
     precision = true_positives / len(retrieved_set) if retrieved_set else 0.0
     recall = true_positives / len(relevant_set) if relevant_set else 0.0
-    f1 = (
-        2 * precision * recall / (precision + recall)
-        if (precision + recall) > 0
-        else 0.0
-    )
+    f1 = 2 * precision * recall / (precision + recall) if (precision + recall) > 0 else 0.0
 
     return RetrievalMetrics(
         precision=precision,
@@ -159,15 +154,9 @@ def run_benchmark(
         per_query.append(metrics)
 
     num_queries = len(per_query)
-    mean_precision = (
-        sum(m.precision for m in per_query) / num_queries if num_queries else 0.0
-    )
-    mean_recall = (
-        sum(m.recall for m in per_query) / num_queries if num_queries else 0.0
-    )
-    mean_f1 = (
-        sum(m.f1 for m in per_query) / num_queries if num_queries else 0.0
-    )
+    mean_precision = sum(m.precision for m in per_query) / num_queries if num_queries else 0.0
+    mean_recall = sum(m.recall for m in per_query) / num_queries if num_queries else 0.0
+    mean_f1 = sum(m.f1 for m in per_query) / num_queries if num_queries else 0.0
 
     execution_time_s = time.monotonic() - start_time
 

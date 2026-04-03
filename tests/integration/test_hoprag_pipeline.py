@@ -22,7 +22,6 @@ These tests use mock implementations for external dependencies
 
 from __future__ import annotations
 
-import asyncio
 from typing import Any
 
 import numpy as np
@@ -34,11 +33,12 @@ from engine.scoring.importance import ImportanceScorer
 from engine.traversal.edge_merger import EdgeMerger, EdgeTriplet
 from engine.traversal.multihop import (
     MultiHopTraverser,
-    ReasoningMode as TraversalReasoningMode,
     TraversalEdge,
 )
+from engine.traversal.multihop import (
+    ReasoningMode as TraversalReasoningMode,
+)
 from engine.traversal.pseudo_query import PseudoQueryGenerator
-
 
 # ── Mock Implementations ─────────────────────────────────────────────
 
@@ -49,7 +49,7 @@ class MockLLM:
     def generate(self, prompt: str) -> str:
         if "exactly 2" in prompt:
             return "1. What is the main topic?\n2. What are the key findings?"
-        elif "exactly 4" in prompt:
+        if "exactly 4" in prompt:
             return (
                 "1. How does this relate to other research?\n"
                 "2. What are the implications?\n"
@@ -318,7 +318,9 @@ class TestEndToEndScenario:
             ],
             "biology": [],
             "quantum": [
-                TraversalEdge("quantum", "chemistry", "How does quantum mechanics apply to chemistry?", embedding=emb_chemistry),
+                TraversalEdge(
+                    "quantum", "chemistry", "How does quantum mechanics apply to chemistry?", embedding=emb_chemistry
+                ),
             ],
             "organic": [],
         }
