@@ -10,7 +10,7 @@ CEG is a **domain-agnostic graph-native matching engine** built on a FastAPI cha
 
 | Contract | Type | Source File | Description |
 |----------|------|-------------|-------------|
-| `openapi.yaml` | API | `chassis/app.py`, `chassis/actions.py` | OpenAPI 3.1 spec for all HTTP endpoints |
+| `openapi.yaml` | API | `chassis/app.py`, `chassis/chassis_app.py`, `chassis/actions.py` | OpenAPI 3.1 spec for all HTTP endpoints |
 | `execute-action` | API | `chassis/app.py` | Universal POST /v1/execute endpoint |
 | `health-probe` | API | `chassis/app.py` | GET /v1/health endpoint |
 | `PacketEnvelope` | Data | `engine/packet/packet_envelope.py` | Core immutable message envelope |
