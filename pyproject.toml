@@ -29,9 +29,9 @@ pytest-mock = "^3.14.0"
 ruff = "0.15.7"
 mypy = "1.19.1"
 types-PyYAML = ">=6.0"
-faker = "^40.5.1"
+faker = "^40.12.0"
 testcontainers = {extras = ["neo4j"], version = "^4.8.0"}
-hypothesis = "^6.100.0"
+hypothesis = "^6.151.11"
 
 [build-system]
 requires = ["poetry-core"]
