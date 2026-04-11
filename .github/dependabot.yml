@@ -1,147 +1,84 @@
 # --- L9_META ---
 # l9_schema: 1
 # origin: l9-template
-# engine: graph
-# layer: [governance]
-# tags: [L9_TEMPLATE, security, deps]
+# engine: enrichment
+# layer: [ci]
+# tags: [L9_TEMPLATE, dependabot]
 # owner: platform
 # status: active
 # --- /L9_META ---
 #
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-# Universal CI/CD Pack — Dependabot Configuration
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-# VERSION: 1.0.0
-# PURPOSE: Automated dependency updates with logical grouping
-# CUSTOMIZE: Update reviewers, assignees, and dependency groups for your stack
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# Dependabot configuration — automated dependency updates
+# Sibling parity: Cognitive.Engine.Graphs/.github/dependabot.yml
 
 version: 2
 
 updates:
-  # ──────────────────────────────────────────────────────────────────────
-  # Python Dependencies
-  # ──────────────────────────────────────────────────────────────────────
+  # ── Python dependencies ──────────────────────────────────────────────
   - package-ecosystem: "pip"
     directory: "/"
     schedule:
       interval: "weekly"
       day: "monday"
-      time: "03:00"
-      timezone: "UTC"
-
     open-pull-requests-limit: 5
-
     commit-message:
-      prefix: "chore(deps)"
-      include: "scope"
-
+      prefix: "chore(deps):"
     labels:
       - "dependencies"
       - "python"
-      - "automerge-candidate"
-
-    # CUSTOMIZE: Replace with your GitHub username(s)
     reviewers:
-      - "YOUR_GITHUB_USERNAME"
-
-    assignees:
-      - "YOUR_GITHUB_USERNAME"
-
-    # Dependency groups — customize for your stack
+      - "cryptoxdog"
     groups:
-      # Web frameworks
       web-framework:
         patterns:
           - "fastapi*"
           - "uvicorn*"
-          - "pydantic*"
-          - "starlette*"
-          - "django*"
-          - "flask*"
-          - "requests*"
           - "httpx*"
-
-      # Database drivers and ORMs
-      database:
+          - "starlette*"
+      data-validation:
         patterns:
-          - "psycopg*"
-          - "asyncpg*"
-          - "sqlalchemy*"
-          - "alembic*"
-          - "pymongo*"
-          - "redis*"
-
-      # Testing frameworks
+          - "pydantic*"
       testing:
         patterns:
           - "pytest*"
+          - "respx*"
           - "coverage*"
-          - "hypothesis*"
-          - "faker*"
-
-      # Development tools
       dev-tools:
         patterns:
           - "ruff*"
           - "mypy*"
-          - "black*"
-          - "isort*"
           - "pre-commit*"
-
-      # Security and cryptography
       security:
         patterns:
-          - "cryptography*"
-          - "pyjwt*"
-          - "passlib*"
-          - "bcrypt*"
-
-      # Monitoring and logging
+          - "bandit*"
+          - "pip-audit*"
+          - "safety*"
       observability:
         patterns:
           - "structlog*"
-          - "sentry-sdk*"
-          - "prometheus*"
-          - "opentelemetry*"
 
-  # ──────────────────────────────────────────────────────────────────────
-  # GitHub Actions
-  # ──────────────────────────────────────────────────────────────────────
+  # ── GitHub Actions ───────────────────────────────────────────────────
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
       interval: "weekly"
       day: "monday"
-
     open-pull-requests-limit: 5
-
     commit-message:
-      prefix: "chore(ci)"
-
+      prefix: "chore(ci):"
     labels:
       - "dependencies"
       - "github-actions"
-      - "automerge-candidate"
 
-  # ──────────────────────────────────────────────────────────────────────
-  # Docker
-  # ──────────────────────────────────────────────────────────────────────
+  # ── Docker ───────────────────────────────────────────────────────────
   - package-ecosystem: "docker"
     directory: "/"
     schedule:
       interval: "weekly"
       day: "monday"
-
     open-pull-requests-limit: 3
-
     commit-message:
-      prefix: "chore(docker)"
-
+      prefix: "chore(docker):"
     labels:
       - "dependencies"
       - "docker"
-
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-# END OF DEPENDABOT CONFIGURATION
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

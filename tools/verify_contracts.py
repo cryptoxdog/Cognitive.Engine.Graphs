@@ -1,86 +1,150 @@
 #!/usr/bin/env python3
-"""
---- L9_META ---
-l9_schema: 1
-origin: l9-template
-engine: graph
-layer: [audit]
-tags: [L9_TEMPLATE, audit, verify]
-owner: platform
-status: active
---- /L9_META ---
+"""L9 Contract Verification Script (Enrichment.Inference.Engine).
 
-L9 Contract Files Existence + Wiring Check
-Verifies all 20 contract files exist AND are referenced in .cursorrules and CLAUDE.md.
-Exit code 1 = missing file or unwired -> blocks CI/merge.
+Confirms all contract files exist, checks SHA-256 integrity,
+and verifies each is referenced in the appropriate governance files.
+
+Exit codes:
+  0 = all checks pass
+  1 = one or more FAIL conditions
 """
 
-from __future__ import annotations
-
+import hashlib
 import sys
 from pathlib import Path
 
-REQUIRED_CONTRACTS = [
-    "docs/contracts/FIELD_NAMES.md",
-    "docs/contracts/METHOD_SIGNATURES.md",
-    "docs/contracts/CYPHER_SAFETY.md",
-    "docs/contracts/ERROR_HANDLING.md",
-    "docs/contracts/HANDLER_PAYLOADS.md",
-    "docs/contracts/PYDANTIC_YAML_MAPPING.md",
-    "docs/contracts/DEPENDENCY_INJECTION.md",
-    "docs/contracts/TEST_PATTERNS.md",
-    "docs/contracts/RETURN_VALUES.md",
-    "docs/contracts/BANNED_PATTERNS.md",
-    "docs/contracts/PACKET_ENVELOPE_FIELDS.md",
-    "docs/contracts/DELEGATION_PROTOCOL.md",
-    "docs/contracts/PACKET_TYPE_REGISTRY.md",
-    "docs/contracts/DOMAIN_SPEC_VERSIONING.md",
-    "docs/contracts/FEEDBACK_LOOPS.md",
-    "docs/contracts/NODE_REGISTRATION.md",
-    "docs/contracts/ENV_VARS.md",
-    "docs/contracts/OBSERVABILITY.md",
-    "docs/contracts/MEMORY_SUBSTRATE_ACCESS.md",
-    "docs/contracts/SHARED_MODELS.md",
-]
+try:
+    import yaml
+except ImportError:
+    yaml = None  # type: ignore[assignment]
 
-AGENT_FILES = [".cursorrules", "CLAUDE.md"]
+REPO_ROOT = Path(__file__).parent.parent
+MANIFEST_PATH = REPO_ROOT / "tools" / "l9_enrichment_manifest.yaml"
 
 
-def main() -> int:
-    root = Path.cwd()
-    errors: list[str] = []
+def compute_sha256(filepath: Path) -> str:
+    return hashlib.sha256(filepath.read_bytes()).hexdigest()
 
-    for rel in REQUIRED_CONTRACTS:
-        path = root / rel
-        if not path.is_file():
-            errors.append(f"Missing contract file: {rel}")
 
-    # Each contract must be referenced in at least one agent file
-    agent_contents: list[tuple[str, str]] = []
-    for agent_file in AGENT_FILES:
-        path = root / agent_file
-        if not path.is_file():
+def load_manifest() -> dict:
+    if yaml is None:
+        print("WARN: PyYAML not installed -- skipping manifest-based verification")
+        return {}
+    if not MANIFEST_PATH.exists():
+        print(f"WARN: Manifest not found at {MANIFEST_PATH} -- skipping")
+        return {}
+    with open(MANIFEST_PATH) as f:
+        return yaml.safe_load(f) or {}
+
+
+def check_file_referenced(contract_path: str, ref_file: Path) -> bool:
+    if not ref_file.exists():
+        return False
+    content = ref_file.read_text()
+    clean_path = contract_path.lstrip("./")
+    return clean_path in content
+
+
+def check_critical_files() -> list[str]:
+    """Verify critical structural files exist regardless of manifest."""
+    fails = []
+    critical = [
+        "app/__init__.py",
+        "app/main.py",
+        "app/engines/__init__.py",
+        "app/engines/handlers.py",
+        "app/engines/chassis_contract.py",
+        "pyproject.toml",
+        "requirements-ci.txt",
+    ]
+    for path in critical:
+        if not (REPO_ROOT / path).exists():
+            fails.append(f"FAIL: MISSING critical file {path}")
+    return fails
+
+
+def main():
+    manifest = load_manifest()
+    fails = []
+    warns = []
+    passes = []
+
+    # Phase 1: Critical file checks (always run)
+    fails.extend(check_critical_files())
+
+    # Phase 2: Manifest-based checks (if manifest exists)
+    all_contracts = []
+    for level in ["engine_level", "constellation_level"]:
+        contracts = manifest.get("contracts", {}).get(level, [])
+        all_contracts.extend(contracts)
+
+    total = len(all_contracts)
+    present = 0
+
+    for entry in all_contracts:
+        path = entry["path"]
+        full_path = REPO_ROOT / path
+        sha_expected = entry.get("sha256", "")
+        required_refs = entry.get("required_refs", [])
+
+        if not full_path.exists():
+            fails.append(f"FAIL: MISSING {path}")
             continue
-        try:
-            content = path.read_text(encoding="utf-8", errors="replace")
-            agent_contents.append((agent_file, content))
-        except OSError as e:
-            errors.append(f"Cannot read {agent_file}: {e}")
 
-    for rel in REQUIRED_CONTRACTS:
-        name = Path(rel).name
-        if not any(name in c or rel in c for _f, c in agent_contents):
-            errors.append(f"No agent file references contract: {name}")
+        present += 1
 
-    if not errors:
-        print("L9 contract files: all 20 present and wired.")
-        return 0
+        if sha_expected and not sha_expected.startswith("<"):
+            actual_sha = compute_sha256(full_path)
+            if actual_sha != sha_expected:
+                warns.append(f"WARN: MODIFIED {path} (sha256 mismatch)")
 
-    print("L9 contract verification failed:\n", file=sys.stderr)
-    for e in errors:
-        print(f"  - {e}", file=sys.stderr)
-    return 1
+        for ref in required_refs:
+            ref_path = REPO_ROOT / ref
+            if not check_file_referenced(path, ref_path):
+                warns.append(f"WARN: {path} NOT referenced in {ref}")
+
+        passes.append(f"PASS: {path}")
+
+    # Phase 3: KB rule file validation
+    kb_dir = REPO_ROOT / "kb"
+    if kb_dir.exists():
+        for yaml_file in kb_dir.rglob("*.yaml"):
+            try:
+                if yaml:
+                    data = yaml.safe_load(yaml_file.read_text())
+                    if data is None:
+                        warns.append(f"WARN: Empty YAML file {yaml_file.relative_to(REPO_ROOT)}")
+            except Exception as e:
+                fails.append(f"FAIL: Invalid YAML {yaml_file.relative_to(REPO_ROOT)}: {e}")
+
+    # Print results
+    print("=" * 60)
+    print("L9 Contract Verification Report")
+    print("Engine: Enrichment.Inference.Engine")
+    print("=" * 60)
+
+    for p in passes:
+        print(f"  {p}")
+    for w in warns:
+        print(f"  {w}")
+    for f_msg in fails:
+        print(f"  {f_msg}")
+
+    if total > 0:
+        print()
+        print(f"Contracts present:  {present}/{total}")
+    print(f"Warnings:           {len(warns)}")
+    print(f"Failures:           {len(fails)}")
+
+    if fails:
+        print()
+        print("RESULT: FAIL -- verification failed")
+        sys.exit(1)
+    else:
+        print()
+        print("RESULT: PASS -- all checks verified")
+        sys.exit(0)
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    main()

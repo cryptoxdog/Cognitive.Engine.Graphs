@@ -1,23 +1,21 @@
 # --- L9_META ---
 # l9_schema: 1
 # origin: l9-template
-# engine: graph
+# engine: enrichment
 # layer: [ci]
 # tags: [L9_TEMPLATE, ci, security]
 # owner: platform
 # status: active
 # --- /L9_META ---
-#
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-# Universal CI/CD Pack — CodeQL Analysis (Optional)
+# Universal CI/CD Pack — CodeQL Analysis
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # VERSION: 1.0.0
-# PURPOSE: GitHub Advanced Security code scanning for vulnerabilities
-# REQUIRES: GitHub Advanced Security (free for public repos)
-# NOTE: This is optional — remove if not using GitHub Advanced Security
+# PURPOSE: GitHub CodeQL semantic code analysis for Python
+# SIBLING PARITY: Cognitive.Engine.Graphs/codeql.yml
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-name: "CodeQL Analysis"
+name: CodeQL Analysis
 
 on:
   push:
@@ -27,30 +25,44 @@ on:
     branches:
       - ${{ vars.PRIMARY_BRANCH || 'main' }}
   schedule:
-    - cron: '0 6 * * 1' # Weekly on Monday at 6 AM UTC
+    - cron: '0 4 * * 1'  # Weekly on Monday at 4 AM UTC
 
 permissions:
-  actions: read
   contents: read
-  security-events: write
+  actions: read
 
 jobs:
   analyze:
-    name: Analyze Python Code
+    name: CodeQL Analysis
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 20
+    # Required to upload SARIF / security findings (workflow-level read-only is not enough on some repos).
+    permissions:
+      contents: read
+      security-events: write
+      actions: read
+
+    strategy:
+      fail-fast: false
+      matrix:
+        language: ['python']
 
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4
 
       - name: Initialize CodeQL
-        uses: github/codeql-action/init@v4
+        uses: github/codeql-action/init@v3
         with:
-          languages: python
+          languages: ${{ matrix.language }}
+
+      - name: Autobuild
+        uses: github/codeql-action/autobuild@v3
 
       - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@v4
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: '/language:${{ matrix.language }}'
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # END OF CODEQL ANALYSIS

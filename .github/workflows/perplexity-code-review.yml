@@ -1,0 +1,246 @@
+# --- L9_META ---
+# l9_schema: 1
+# origin: l9-template
+# engine: enrichment
+# layer: [ci]
+# tags: [perplexity, ai-review, manual]
+# owner: platform
+# status: active
+# --- /L9_META ---
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# AI Code Review (Perplexity) — Manual Trigger Only
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# VERSION: 2.0.0
+# PURPOSE: L9-contract-aware AI code review via Perplexity
+#
+# TRIGGER: Manual only (workflow_dispatch) — NOT on every PR
+# USE CASES:
+#   - PR stuck after multiple failed patch attempts
+#   - Complex architectural changes needing AI review
+#   - Security-sensitive code changes
+#   - On-demand deep review requested by maintainer
+#
+# Setup: Repository secret PERPLEXITY_API_KEY
+# Script: tools/ai_review.py (with L9 contract context)
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+name: AI Code Review (Perplexity)
+
+on:
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: 'PR number to review (leave empty for current branch diff)'
+        required: false
+        type: string
+      include_context:
+        description: 'Include L9 contract context'
+        required: false
+        type: boolean
+        default: true
+      blocking:
+        description: 'Fail workflow on critical/high issues'
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: ai-review-${{ github.event.inputs.pr_number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ai-review:
+    name: Perplexity AI Review
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Detect Perplexity API Key
+        id: key
+        env:
+          PERPLEXITY_API_KEY: ${{ secrets.PERPLEXITY_API_KEY }}
+        run: |
+          if [ -n "$PERPLEXITY_API_KEY" ]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "::error::PERPLEXITY_API_KEY secret not configured"
+            exit 1
+          fi
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install Dependencies
+        run: |
+          pip install "httpx>=0.27.0" pyyaml pydantic pydantic-settings
+
+      - name: Get PR Diff
+        id: diff
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          PR_NUM="${{ github.event.inputs.pr_number }}"
+
+          if [ -n "$PR_NUM" ]; then
+            echo "Fetching diff for PR #$PR_NUM..."
+            gh pr diff "$PR_NUM" > pr_diff.txt || {
+              echo "::error::Failed to fetch PR #$PR_NUM diff"
+              exit 1
+            }
+            echo "pr_number=$PR_NUM" >> "$GITHUB_OUTPUT"
+          else
+            echo "Generating diff for current branch vs main..."
+            git diff origin/main...HEAD > pr_diff.txt || git diff HEAD~10...HEAD > pr_diff.txt
+            echo "pr_number=" >> "$GITHUB_OUTPUT"
+          fi
+
+          if [ ! -s pr_diff.txt ]; then
+            echo "::warning::No diff found — nothing to review"
+            echo "empty=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "empty=false" >> "$GITHUB_OUTPUT"
+          DIFF_SIZE=$(wc -c < pr_diff.txt)
+          echo "Diff size: $DIFF_SIZE bytes"
+
+          # Truncate if too large
+          if [ "$DIFF_SIZE" -gt 400000 ]; then
+            head -c 400000 pr_diff.txt > pr_diff_truncated.txt
+            mv pr_diff_truncated.txt pr_diff.txt
+            echo "::warning::Diff truncated to 400KB"
+          fi
+
+      - name: Run AI Review
+        id: review
+        if: steps.diff.outputs.empty != 'true'
+        env:
+          PERPLEXITY_API_KEY: ${{ secrets.PERPLEXITY_API_KEY }}
+        run: |
+          CONTEXT_FLAG=""
+          if [ "${{ github.event.inputs.include_context }}" = "false" ]; then
+            CONTEXT_FLAG="--no-context"
+          fi
+
+          BLOCK_FLAG="--no-block"
+          if [ "${{ github.event.inputs.blocking }}" = "true" ]; then
+            BLOCK_FLAG=""
+          fi
+
+          echo "Running AI review..."
+          set +e
+          PYTHONPATH=. python3 tools/ai_review.py \
+            --mode file \
+            --diff-path pr_diff.txt \
+            $CONTEXT_FLAG \
+            $BLOCK_FLAG 2>&1 | tee review_output.txt
+          EXIT_CODE=$?
+          set -e
+
+          echo "exit_code=$EXIT_CODE" >> "$GITHUB_OUTPUT"
+
+          if [ $EXIT_CODE -ne 0 ] && [ "${{ github.event.inputs.blocking }}" = "true" ]; then
+            echo "::error::AI review found blocking issues"
+          fi
+
+      - name: Generate Markdown Report
+        if: steps.diff.outputs.empty != 'true'
+        run: |
+          PR_NUM="${{ steps.diff.outputs.pr_number }}"
+
+          cat > review_comment.md << 'HEADER'
+          <!-- ai-code-review-perplexity -->
+          ## 🤖 AI Code Review (Perplexity)
+
+          HEADER
+
+          if [ -n "$PR_NUM" ]; then
+            echo "**PR:** #$PR_NUM" >> review_comment.md
+          else
+            echo "**Branch:** ${{ github.ref_name }}" >> review_comment.md
+          fi
+
+          echo "**Context:** ${{ github.event.inputs.include_context == 'true' && 'L9 contracts included' || 'Generic review' }}" >> review_comment.md
+          echo "**Blocking:** ${{ github.event.inputs.blocking }}" >> review_comment.md
+          echo "" >> review_comment.md
+          echo "---" >> review_comment.md
+          echo "" >> review_comment.md
+          echo '```' >> review_comment.md
+
+          # Truncate output for comment
+          head -c 50000 review_output.txt >> review_comment.md
+
+          echo '```' >> review_comment.md
+          echo "" >> review_comment.md
+          echo "_Triggered by: @${{ github.actor }} · Run: [${{ github.run_id }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})_" >> review_comment.md
+
+      - name: Post PR Comment
+        if: steps.diff.outputs.empty != 'true' && steps.diff.outputs.pr_number != ''
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const marker = '<!-- ai-code-review-perplexity -->';
+            const body = fs.readFileSync('review_comment.md', 'utf8');
+            const prNumber = parseInt('${{ steps.diff.outputs.pr_number }}', 10);
+
+            if (!prNumber) {
+              core.info('No PR number — skipping comment');
+              return;
+            }
+
+            // Find existing comment
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: prNumber,
+            });
+
+            const existing = comments.find(c =>
+              c.user.type === 'Bot' && c.body && c.body.includes(marker)
+            );
+
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body: body,
+              });
+              core.info(`Updated existing comment on PR #${prNumber}`);
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: prNumber,
+                body: body,
+              });
+              core.info(`Created new comment on PR #${prNumber}`);
+            }
+
+      - name: Upload Review Artifact
+        if: steps.diff.outputs.empty != 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ai-review-output
+          path: |
+            review_output.txt
+            review_comment.md
+          retention-days: 30
+
+      - name: Exit with Review Status
+        if: steps.review.outputs.exit_code != '0' && github.event.inputs.blocking == 'true'
+        run: exit 1

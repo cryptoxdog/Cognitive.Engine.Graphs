@@ -1,0 +1,35 @@
+version: 1.0.0
+generated_from: l9-template v1.0.0
+engine: enrichment
+contracts:
+  engine_level:
+  - path: app/engines/chassis_contract.py
+    sha256: <computed-at-stamp-time>
+    required_refs: []
+  - path: app/engines/handlers.py
+    sha256: <computed-at-stamp-time>
+    required_refs: []
+  - path: app/engines/graph_sync_client.py
+    sha256: <computed-at-stamp-time>
+    required_refs: []
+  - path: app/models/loop_schemas.py
+    sha256: <computed-at-stamp-time>
+    required_refs: []
+  - path: app/models/field_confidence.py
+    sha256: <computed-at-stamp-time>
+    required_refs: []
+  - path: app/score/score_models.py
+    sha256: <computed-at-stamp-time>
+    required_refs: []
+  - path: app/health/health_models.py
+    sha256: <computed-at-stamp-time>
+    required_refs: []
+  constellation_level:
+  - path: app/engines/chassis_contract.py
+    sha256: <computed-at-stamp-time>
+    required_refs: []
+    description: "PacketEnvelope inflate/deflate boundary contract"
+  - path: app/engines/graph_sync_client.py
+    sha256: <computed-at-stamp-time>
+    required_refs: []
+    description: "Graph Intelligence Service integration contract"

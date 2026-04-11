@@ -1,0 +1,131 @@
+# --- L9_META ---
+# l9_schema: 1
+# origin: l9-template
+# engine: enrichment
+# layer: [ci]
+# tags: [sonarcloud, quality]
+# owner: platform
+# status: active
+# --- /L9_META ---
+# SonarQube Cloud — requires paid SonarCloud project + GitHub binding.
+#
+# Configure:
+#   1. sonarcloud.io → import this GitHub repo (or create project manually).
+#   2. Repository secret: SONAR_TOKEN (User → My Account → Security → Generate token).
+#   3. Repository variables: SONAR_ORG_KEY, SONAR_PROJECT_KEY (Project → Information).
+#
+# Until all three are set, this workflow skips with a notice (does not fail CI).
+#
+# Optional Telegram on Sonar job failure only (TELEGRAM_BOT_TOKEN + TELEGRAM_CHAT_ID).
+
+name: SonarCloud
+
+on:
+  push:
+    branches:
+      - ${{ vars.PRIMARY_BRANCH || 'main' }}
+      - ${{ vars.DEVELOP_BRANCH || 'develop' }}
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+
+jobs:
+  sonarqube:
+    name: SonarCloud Scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    outputs:
+      did_run: ${{ steps.gate.outputs.run }}
+
+    env:
+      PYTHON_VERSION: ${{ vars.PYTHON_VERSION || '3.12' }}
+      TEST_DIR: ${{ vars.TEST_DIR || 'tests/' }}
+
+    steps:
+      - name: Decide whether to run SonarCloud
+        id: gate
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_ORG_KEY: ${{ vars.SONAR_ORG_KEY }}
+          SONAR_PROJECT_KEY: ${{ vars.SONAR_PROJECT_KEY }}
+        run: |
+          if [ -n "$SONAR_TOKEN" ] && [ -n "$SONAR_ORG_KEY" ] && [ -n "$SONAR_PROJECT_KEY" ]; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "run=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::SonarCloud skipped — add Actions secret SONAR_TOKEN and variables SONAR_ORG_KEY, SONAR_PROJECT_KEY (see sonar-project.properties header)."
+          fi
+
+      - name: Checkout
+        if: steps.gate.outputs.run == 'true'
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        if: steps.gate.outputs.run == 'true'
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: requirements-ci.txt
+
+      - name: Install dependencies
+        if: steps.gate.outputs.run == 'true'
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-ci.txt
+
+      - name: Tests with coverage (Cobertura XML)
+        if: steps.gate.outputs.run == 'true'
+        env:
+          PYTHONPATH: .
+          DATABASE_URL: postgresql://${{ vars.POSTGRES_USER || 'test_user' }}:test_password@localhost:5432/${{ vars.POSTGRES_DB || 'test_db' }}
+          REDIS_URL: redis://localhost:6379/0
+          TESTING: "true"
+        run: |
+          pytest "${{ env.TEST_DIR }}" \
+            -n auto \
+            --cov=app \
+            --cov=engine \
+            --cov-report=xml \
+            --cov-report=term-missing \
+            --timeout=300 \
+            -q
+
+      - name: SonarCloud Scan
+        if: steps.gate.outputs.run == 'true'
+        uses: SonarSource/sonarqube-scan-action@v4
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        with:
+          args: >
+            -Dsonar.organization=${{ vars.SONAR_ORG_KEY }}
+            -Dsonar.projectKey=${{ vars.SONAR_PROJECT_KEY }}
+
+  telegram-notify:
+    name: Telegram (SonarCloud)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    needs: sonarqube
+    if: always() && needs.sonarqube.outputs.did_run == 'true' && needs.sonarqube.result == 'failure'
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout (tools only)
+        uses: actions/checkout@v4
+
+      - name: Send Telegram summary
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ vars.TELEGRAM_CHAT_ID }}
+          REPO: ${{ github.repository }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          TELEGRAM_CI_MESSAGE=$(printf '📊 SonarCloud: failure\n\nRepo: %s\n%s' "$REPO" "$RUN_URL")
+          export TELEGRAM_CI_MESSAGE
+          python3 tools/telegram_send_message.py

@@ -1,17 +1,49 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
 # --- L9_META ---
 # l9_schema: 1
 # origin: l9-template
-# engine: graph
+# engine: enrichment
 # layer: [governance]
-# tags: [L9_TEMPLATE, pr-review]
+# tags: [L9_TEMPLATE, pr-review, coderabbit]
 # owner: platform
 # status: active
 # --- /L9_META ---
 #
-# CodeRabbit — L9 contract-aware review
-# Contract files: docs/contracts/
+# CodeRabbit — paid tier: install the GitHub App + enable repo in dashboard.
+# This file tunes review behavior; see https://docs.coderabbit.ai/reference/configuration
+# Delta context: CODERABBIT.md
+
+language: en-US
+early_access: false
 
 reviews:
+  profile: assertive
+  request_changes_workflow: true
+  high_level_summary: true
+  poem: false
+  review_status: true
+  collapse_walkthrough: false
+
+  auto_review:
+    enabled: true
+    drafts: false
+    auto_pause_after_reviewed_commits: 0
+    ignore_title_keywords:
+      - "WIP"
+      - "[skip review]"
+    labels:
+      - "!do-not-review"
+    ignore_usernames:
+      - "dependabot[bot]"
+      - "renovate[bot]"
+
+  path_filters:
+    - "!docs/**"
+    - "!readme/**"
+    - "!reports/**"
+    - "!htmlcov/**"
+    - "!**/.cursor/**"
+
   instructions: |
     This repo follows the L9 Constellation architecture. Check ALL code against
     these rules (violations are CRITICAL):
@@ -28,3 +60,6 @@ reviews:
     10. All packet_type values must be lowercase snake_case from the registry
 
     Contract files are in docs/contracts/. Reference them in your review.
+
+chat:
+  auto_reply: true

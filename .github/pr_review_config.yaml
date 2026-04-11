@@ -1,85 +1,47 @@
 # --- L9_META ---
 # l9_schema: 1
 # origin: l9-template
-# engine: graph
+# engine: enrichment
 # layer: [governance]
 # tags: [L9_TEMPLATE, governance, pr-review]
 # owner: platform
 # status: active
 # --- /L9_META ---
 #
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-# Universal CI/CD Pack — PR Review Configuration
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-# VERSION: 1.0.0
-# PURPOSE: Define PR review policies and size limits
-# NOTE: Repository Variables (vars.*) override values here
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# PR Review Policy Configuration
+# Sibling parity: Cognitive.Engine.Graphs/.github/pr_review_config.yaml
 
-# ──────────────────────────────────────────────────────────────────────────
-# PR Size Limits
-# ──────────────────────────────────────────────────────────────────────────
 size_limits:
-  # Lines changed warning threshold (adds comment, non-blocking)
   warn_threshold: 300
-
-  # Lines changed blocking threshold (fails check, blocks merge)
   block_threshold: 1000
-
-  # Maximum files changed in a single PR
   max_files_changed: 50
 
-# ──────────────────────────────────────────────────────────────────────────
-# Protected Files (Require CODEOWNERS approval)
-# ──────────────────────────────────────────────────────────────────────────
 protected_files:
-  - ".github/workflows/*.yml"
-  - ".github/workflows/*.yaml"
-  - "docker-compose.yml"
+  - ".github/workflows/*"
   - "Dockerfile"
+  - "docker-compose*.yml"
   - "pyproject.toml"
-  - "setup.py"
-  # Add your critical files here
+  - "requirements*.txt"
+  - ".pre-commit-config.yaml"
+  - ".gitleaks.toml"
 
-# ──────────────────────────────────────────────────────────────────────────
-# Review Audit Scopes (Guidelines for reviewers)
-# ──────────────────────────────────────────────────────────────────────────
 audit_scopes:
   security:
-    - sql_injection
-    - path_traversal
-    - secret_exposure
-    - unsafe_eval
-    - command_injection
-    - xss_vulnerabilities
-
+    - "app/security/*"
+    - "app/auth/*"
+    - ".gitleaks.toml"
   performance:
-    - async_patterns
-    - database_queries
-    - caching_opportunities
-    - memory_usage
-    - connection_pooling
-
+    - "app/enrichment/*"
+    - "app/inference/*"
+    - "app/convergence/*"
   architecture:
-    - dependency_injection
-    - circular_dependencies
-    - separation_of_concerns
-    - single_responsibility
-
+    - "app/chassis_contract.py"
+    - "app/handlers.py"
+    - "app/models/*"
   testing:
-    - test_coverage
-    - edge_cases
-    - error_handling
-    - integration_tests
+    - "tests/**"
 
-# ──────────────────────────────────────────────────────────────────────────
-# CODEOWNERS Settings
-# ──────────────────────────────────────────────────────────────────────────
 codeowners:
   required_approvals: 1
   dismiss_stale_reviews: true
   require_code_owner_reviews: true
-
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-# END OF PR REVIEW CONFIGURATION
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
