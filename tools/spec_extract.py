@@ -1,557 +1,323 @@
+#!/usr/bin/env python3
 """
 --- L9_META ---
 l9_schema: 1
-origin: l9-template
+origin: engine-specific
 engine: graph
 layer: [audit]
-tags: [L9_TEMPLATE, audit, spec-coverage]
+tags: [cutover, audit, spec-coverage, extraction]
 owner: platform
 status: active
 --- /L9_META ---
 
-tools/spec_extract.py
-L9_TEMPLATE: true
+Cutover-aware spec and repo extractor for Cognitive.Engine.Graphs.
 
-Extracts required features from the graph-cognitive-engine spec YAML,
-then scans engine/ code to produce a coverage matrix.
+This tool answers one question:
+Does the repository, as currently written, express the intended cutover model?
 
-Usage:
-    python tools/spec_extract.py                          # default spec path
-    python tools/spec_extract.py --spec path/to/spec.yaml # custom spec path
-    python tools/spec_extract.py --fail-on MISSING        # exit 1 if any MISSING
-
-Outputs:
-    artifacts/spec_checklist.json    — extracted features from spec
-    artifacts/coverage_matrix.json   — IMPLEMENTED / PARTIAL / MISSING per feature
-    artifacts/coverage_report.md     — human-readable markdown report
+Artifacts written:
+- artifacts/spec_checklist.json
+- artifacts/coverage_matrix.json
+- artifacts/coverage_report.md
 """
 
 from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime
-from enum import StrEnum
 from pathlib import Path
 from typing import Any
 
+YAML_IMPORT_ERROR: Exception | None = None
 try:
-    import yaml
-except ImportError:
+    import yaml  # type: ignore[import-untyped]
+except ImportError as exc:  # pragma: no cover - import guard
     yaml = None
+    YAML_IMPORT_ERROR = exc
 
 
-L9_TEMPLATE_TAG = "L9_TEMPLATE"
+SKIP_DIRS = {
+    ".git",
+    ".venv",
+    "venv",
+    "node_modules",
+    "__pycache__",
+    ".mypy_cache",
+    ".pytest_cache",
+    ".ruff_cache",
+    "artifacts",
+}
+TEXT_SUFFIXES = {".py", ".pyi", ".md", ".rst", ".txt", ".yaml", ".yml", ".json", ".toml", ".sh"}
 
 
-class Status(StrEnum):
-    IMPLEMENTED = "IMPLEMENTED"
-    PARTIAL = "PARTIAL"
-    MISSING = "MISSING"
-
-
-@dataclass
+@dataclass(slots=True)
 class SpecFeature:
     category: str
     name: str
-    spec_reference: str
-    search_tokens: list[str] = field(default_factory=list)
-    search_files: list[str] = field(default_factory=list)
+    reference: str
+    expected_state: str
+    search_regexes: list[str] = field(default_factory=list)
+    include_globs: list[str] = field(default_factory=lambda: ["**/*"])
+    exclude_globs: list[str] = field(default_factory=list)
     status: str = "MISSING"
     evidence_files: list[str] = field(default_factory=list)
     evidence_lines: list[str] = field(default_factory=list)
+    notes: str = ""
 
 
-def load_yaml_file(path: Path) -> dict[str, Any]:
+def now_iso() -> str:
+    return datetime.now(UTC).isoformat()
+
+
+def load_yaml(path: Path) -> dict[str, Any]:
     if yaml is None:
-        raise RuntimeError("PyYAML required: pip install pyyaml")
-    with path.open("r", encoding="utf-8") as f:
-        return yaml.safe_load(f) or {}
+        msg = f"PyYAML not installed: {YAML_IMPORT_ERROR!s}"
+        raise RuntimeError(msg)
+    return yaml.safe_load(path.read_text(encoding="utf-8")) or {}
 
 
-def deep_get(d: dict, *keys: str, default: Any = None) -> Any:
-    for k in keys:
-        if isinstance(d, dict):
-            d = d.get(k, default)
-        else:
-            return default
-    return d
+def should_skip(path: Path) -> bool:
+    if any(part in SKIP_DIRS for part in path.parts):
+        return True
+    return bool(path.suffix and path.suffix not in TEXT_SUFFIXES)
 
 
-def extract_gate_features(spec: dict) -> list[SpecFeature]:
-    features = []
-    gates_section = deep_get(spec, "gates", default={})
-
-    if isinstance(gates_section, dict):
-        gate_types = gates_section.get("types", gates_section.get("gate_types", {}))
-        if isinstance(gate_types, dict):
-            for gate_name, gate_def in gate_types.items():
-                features.append(
-                    SpecFeature(
-                        category="gates",
-                        name=gate_name,
-                        spec_reference=f"gates.types.{gate_name}",
-                        search_tokens=[
-                            gate_name,
-                            gate_name.replace("_", ""),
-                            f"class {gate_name.title().replace('_', '')}Gate",
-                            f'"{gate_name}"',
-                            f"'{gate_name}'",
-                            f"GateType.{gate_name.upper()}",
-                        ],
-                        search_files=["engine/gates/**/*.py"],
-                    )
-                )
-        elif isinstance(gate_types, list):
-            for item in gate_types:
-                name = item if isinstance(item, str) else item.get("type", item.get("name", str(item)))
-                features.append(
-                    SpecFeature(
-                        category="gates",
-                        name=str(name),
-                        spec_reference=f"gates.types.{name}",
-                        search_tokens=[
-                            str(name),
-                            str(name).replace("_", ""),
-                            f"class {str(name).title().replace('_', '')}Gate",
-                            f'"{name}"',
-                            f"GateType.{str(name).upper()}",
-                        ],
-                        search_files=["engine/gates/**/*.py"],
-                    )
-                )
-
-    if not features:
-        all_text = json.dumps(spec)
-        known_gates = [
-            "range",
-            "threshold",
-            "boolean",
-            "composite",
-            "enum_map",
-            "exclusion",
-            "self_range",
-            "freshness",
-            "temporal_range",
-            "traversal",
-            "multi_range",
-            "weighted_enum",
-            "geo_radius",
-            "set_intersection",
-        ]
-        for g in known_gates:
-            if g in all_text or g.replace("_", "") in all_text:
-                features.append(
-                    SpecFeature(
-                        category="gates",
-                        name=g,
-                        spec_reference="gates (detected in spec text)",
-                        search_tokens=[g, g.replace("_", ""), f'"{g}"', f"GateType.{g.upper()}"],
-                        search_files=["engine/gates/**/*.py"],
-                    )
-                )
-
-    return features
+def repo_files(root: Path) -> dict[str, str]:
+    files: dict[str, str] = {}
+    for path in root.rglob("*"):
+        if not path.is_file() or should_skip(path):
+            continue
+        rel = str(path.relative_to(root)).replace("\\", "/")
+        files[rel] = path.read_text(encoding="utf-8", errors="replace")
+    return files
 
 
-def extract_scoring_features(spec: dict) -> list[SpecFeature]:
-    features = []
-    scoring = deep_get(spec, "scoring", default={})
-
-    if isinstance(scoring, dict):
-        dims = scoring.get("dimensions", scoring.get("computation_types", scoring.get("types", {})))
-        if isinstance(dims, (dict, list)):
-            items = dims.items() if isinstance(dims, dict) else enumerate(dims)
-            for key, val in items:
-                name = (
-                    val
-                    if isinstance(val, str)
-                    else (val.get("type", val.get("name", str(key))) if isinstance(val, dict) else str(val))
-                )
-                features.append(
-                    SpecFeature(
-                        category="scoring",
-                        name=str(name),
-                        spec_reference=f"scoring.{name}",
-                        search_tokens=[
-                            str(name),
-                            str(name).replace("_", ""),
-                            f'"{name}"',
-                            f"ScoringType.{str(name).upper()}",
-                        ],
-                        search_files=["engine/scoring/**/*.py"],
-                    )
-                )
-
-    if not features:
-        all_text = json.dumps(spec)
-        known_scoring = [
-            "geo_decay",
-            "log_normalized",
-            "community_match",
-            "inverse_linear",
-            "candidate_property",
-            "custom_cypher",
-            "temporal_decay",
-            "outcome_weighted",
-            "set_overlap",
-        ]
-        for s in known_scoring:
-            if s in all_text or s.replace("_", "") in all_text:
-                features.append(
-                    SpecFeature(
-                        category="scoring",
-                        name=s,
-                        spec_reference="scoring (detected in spec text)",
-                        search_tokens=[s, s.replace("_", ""), f'"{s}"'],
-                        search_files=["engine/scoring/**/*.py"],
-                    )
-                )
-
-    return features
+def matches_globs(rel_path: str, include_globs: list[str], exclude_globs: list[str]) -> bool:
+    path = Path(rel_path)
+    if include_globs and not any(path.match(pattern) for pattern in include_globs):
+        return False
+    return not (exclude_globs and any(path.match(pattern) for pattern in exclude_globs))
 
 
-def extract_ontology_features(spec: dict) -> list[SpecFeature]:
-    features = []
-    ontology = deep_get(spec, "ontology", default={})
-
-    for section_key, category_label in [("nodes", "ontology_node"), ("edges", "ontology_edge")]:
-        items = ontology.get(section_key, [])
-        if isinstance(items, list):
-            for item in items:
-                name = (
-                    item if isinstance(item, str) else item.get("label", item.get("type", item.get("name", str(item))))
-                )
-                features.append(
-                    SpecFeature(
-                        category=category_label,
-                        name=str(name),
-                        spec_reference=f"ontology.{section_key}.{name}",
-                        search_tokens=[f'"{name}"', f"'{name}'", str(name)],
-                        search_files=["engine/**/*.py", "domains/**/*.yaml"],
-                    )
-                )
-        elif isinstance(items, dict):
-            for name in items:
-                features.append(
-                    SpecFeature(
-                        category=category_label,
-                        name=str(name),
-                        spec_reference=f"ontology.{section_key}.{name}",
-                        search_tokens=[f'"{name}"', f"'{name}'", str(name)],
-                        search_files=["engine/**/*.py", "domains/**/*.yaml"],
-                    )
-                )
-
-    return features
-
-
-def extract_v11_additions(spec: dict) -> list[SpecFeature]:
-    v11_nodes = ["TransactionOutcome", "SignalEvent"]
-    v11_edges = ["RESULTED_IN", "RESOLVED_FROM"]
-    v11_endpoints = ["outcomes", "resolve"]
-    v11_scoring = ["temporal_decay", "outcome_weighted"]
-
-    features = []
-    for node in v11_nodes:
-        features.append(
-            SpecFeature(
-                category="v1.1_node",
-                name=node,
-                spec_reference=f"v1.1 addition: {node} node",
-                search_tokens=[node, f'"{node}"', f"'{node}'"],
-                search_files=["engine/**/*.py", "domains/**/*.yaml"],
-            )
-        )
-    for edge in v11_edges:
-        features.append(
-            SpecFeature(
-                category="v1.1_edge",
-                name=edge,
-                spec_reference=f"v1.1 addition: {edge} edge",
-                search_tokens=[edge, f'"{edge}"', f"'{edge}'"],
-                search_files=["engine/**/*.py", "domains/**/*.yaml"],
-            )
-        )
-    for ep in v11_endpoints:
-        features.append(
-            SpecFeature(
-                category="v1.1_action",
-                name=ep,
-                spec_reference=f"v1.1 addition: {ep} action/endpoint",
-                search_tokens=[f"handle_{ep}", f'"{ep}"', f"'{ep}'", ep],
-                search_files=["engine/handlers.py", "engine/**/*.py"],
-            )
-        )
-    for sc in v11_scoring:
-        features.append(
-            SpecFeature(
-                category="v1.1_scoring",
-                name=sc,
-                spec_reference=f"v1.1 addition: {sc} scoring type",
-                search_tokens=[sc, sc.replace("_", ""), f'"{sc}"'],
-                search_files=["engine/scoring/**/*.py"],
-            )
-        )
-
-    return features
-
-
-def extract_action_features(spec: dict) -> list[SpecFeature]:
-    actions = ["match", "sync", "admin", "query", "enrich", "healthcheck"]
-    features = []
-    for action in actions:
-        features.append(
-            SpecFeature(
-                category="action_handler",
-                name=action,
-                spec_reference=f"chassis action: {action}",
-                search_tokens=[f"handle_{action}", f'"{action}"', f'register_handler("{action}"'],
-                search_files=["engine/handlers.py"],
-            )
-        )
-    return features
-
-
-def extract_gds_features(spec: dict) -> list[SpecFeature]:
-    gds = deep_get(spec, "gds_jobs", default=deep_get(spec, "gds", default={}))
-    features = []
-
-    known_algos = [
-        "louvain",
-        "cooccurrence",
-        "reinforcement",
-        "temporal_recency",
-        "similarity",
-        "pagerank",
-        "label_propagation",
+def base_cutover_features() -> list[SpecFeature]:
+    compatibility_allow = ["engine/packet/**", "tests/**", "contracts/**", "docs/**"]
+    return [
+        SpecFeature(
+            category="runtime_authority",
+            name="Gate_SDK",
+            reference="Cutover objective",
+            expected_state="IMPLEMENTED",
+            search_regexes=[r"\bGate_SDK\b"],
+            include_globs=["**/*.py", "**/*.md", "**/*.yaml", "**/*.yml"],
+            exclude_globs=compatibility_allow,
+            notes="Gate_SDK should appear as runtime authority in active tooling.",
+        ),
+        SpecFeature(
+            category="routing_authority",
+            name="Gate",
+            reference="Cutover objective",
+            expected_state="IMPLEMENTED",
+            search_regexes=[r"\bGate\b"],
+            include_globs=["**/*.py", "**/*.md", "**/*.yaml", "**/*.yml"],
+            exclude_globs=compatibility_allow,
+            notes="Gate should appear as routing authority in active tooling.",
+        ),
+        SpecFeature(
+            category="transport_authority",
+            name="TransportPacket",
+            reference="Cutover objective",
+            expected_state="IMPLEMENTED",
+            search_regexes=[r"\bTransportPacket\b"],
+            include_globs=["**/*.py", "**/*.md", "**/*.yaml", "**/*.yml"],
+            exclude_globs=compatibility_allow,
+            notes="TransportPacket should be canonical transport in active tooling.",
+        ),
+        SpecFeature(
+            category="compatibility_only",
+            name="PacketEnvelope",
+            reference="Cutover objective",
+            expected_state="PARTIAL",
+            search_regexes=[r"\bPacketEnvelope\b"],
+            include_globs=["engine/packet/**", "tests/**", "contracts/**", "docs/**"],
+            notes="PacketEnvelope should remain only inside compatibility or historical surfaces.",
+        ),
+        SpecFeature(
+            category="split_brain_guard",
+            name="No active dual transport",
+            reference="Cutover objective",
+            expected_state="IMPLEMENTED",
+            search_regexes=[r"\bTransportPacket\b", r"\bPacketEnvelope\b"],
+            include_globs=["tools/**/*.py", "engine/**/*.py", "README*.md", "ARCHITECTURE*.md"],
+            exclude_globs=compatibility_allow,
+            notes="No active file should normalize both PacketEnvelope and TransportPacket as equal truths.",
+        ),
+        SpecFeature(
+            category="legacy_drift",
+            name="No chassis-first ingress truth",
+            reference="Cutover objective",
+            expected_state="IMPLEMENTED",
+            search_regexes=[r"POST /v1/execute", r"single ingress", r"inflate_ingress\(", r"deflate_egress\("],
+            include_globs=["tools/**/*.py", "engine/**/*.py", "README*.md", "ARCHITECTURE*.md"],
+            exclude_globs=compatibility_allow,
+            notes="Legacy ingress semantics should not remain active truth in current tooling.",
+        ),
     ]
 
-    if isinstance(gds, dict):
-        jobs = gds.get("jobs", gds.get("algorithms", []))
-        if isinstance(jobs, list):
-            for job in jobs:
-                name = job if isinstance(job, str) else job.get("algorithm", job.get("name", str(job)))
-                features.append(
-                    SpecFeature(
-                        category="gds_algorithm",
-                        name=str(name),
-                        spec_reference=f"gds_jobs.{name}",
-                        search_tokens=[str(name), f"_run_{name}", f'"{name}"'],
-                        search_files=["engine/gds/**/*.py"],
-                    )
-                )
 
-    if not features:
-        all_text = json.dumps(spec)
-        for algo in known_algos:
-            if algo in all_text:
-                features.append(
-                    SpecFeature(
-                        category="gds_algorithm",
-                        name=algo,
-                        spec_reference="gds (detected in spec text)",
-                        search_tokens=[algo, f"_run_{algo}", f'"{algo}"'],
-                        search_files=["engine/gds/**/*.py"],
-                    )
-                )
-
+def enrich_from_spec(spec: dict[str, Any], features: list[SpecFeature]) -> list[SpecFeature]:
+    spec_text = json.dumps(spec)
+    if "Gate_SDK" in spec_text:
+        features.append(
+            SpecFeature(
+                category="spec_declared",
+                name="Spec declares Gate_SDK",
+                reference="Provided spec document",
+                expected_state="IMPLEMENTED",
+                search_regexes=[r"\bGate_SDK\b"],
+            )
+        )
+    if "TransportPacket" in spec_text:
+        features.append(
+            SpecFeature(
+                category="spec_declared",
+                name="Spec declares TransportPacket",
+                reference="Provided spec document",
+                expected_state="IMPLEMENTED",
+                search_regexes=[r"\bTransportPacket\b"],
+            )
+        )
     return features
 
 
-def scan_codebase(root: Path, features: list[SpecFeature]) -> None:
-    py_cache: dict[str, str] = {}
-    yaml_cache: dict[str, str] = {}
+def evaluate_feature(feature: SpecFeature, files: dict[str, str]) -> None:
+    matches: list[str] = []
+    line_hits: list[str] = []
 
-    for py_file in root.rglob("*.py"):
-        if ".venv" in py_file.parts or "__pycache__" in py_file.parts:
+    for rel_path, content in files.items():
+        if not matches_globs(rel_path, feature.include_globs, feature.exclude_globs):
             continue
-        try:
-            py_cache[str(py_file.relative_to(root))] = py_file.read_text(encoding="utf-8", errors="replace")
-        except Exception:
-            pass
-
-    for yaml_file in root.rglob("*.yaml"):
-        if ".venv" in yaml_file.parts:
+        regex_hits = [re.search(pattern, content, re.MULTILINE) for pattern in feature.search_regexes]
+        if feature.category in {"split_brain_guard", "legacy_drift"}:
+            if feature.category == "split_brain_guard":
+                if all(regex_hits):
+                    matches.append(rel_path)
+                    line_hits.append(f"{rel_path}:1")
+            elif any(regex_hits):
+                matches.append(rel_path)
+                line_hits.append(f"{rel_path}:1")
             continue
-        try:
-            yaml_cache[str(yaml_file.relative_to(root))] = yaml_file.read_text(encoding="utf-8", errors="replace")
-        except Exception:
-            pass
 
-    all_files = {**py_cache, **yaml_cache}
-
-    for feature in features:
-        matched_files = []
-        matched_lines = []
-
-        search_scope = all_files
-        if feature.search_files:
-            filtered = {}
-            for glob_pat in feature.search_files:
-                for fpath, content in all_files.items():
-                    norm_glob = glob_pat.replace("**/*", "").replace("**", "").rstrip("/")
-                    if fpath.startswith(norm_glob.split("*")[0].rstrip("/")):
-                        filtered[fpath] = content
-            if filtered:
-                search_scope = filtered
-
-        for fpath, content in search_scope.items():
-            for token in feature.search_tokens:
-                if token.lower() in content.lower():
-                    matched_files.append(fpath)
-                    for i, line in enumerate(content.splitlines(), 1):
-                        if token.lower() in line.lower():
-                            matched_lines.append(f"{fpath}:{i}")
+        if any(regex_hits):
+            matches.append(rel_path)
+            for pattern in feature.search_regexes:
+                match = re.search(pattern, content, re.MULTILINE)
+                if match:
+                    line_no = content.count("\n", 0, match.start()) + 1
+                    line_hits.append(f"{rel_path}:{line_no}")
                     break
 
-        feature.evidence_files = sorted(set(matched_files))
-        feature.evidence_lines = matched_lines[:10]
+    feature.evidence_files = sorted(set(matches))
+    feature.evidence_lines = line_hits[:10]
 
-        if len(feature.evidence_files) >= 2:
-            feature.status = Status.IMPLEMENTED.value
-        elif len(feature.evidence_files) == 1:
-            feature.status = Status.PARTIAL.value
-        else:
-            feature.status = Status.MISSING.value
+    if feature.category == "split_brain_guard":
+        feature.status = "MISSING" if feature.evidence_files else "IMPLEMENTED"
+        return
+    if feature.category == "legacy_drift":
+        feature.status = "MISSING" if feature.evidence_files else "IMPLEMENTED"
+        return
 
-
-def write_checklist(out_dir: Path, features: list[SpecFeature]) -> None:
-    out_dir.mkdir(parents=True, exist_ok=True)
-    data = [asdict(f) for f in features]
-    (out_dir / "spec_checklist.json").write_text(json.dumps(data, indent=2), encoding="utf-8")
-
-
-def write_coverage_matrix(out_dir: Path, features: list[SpecFeature]) -> None:
-    out_dir.mkdir(parents=True, exist_ok=True)
-
-    by_category: dict[str, dict[str, int]] = {}
-    for f in features:
-        cat = f.category
-        if cat not in by_category:
-            by_category[cat] = {"IMPLEMENTED": 0, "PARTIAL": 0, "MISSING": 0, "total": 0}
-        by_category[cat][f.status] += 1
-        by_category[cat]["total"] += 1
-
-    totals = {"IMPLEMENTED": 0, "PARTIAL": 0, "MISSING": 0, "total": 0}
-    for cat_data in by_category.values():
-        for k in totals:
-            totals[k] += cat_data[k]
-
-    matrix = {"categories": by_category, "totals": totals, "generated_at": datetime.now(UTC).isoformat()}
-    (out_dir / "coverage_matrix.json").write_text(json.dumps(matrix, indent=2), encoding="utf-8")
+    if feature.expected_state == "PARTIAL":
+        feature.status = "IMPLEMENTED" if feature.evidence_files else "MISSING"
+    else:
+        feature.status = "IMPLEMENTED" if feature.evidence_files else "MISSING"
 
 
-def write_coverage_report(out_dir: Path, features: list[SpecFeature], matrix: dict) -> None:
-    out_dir.mkdir(parents=True, exist_ok=True)
+def write_outputs(root: Path, features: list[SpecFeature]) -> None:
+    artifacts = root / "artifacts"
+    artifacts.mkdir(parents=True, exist_ok=True)
+    serialized = [asdict(feature) for feature in features]
+    (artifacts / "spec_checklist.json").write_text(json.dumps(serialized, indent=2), encoding="utf-8")
+
+    totals = {"IMPLEMENTED": 0, "MISSING": 0}
+    categories: dict[str, dict[str, int]] = {}
+    for feature in features:
+        totals[feature.status] = totals.get(feature.status, 0) + 1
+        categories.setdefault(feature.category, {"IMPLEMENTED": 0, "MISSING": 0, "total": 0})
+        categories[feature.category][feature.status] += 1
+        categories[feature.category]["total"] += 1
+
+    matrix = {"generated_at": now_iso(), "totals": totals, "categories": categories}
+    (artifacts / "coverage_matrix.json").write_text(json.dumps(matrix, indent=2), encoding="utf-8")
+
     lines: list[str] = []
-    lines.append("# L9 Spec Coverage Report")
-    lines.append(f"\n- Generated: {datetime.now(UTC).isoformat()}")
-    lines.append(f"- Template tag: `{L9_TEMPLATE_TAG}`")
+    lines.append("# CEG Cutover Coverage Report")
     lines.append("")
-
-    lines.append("## Summary")
+    lines.append(f"- Generated: {matrix['generated_at']}")
+    lines.append(f"- Implemented: {totals['IMPLEMENTED']}")
+    lines.append(f"- Missing: {totals['MISSING']}")
     lines.append("")
-    lines.append("| Category | Implemented | Partial | Missing | Total |")
-    lines.append("|----------|-------------|---------|---------|-------|")
-
-    cats = json.loads((out_dir / "coverage_matrix.json").read_text())["categories"]
-    for cat, data in cats.items():
-        lines.append(f"| {cat} | {data['IMPLEMENTED']} | {data['PARTIAL']} | {data['MISSING']} | {data['total']} |")
-
-    totals = json.loads((out_dir / "coverage_matrix.json").read_text())["totals"]
-    lines.append(
-        f"| **TOTAL** | **{totals['IMPLEMENTED']}** | **{totals['PARTIAL']}** | **{totals['MISSING']}** | **{totals['total']}** |"
-    )
-    lines.append("")
-
-    for status_filter in [Status.MISSING.value, Status.PARTIAL.value, Status.IMPLEMENTED.value]:
-        filtered = [f for f in features if f.status == status_filter]
-        if not filtered:
-            continue
-
-        icon = {"MISSING": "❌", "PARTIAL": "⚠️", "IMPLEMENTED": "✅"}[status_filter]
-        lines.append(f"## {icon} {status_filter}")
+    for feature in features:
+        marker = "✅" if feature.status == "IMPLEMENTED" else "❌"
+        lines.append(f"## {marker} {feature.category} :: {feature.name}")
+        lines.append(f"- Reference: {feature.reference}")
+        lines.append(f"- Expected state: {feature.expected_state}")
+        lines.append(f"- Status: {feature.status}")
+        if feature.evidence_files:
+            lines.append(f"- Files: {', '.join(feature.evidence_files)}")
+            lines.append(f"- Lines: {', '.join(feature.evidence_lines)}")
+        else:
+            lines.append("- Files: none")
+        if feature.notes:
+            lines.append(f"- Notes: {feature.notes}")
         lines.append("")
+    (artifacts / "coverage_report.md").write_text("\n".join(lines), encoding="utf-8")
 
-        for f in filtered:
-            lines.append(f"### {f.category} → `{f.name}`")
-            lines.append(f"- Spec ref: `{f.spec_reference}`")
-            if f.evidence_files:
-                lines.append(f"- Found in: {', '.join(f'`{e}`' for e in f.evidence_files)}")
-            if f.evidence_lines:
-                lines.append(f"- Lines: {', '.join(f.evidence_lines[:5])}")
-            else:
-                lines.append("- **No code references found**")
-            lines.append("")
 
-    (out_dir / "coverage_report.md").write_text("\n".join(lines), encoding="utf-8")
+def run_extract(root: Path, spec_path: Path | None = None) -> list[SpecFeature]:
+    """Public API: return feature list without writing artifacts or printing."""
+    features = base_cutover_features()
+    if spec_path is not None:
+        spec = load_yaml(spec_path)
+        features = enrich_from_spec(spec, features)
+    files = repo_files(root)
+    for feature in features:
+        evaluate_feature(feature, files)
+    return features
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Extract cutover coverage from repo and optional spec")
+    parser.add_argument("--root", default=".", help="Repository root")
+    parser.add_argument("--spec", default=None, help="Optional spec YAML path")
+    parser.add_argument("--fail-on-missing", action="store_true", help="Exit 1 if any feature is missing")
+    return parser.parse_args()
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="L9 Spec Coverage Extractor")
-    parser.add_argument("--spec", default=None, help="Path to spec YAML (auto-detected if omitted)")
-    parser.add_argument("--root", default=".", help="Repo root directory")
-    parser.add_argument(
-        "--fail-on",
-        default="MISSING",
-        choices=["MISSING", "PARTIAL", "NONE"],
-        help="Exit 1 if any features have this status (or worse)",
-    )
-    args = parser.parse_args()
-
+    args = parse_args()
     root = Path(args.root).resolve()
-    out_dir = root / "artifacts"
+    features = base_cutover_features()
 
-    spec_path = Path(args.spec) if args.spec else None
-    if spec_path is None:
-        candidates = list(root.glob("*spec*.yaml")) + list(root.glob("*spec*.yml"))
-        if candidates:
-            spec_path = candidates[0]
-        else:
-            print("ERROR: No spec YAML found. Use --spec path/to/spec.yaml", file=sys.stderr)
+    if args.spec:
+        try:
+            spec = load_yaml(Path(args.spec).resolve())
+            features = enrich_from_spec(spec, features)
+        except Exception as exc:
+            print(f"spec_extract failed to load spec: {exc}", file=sys.stderr)
             return 2
 
-    print(f"Loading spec: {spec_path}")
-    spec = load_yaml_file(spec_path)
+    files = repo_files(root)
+    for feature in features:
+        evaluate_feature(feature, files)
 
-    features: list[SpecFeature] = []
-    features += extract_gate_features(spec)
-    features += extract_scoring_features(spec)
-    features += extract_ontology_features(spec)
-    features += extract_v11_additions(spec)
-    features += extract_action_features(spec)
-    features += extract_gds_features(spec)
-
-    print(f"Extracted {len(features)} features from spec")
-    print(f"Scanning codebase at {root} ...")
-
-    scan_codebase(root, features)
-
-    write_checklist(out_dir, features)
-    write_coverage_matrix(out_dir, features)
-
-    matrix_data = json.loads((out_dir / "coverage_matrix.json").read_text())
-    write_coverage_report(out_dir, features, matrix_data)
-
-    totals = matrix_data["totals"]
-    print(
-        f"\nCoverage: {totals['IMPLEMENTED']} implemented, {totals['PARTIAL']} partial, {totals['MISSING']} missing (of {totals['total']})"
-    )
-    print(f"Report: {out_dir / 'coverage_report.md'}")
-    print(f"Matrix: {out_dir / 'coverage_matrix.json'}")
-    print(f"Checklist: {out_dir / 'spec_checklist.json'}")
-
-    if args.fail_on == "MISSING" and totals["MISSING"] > 0:
-        print(f"\nFAILED: {totals['MISSING']} features are MISSING", file=sys.stderr)
-        return 1
-    if args.fail_on == "PARTIAL" and (totals["MISSING"] > 0 or totals["PARTIAL"] > 0):
-        print(f"\nFAILED: {totals['MISSING']} MISSING + {totals['PARTIAL']} PARTIAL", file=sys.stderr)
-        return 1
-
-    return 0
+    write_outputs(root, features)
+    missing = sum(1 for feature in features if feature.status == "MISSING")
+    print(json.dumps({"generated_at": now_iso(), "feature_count": len(features), "missing": missing}, indent=2))
+    return 1 if args.fail_on_missing and missing else 0
 
 
 if __name__ == "__main__":

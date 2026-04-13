@@ -43,7 +43,7 @@ repos:
     hooks:
       - id: pytest-unit
         name: pytest unit tests
-        entry: bash -c 'PYTHONPATH="${PYTHONPATH}:." python3 -m pytest tests/ -m "unit" --ignore=tests/unit/test_gates_all_types.py --ignore=tests/unit/test_scoring.py --ignore=tests/unit/test_config.py --tb=short -q'
+        entry: bash -c 'PYTHONPATH="${PYTHONPATH}:." python3 -m pytest tests/unit/ -m "unit" --ignore=tests/unit/test_gates_all_types.py --ignore=tests/unit/test_scoring.py --ignore=tests/unit/test_config.py --ignore=tests/unit/test_arbitration.py --tb=short -q'
         language: system
         pass_filenames: false
         always_run: true

@@ -2,8 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from engine.config.loader import DomainSpecLoader
-
+from engine.config.loader import DomainPackLoader as DomainSpecLoader
 
 SPEC_PATH = Path("domains/plasticos/spec.yaml")
 

@@ -1,89 +1,179 @@
 # --- L9_META ---
 # l9_schema: 1
-# origin: l9-template
+# origin: engine-specific
 # engine: graph
 # layer: [audit]
-# tags: [L9_TEMPLATE, audit-rules]
+# tags: [cutover, audit-rules, transport, routing]
 # owner: platform
 # status: active
 # --- /L9_META ---
-#
 meta:
-  L9_TEMPLATE: true
-  name: "L9 Engine Audit Rules"
-  version: "2026-03-01"
+  name: "CEG Cutover Audit Rules"
+  version: "2026-04-11"
+  mode: "fail_closed"
+  objective: "Enforce Gate_SDK runtime authority, Gate routing authority, TransportPacket canonical transport, and PacketEnvelope compatibility-only status."
 
 rules:
-  - id: "ARCH_NO_FASTAPI_IN_ENGINE"
-    severity: "CRITICAL"
-    description: "Engine code must not import FastAPI/Starlette/Uvicorn (chassis owns HTTP)."
-    include_globs: ["engine/**/*.py"]
-    exclude_globs: ["engine/handlers.py"]
-    patterns:
-      - "import fastapi"
-      - "from fastapi import"
-      - "import starlette"
-      - "from starlette import"
-      - "import uvicorn"
-      - "from uvicorn import"
+  - id: CUTOVER_RUNTIME_AUTHORITY_REQUIRED
+    severity: CRITICAL
+    description: Runtime tooling must anchor to Gate_SDK.
+    include_globs:
+      - tools/**/*.py
+      - engine/**/*.py
+      - README*.md
+      - ARCHITECTURE*.md
+    exclude_globs:
+      - engine/packet/**
+      - docs/**
+      - tests/**
+      - contracts/**
+    require_any_regex:
+      - '\bGate_SDK\b'
+    fail_message: Gate_SDK runtime authority anchor missing.
+    remediation: Re-anchor runtime guidance and enforcement to Gate_SDK.
 
-  - id: "ARCH_NO_CUSTOM_ROUTES_DIR"
-    severity: "CRITICAL"
-    description: "engine/api directory must not exist."
-    file_exists_forbidden:
-      - "engine/api"
+  - id: CUTOVER_ROUTING_AUTHORITY_REQUIRED
+    severity: CRITICAL
+    description: Routing tooling must anchor to Gate.
+    include_globs:
+      - tools/**/*.py
+      - engine/**/*.py
+      - README*.md
+      - ARCHITECTURE*.md
+    exclude_globs:
+      - engine/packet/**
+      - docs/**
+      - tests/**
+      - contracts/**
+    require_any_regex:
+      - '\bGate\b'
+    fail_message: Gate routing authority anchor missing.
+    remediation: Re-anchor routing guidance and enforcement to Gate.
 
-  - id: "ARCH_NO_TENANT_RESOLUTION"
-    severity: "HIGH"
-    description: "Tenant resolution must be chassis-only; engine must not implement tenant parsing logic."
-    include_globs: ["engine/**/*.py"]
-    patterns:
-      - "resolve_tenant"
-      - "X-Domain-Key"
-      - "X-Tenant-Key"
+  - id: CUTOVER_TRANSPORT_REQUIRED
+    severity: CRITICAL
+    description: Canonical transport must be TransportPacket.
+    include_globs:
+      - tools/**/*.py
+      - engine/**/*.py
+      - README*.md
+      - ARCHITECTURE*.md
+    exclude_globs:
+      - engine/packet/**
+      - docs/**
+      - tests/**
+      - contracts/**
+    require_any_regex:
+      - '\bTransportPacket\b'
+    fail_message: TransportPacket canonical transport anchor missing.
+    remediation: Establish TransportPacket as the only canonical transport in active tooling.
 
-  - id: "SEC_LABEL_SANITIZATION_REQUIRED"
-    severity: "CRITICAL"
-    description: "All f-string Cypher that interpolates labels/types must use sanitize_label()."
-    include_globs: ["engine/**/*.py"]
-    patterns_regex:
-      - 'f""".*MATCH\s*\(.*:.*\{.*\}.*"""'
-      - 'f".*MATCH\s*\(.*:.*\{.*\}.*"'
-      - 'f""".*MERGE\s*\(.*:.*\{.*\}.*"""'
-      - 'f".*MERGE\s*\(.*:.*\{.*\}.*"'
-    allow_if_contains:
-      - "sanitize_label("
+  - id: CUTOVER_PACKETENVELOPE_ACTIVE_TRUTH_FORBIDDEN
+    severity: CRITICAL
+    description: PacketEnvelope cannot remain active truth outside compatibility-only surfaces.
+    include_globs:
+      - '**/*.py'
+      - '**/*.md'
+      - '**/*.yaml'
+      - '**/*.yml'
+    exclude_globs:
+      - engine/packet/**
+      - docs/**
+      - tests/**
+      - contracts/**
+    forbid_regex:
+      - '\bPacketEnvelope\b'
+      - '\binflate_ingress\('
+      - '\bdeflate_egress\('
+      - '\bderive\('
+    remediation: Constrain PacketEnvelope references to explicit compatibility fences only.
 
-  - id: "TRACE_MATCH_FLOW_ANCHORS"
-    severity: "MEDIUM"
-    description: "Match flow should reference GateCompiler, TraversalAssembler, ScoringAssembler, GraphDriver.execute_query."
-    include_globs: ["engine/**/*.py"]
-    required_any:
-      - "handle_match"
-      - "GateCompiler("
-      - "TraversalAssembler("
-      - "ScoringAssembler("
-      - "execute_query("
+  - id: CUTOVER_SPLIT_BRAIN_TRANSPORT_FORBIDDEN
+    severity: CRITICAL
+    description: TransportPacket and PacketEnvelope cannot both appear as active truth in the same file.
+    include_globs:
+      - '**/*.py'
+      - '**/*.md'
+      - '**/*.yaml'
+      - '**/*.yml'
+    exclude_globs:
+      - engine/packet/**
+      - docs/**
+      - tests/**
+      - contracts/**
+    forbid_pair_regex:
+      - '\bTransportPacket\b'
+      - '\bPacketEnvelope\b'
+    remediation: Keep TransportPacket active and move PacketEnvelope behind compatibility shims.
 
-  - id: "TRACE_SYNC_FLOW_ANCHORS"
-    severity: "MEDIUM"
-    description: "Sync flow should reference SyncGenerator and execute_query."
-    include_globs: ["engine/**/*.py"]
-    required_any:
-      - "handle_sync"
-      - "SyncGenerator("
-      - "generate_sync_query("
-      - "execute_query("
+  - id: CUTOVER_SPLIT_BRAIN_RUNTIME_FORBIDDEN
+    severity: CRITICAL
+    description: Gate_SDK cannot coexist with legacy chassis-first ingress language in the same active file.
+    include_globs:
+      - '**/*.py'
+      - '**/*.md'
+      - '**/*.yaml'
+      - '**/*.yml'
+    exclude_globs:
+      - engine/packet/**
+      - docs/**
+      - tests/**
+      - contracts/**
+    forbid_pair_regex:
+      - '\bGate_SDK\b'
+      - '\b(POST /v1/execute|single ingress envelope|inflate_ingress|deflate_egress)\b'
+    remediation: Collapse to Gate_SDK as runtime authority and remove active legacy ingress truth.
 
-  - id: "TRACE_GDS_FLOW_ANCHORS"
-    severity: "MEDIUM"
-    description: "GDS scheduler should exist and include known algorithms."
-    include_globs: ["engine/gds/**/*.py"]
-    required_all:
-      - "class GDSScheduler"
-      - "register_jobs"
-      - "execute_job"
-      - "_run_louvain"
-      - "_run_cooccurrence"
-      - "_run_reinforcement"
-      - "_run_temporal_recency"
+  - id: CUTOVER_CHASSIS_FIRST_DRIFT
+    severity: HIGH
+    description: Chassis-first assumptions should no longer define the active architecture in tooling.
+    include_globs:
+      - tools/**/*.py
+      - tools/**/*.yaml
+      - README*.md
+      - ARCHITECTURE*.md
+    exclude_globs:
+      - contracts/**
+      - docs/**
+      - tests/**
+    forbid_regex:
+      - '\buniversal chassis\b'
+      - '\bsingle ingress\b'
+      - '\bExecuteRequest\b'
+      - '\bExecuteResponse\b'
+    remediation: Replace chassis-first framing with Gate_SDK/Gate/TransportPacket cutover framing.
+
+  - id: ENGINE_BOUNDARY_NO_FASTAPI
+    severity: CRITICAL
+    description: engine code must not import FastAPI, Starlette, or uvicorn.
+    include_globs:
+      - engine/**/*.py
+    forbid_regex:
+      - '\bimport fastapi\b'
+      - '\bfrom fastapi import\b'
+      - '\bimport starlette\b'
+      - '\bfrom starlette import\b'
+      - '\bimport uvicorn\b'
+      - '\bfrom uvicorn import\b'
+    remediation: Remove framework imports from engine code.
+
+  - id: ENGINE_BOUNDARY_NO_CUSTOM_HTTP_DIR
+    severity: CRITICAL
+    description: engine/api must not exist.
+    forbid_paths:
+      - engine/api
+    remediation: Remove custom HTTP surfaces from engine.
+
+  - id: SECURITY_NO_EVAL_EXEC
+    severity: CRITICAL
+    description: eval and exec remain banned.
+    include_globs:
+      - engine/**/*.py
+      - tools/**/*.py
+    exclude_globs:
+      - tests/**
+      - engine/utils/safe_eval.py
+    forbid_regex:
+      - '\beval\s*\('
+      - '\bexec\s*\('
+    remediation: Use explicit parsers or dispatch tables.

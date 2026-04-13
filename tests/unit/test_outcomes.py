@@ -1,12 +1,11 @@
-from pathlib import Path
 import asyncio
+from pathlib import Path
 
-from engine.config.loader import DomainSpecLoader
+from engine.config.loader import DomainPackLoader as DomainSpecLoader
 from engine.graph.driver import GraphDriver
 from engine.outcomes.engine import OutcomeEngine
 from engine.outcomes.schema import OutcomeEvent
 from engine.scoring.assembler import ScoringAssembler
-
 
 SPEC_PATH = Path("domains/plasticos/spec.yaml")
 

@@ -2,386 +2,521 @@
 """
 --- L9_META ---
 l9_schema: 1
-origin: l9-template
+origin: engine-specific
 engine: graph
 layer: [audit]
-tags: [L9_TEMPLATE, audit, contracts]
+tags: [cutover, audit, contracts, transport, routing]
 owner: platform
 status: active
 --- /L9_META ---
 
-L9 Contract Violation Scanner
-Encodes all 20 contracts as grep-able rules.
-Exit code 1 = violations found = commit/merge blocked.
+Fail-closed cutover contract scanner for Cognitive.Engine.Graphs.
+
+Authority model enforced by this scanner:
+- Gate_SDK is the only accepted runtime authority
+- Gate is the only accepted routing authority
+- TransportPacket is the only accepted canonical transport
+- PacketEnvelope is deprecated compatibility only
+
+The scanner blocks:
+- legacy PacketEnvelope treated as active truth
+- split-brain ingress or routing
+- chassis-first assumptions used as current authority
+- known security and architecture regressions that remain load-bearing
+
+Usage:
+    python tools/contract_scanner.py
+    python tools/contract_scanner.py --format json
+    python tools/contract_scanner.py path/to/file.py another/file.py
 """
 
 from __future__ import annotations
 
+import argparse
+import json
 import re
 import sys
-from dataclasses import dataclass
+from collections.abc import Iterable
+from dataclasses import asdict, dataclass
 from pathlib import Path
+
+SEVERITY_ORDER = {"CRITICAL": 0, "HIGH": 1, "MEDIUM": 2, "LOW": 3}
+DEFAULT_SKIP_DIRS = {
+    ".git",
+    ".hg",
+    ".mypy_cache",
+    ".pytest_cache",
+    ".ruff_cache",
+    ".tox",
+    ".venv",
+    "venv",
+    "node_modules",
+    "__pycache__",
+    "site-packages",
+    "artifacts",
+}
+TEXT_SUFFIXES = {
+    ".py",
+    ".pyi",
+    ".md",
+    ".rst",
+    ".txt",
+    ".yaml",
+    ".yml",
+    ".toml",
+    ".json",
+    ".sh",
+}
 
 
 @dataclass
 class Violation:
     file: str
-    line: int
+    line: int | None
     rule_id: str
     contract: str
     severity: str
     message: str
     remediation: str
+    evidence: str
 
 
-def _rule(
-    rule_id: str,
-    contract: str,
-    severity: str,
-    pattern: str,
-    message: str,
-    remediation: str,
-    *,
-    include_dirs: list[str] | None = None,
-    exclude_dirs: list[str] | None = None,
-) -> dict:
-    r = {
-        "id": rule_id,
-        "contract": contract,
-        "severity": severity,
-        "pattern": pattern,
-        "message": message,
-        "remediation": remediation,
-    }
-    if include_dirs is not None:
-        r["include_dirs"] = include_dirs
-    if exclude_dirs is not None:
-        r["exclude_dirs"] = exclude_dirs
-    return r
+@dataclass
+class Rule:
+    rule_id: str
+    contract: str
+    severity: str
+    message: str
+    remediation: str
+    include_globs: tuple[str, ...] = ()
+    exclude_globs: tuple[str, ...] = ()
+    regex: str | None = None
+    regex_flags: int = re.MULTILINE
+    required_regex: str | None = None
+    required_message: str | None = None
+    pair_forbidden: tuple[str, str] | None = None
+    path_exists_forbidden: tuple[str, ...] = ()
 
-
-RULES: list[dict] = [
-    # -- CONTRACT 3: CYPHER_SAFETY.md --
-    _rule(
-        "SEC-001",
-        "CYPHER_SAFETY.md",
-        "CRITICAL",
-        r'f["\'].*MATCH\s*\(.*\{[^$]',
-        "Cypher label interpolation without sanitize_label()",
-        "Use sanitize_label() for labels, $param for values",
-        include_dirs=["engine/"],
-        exclude_dirs=["engine/sync/generator.py", "engine/handlers.py"],  # labels sanitized via sanitize_label()
-    ),
-    _rule(
-        "SEC-002",
-        "CYPHER_SAFETY.md",
-        "CRITICAL",
-        r"\beval\s*\(",
-        "eval() is banned - code injection risk",
-        "Use operator dispatch table or ast.literal_eval()",
-        exclude_dirs=["tests/", "tools/contract_scanner.py", "engine/utils/safe_eval.py"],  # AST-based; no eval()
-    ),
-    _rule(
-        "SEC-003",
-        "CYPHER_SAFETY.md",
-        "CRITICAL",
-        r"\bexec\s*\(",
-        "exec() is banned - code injection risk",
-        "Remove entirely",
-        exclude_dirs=["tests/", "tools/contract_scanner.py", "engine/security/"],
-    ),
-    _rule(
-        "SEC-004",
-        "CYPHER_SAFETY.md",
-        "CRITICAL",
-        r'f["\'].*LIMIT\s*\{',
-        "LIMIT value interpolation - use $limit parameter",
-        "LIMIT $limit with params={'limit': n}",
-    ),
-    _rule(
-        "SEC-005",
-        "BANNED_PATTERNS.md",
-        "CRITICAL",
-        r'f["\'].*(?:SELECT|INSERT|UPDATE|DELETE)\s.*\{',
-        "SQL string interpolation - use parameterized queries",
-        "Use $1/$2 placeholders or ORM",
-    ),
-    _rule(
-        "SEC-006",
-        "BANNED_PATTERNS.md",
-        "CRITICAL",
-        r"pickle\.loads?\s*\(",
-        "pickle banned - deserialization attack vector",
-        "Use json.loads()",
-    ),
-    _rule(
-        "SEC-007",
-        "BANNED_PATTERNS.md",
-        "CRITICAL",
-        r"yaml\.load\s*\([^)]*\)\s*$",
-        "yaml.load() without SafeLoader",
-        "yaml.safe_load()",
-    ),
-    # -- CONTRACT 4: ERROR_HANDLING.md --
-    _rule(
-        "ERR-001",
-        "ERROR_HANDLING.md",
-        "HIGH",
-        r"except\s*:",
-        "Bare except: clause",
-        "except SpecificError as e:",
-        exclude_dirs=["tools/contract_scanner.py"],
-    ),
-    _rule(
-        "ERR-002",
-        "ERROR_HANDLING.md",
-        "HIGH",
-        r"except\s+\w+.*:\s*\n\s*pass",
-        "Swallowed exception - except + pass",
-        "Log and re-raise",
-    ),
-    # -- CONTRACT 10: BANNED_PATTERNS.md (Architecture) --
-    _rule(
-        "ARCH-001",
-        "BANNED_PATTERNS.md",
-        "CRITICAL",
-        r"from\s+fastapi\s+import",
-        "FastAPI import in engine/ - chassis owns HTTP",
-        "Register handlers in engine/handlers.py",
-        include_dirs=["engine/"],
-    ),
-    _rule(
-        "ARCH-002",
-        "BANNED_PATTERNS.md",
-        "CRITICAL",
-        r"from\s+starlette\s+import",
-        "Starlette import in engine/ - chassis owns middleware",
-        "Remove",
-        include_dirs=["engine/"],
-    ),
-    _rule(
-        "ARCH-003",
-        "BANNED_PATTERNS.md",
-        "CRITICAL",
-        r"import\s+uvicorn",
-        "uvicorn import in engine/ - chassis owns ASGI",
-        "Remove",
-        include_dirs=["engine/"],
-    ),
-    # -- CONTRACT 7: DEPENDENCY_INJECTION.md --
-    _rule(
-        "DI-001",
-        "DEPENDENCY_INJECTION.md",
-        "HIGH",
-        r"from\s+fastapi\s+import\s+Depends",
-        "FastAPI Depends in engine/ - chassis concern",
-        "Use init_dependencies() pattern",
-        include_dirs=["engine/"],
-    ),
-    # -- CONTRACT 12: DELEGATION_PROTOCOL.md --
-    _rule(
-        "DEL-001",
-        "DELEGATION_PROTOCOL.md",
-        "CRITICAL",
-        r"httpx\.(post|get|put|delete|patch)\s*\(",
-        "Raw HTTP to another node - use delegate_to_node()",
-        "from l9.core.delegation import delegate_to_node",
-        include_dirs=["engine/"],
-    ),
-    _rule(
-        "DEL-002",
-        "DELEGATION_PROTOCOL.md",
-        "CRITICAL",
-        r"requests\.(post|get|put|delete|patch)\s*\(",
-        "Raw HTTP via requests - use delegate_to_node()",
-        "from l9.core.delegation import delegate_to_node",
-        include_dirs=["engine/"],
-    ),
-    # -- CONTRACT 19: MEMORY_SUBSTRATE_ACCESS.md --
-    _rule(
-        "MEM-001",
-        "MEMORY_SUBSTRATE_ACCESS.md",
-        "CRITICAL",
-        r"INSERT\s+INTO\s+packetstore",
-        "Direct write to packetstore - use ingest_packet()",
-        "from l9.memory.ingestion import ingest_packet",
-        include_dirs=["engine/"],
-    ),
-    _rule(
-        "MEM-002",
-        "MEMORY_SUBSTRATE_ACCESS.md",
-        "CRITICAL",
-        r"INSERT\s+INTO\s+memory_embeddings",
-        "Direct write to memory_embeddings - use ingest_packet()",
-        "Embeddings generated by LangGraph DAG",
-        include_dirs=["engine/"],
-    ),
-    # -- CONTRACT 20: SHARED_MODELS.md --
-    _rule(
-        "SHARED-001",
-        "SHARED_MODELS.md",
-        "HIGH",
-        r"class\s+PacketEnvelope\s*\(",
-        "Redefining PacketEnvelope - import from l9.core",
-        "from l9.core.envelope import PacketEnvelope",
-        include_dirs=["engine/"],
-        exclude_dirs=["engine/packet/packet_envelope.py"],  # canonical envelope in this repo
-    ),
-    _rule(
-        "SHARED-002",
-        "SHARED_MODELS.md",
-        "HIGH",
-        r"class\s+TenantContext\s*\(",
-        "Redefining TenantContext - import from l9.core",
-        "from l9.core.envelope import TenantContext",
-        include_dirs=["engine/"],
-        exclude_dirs=["engine/packet/packet_envelope.py"],  # canonical envelope in this repo
-    ),
-    _rule(
-        "SHARED-003",
-        "SHARED_MODELS.md",
-        "HIGH",
-        r"class\s+ExecuteRequest\s*\(",
-        "Redefining ExecuteRequest - import from l9.core",
-        "from l9.core.contract import ExecuteRequest",
-        include_dirs=["engine/"],
-    ),
-    # -- CONTRACT 18: OBSERVABILITY.md --
-    _rule(
-        "OBS-001",
-        "OBSERVABILITY.md",
-        "HIGH",
-        r"structlog\.configure\s*\(",
-        "Configuring structlog in engine - chassis does this",
-        "Use logging.getLogger(__name__)",
-        include_dirs=["engine/"],
-    ),
-    _rule(
-        "OBS-002",
-        "OBSERVABILITY.md",
-        "HIGH",
-        r"logging\.basicConfig\s*\(",
-        "Configuring logging in engine - chassis does this",
-        "Use logging.getLogger(__name__) only",
-        include_dirs=["engine/"],
-    ),
-    # -- CONTRACT 6: PYDANTIC_YAML_MAPPING.md --
-    _rule(
-        "NAME-001",
-        "PYDANTIC_YAML_MAPPING.md",
-        "HIGH",
-        r"Field\s*\(\s*alias\s*=",
-        "Pydantic Field alias banned - snake_case everywhere",
-        "Remove alias, use snake_case matching YAML key",
-        include_dirs=["engine/"],
-    ),
-    # -- CONTRACT 13: PACKET_TYPE_REGISTRY.md --
-    _rule(
-        "PKT-001",
-        "PACKET_TYPE_REGISTRY.md",
-        "HIGH",
-        r'packet_type\s*[=:]\s*["\'][A-Z]',
-        "Uppercase packet_type - must be lowercase snake_case",
-        "Check PACKET_TYPE_REGISTRY.md",
-        exclude_dirs=["agents/cursor/"],
-    ),
-    # -- CONTRACT 17: ENV_VARS.md --
-    _rule(
-        "ENV-001",
-        "ENV_VARS.md",
-        "MEDIUM",
-        r'os\.environ\[["\']?(?:NEO4J_URI|NEO4J_URL|DATABASE_URL|REDIS_HOST|API_KEY)["\']?\]',
-        "Non-standard env var name",
-        "Use L9_* or ENGINE_* prefix per ENV_VARS.md",
-    ),
-]
-
-SEVERITY_ORDER = {"CRITICAL": 0, "HIGH": 1, "MEDIUM": 2}
-
-
-def _path_matches_rule(file_path: Path, rule: dict) -> bool:
-    path_str = str(file_path) + "/"
-    if include_dirs := rule.get("include_dirs"):
-        if not any(path_str.startswith(d) for d in include_dirs):
+    def applies_to(self, rel_path: str) -> bool:
+        path = Path(rel_path)
+        if self.include_globs and not any(path.match(pattern) for pattern in self.include_globs):
             return False
-    if exclude_dirs := rule.get("exclude_dirs"):
-        if any(path_str.startswith(d) for d in exclude_dirs):
-            return False
-    return True
+        return not (self.exclude_globs and any(path.match(pattern) for pattern in self.exclude_globs))
 
 
-def scan_file(file_path: Path, content: str, root: Path) -> list[Violation]:
-    violations: list[Violation] = []
-    # Handle both absolute and relative paths
+def compile_rules() -> list[Rule]:
+    compatibility_allowlist = (
+        "engine/packet/**",
+        "docs/**",
+        "contracts/**",
+        "tests/**",
+        "tools/contract_scanner.py",
+        "tools/audit_rules.yaml",
+        "tools/audit_engine.py",
+        "tools/contract_report.py",
+        "tools/spec_extract.py",
+    )
+
+    return [
+        # Cutover runtime, routing, and transport authority.
+        Rule(
+            rule_id="CUTOVER-RT-001",
+            contract="CUTOVER_RUNTIME_AUTHORITY",
+            severity="CRITICAL",
+            message="Runtime surfaces must anchor to Gate_SDK, not chassis-first or PacketEnvelope-first authority.",
+            remediation="Replace legacy runtime authority references with Gate_SDK runtime authority.",
+            include_globs=("tools/**/*.py", "engine/**/*.py", "README*.md", "ARCHITECTURE*.md"),
+            exclude_globs=compatibility_allowlist,
+            regex=r"\b(PacketEnvelope|inflate_ingress|deflate_egress|chassis_contract)\b",
+        ),
+        Rule(
+            rule_id="CUTOVER-RTE-001",
+            contract="CUTOVER_ROUTING_AUTHORITY",
+            severity="CRITICAL",
+            message="Routing surfaces must anchor to Gate as the routing authority.",
+            remediation="Replace legacy routing authority references with Gate routing authority.",
+            include_globs=("tools/**/*.py", "engine/**/*.py", "README*.md", "ARCHITECTURE*.md"),
+            exclude_globs=compatibility_allowlist,
+            regex=r"\b(register_handler\(|handle_[a-z_]+\(|router\.py|Action Router|single ingress envelope)\b",
+        ),
+        Rule(
+            rule_id="CUTOVER-TP-001",
+            contract="CUTOVER_TRANSPORT_AUTHORITY",
+            severity="CRITICAL",
+            message="Canonical transport must be TransportPacket.",
+            remediation="Introduce or reference TransportPacket as the canonical transport authority.",
+            include_globs=("tools/**/*.py", "engine/**/*.py", "README*.md", "ARCHITECTURE*.md"),
+            exclude_globs=compatibility_allowlist,
+            required_regex=r"\bTransportPacket\b",
+            required_message="TransportPacket authority anchor missing.",
+        ),
+        Rule(
+            rule_id="CUTOVER-PE-001",
+            contract="PACKETENVELOPE_DEPRECATED_COMPAT_ONLY",
+            severity="CRITICAL",
+            message="PacketEnvelope is deprecated and may only appear in explicit compatibility surfaces.",
+            remediation="Confine PacketEnvelope to compatibility modules, migration docs, or compatibility tests.",
+            include_globs=("**/*",),
+            exclude_globs=compatibility_allowlist,
+            regex=r"\bPacketEnvelope\b",
+        ),
+        Rule(
+            rule_id="CUTOVER-PE-002",
+            contract="PACKETENVELOPE_DEPRECATED_COMPAT_ONLY",
+            severity="CRITICAL",
+            message="Legacy packet methods imply PacketEnvelope is still active truth.",
+            remediation="Remove derive/inflate/deflate flows from active truth and route through TransportPacket-compatible bridges only.",
+            include_globs=("**/*.py", "**/*.md", "**/*.yaml", "**/*.yml"),
+            exclude_globs=compatibility_allowlist,
+            regex=r"\b(derive\(|inflate_ingress\(|deflate_egress\(|DelegationLink|HopEntry|content_hash covers .*address)\b",
+        ),
+        Rule(
+            rule_id="CUTOVER-SB-001",
+            contract="SPLIT_BRAIN_INGRESS_BLOCKED",
+            severity="CRITICAL",
+            message="Split-brain ingress detected: TransportPacket and PacketEnvelope both appear active in the same file.",
+            remediation="Keep TransportPacket as sole active truth and move PacketEnvelope references behind explicit compatibility shims.",
+            include_globs=("**/*.py", "**/*.md", "**/*.yaml", "**/*.yml"),
+            exclude_globs=(
+                "tests/**",
+                "contracts/**",
+                "docs/**",
+                "engine/packet/**",
+                "tools/contract_scanner.py",
+                "tools/spec_extract.py",
+            ),
+            pair_forbidden=(r"\bTransportPacket\b", r"\bPacketEnvelope\b"),
+        ),
+        Rule(
+            rule_id="CUTOVER-SB-002",
+            contract="SPLIT_BRAIN_INGRESS_BLOCKED",
+            severity="CRITICAL",
+            message="Split-brain ingress detected: Gate_SDK and legacy chassis-first ingress both appear active in the same file.",
+            remediation="Make Gate_SDK the sole runtime authority. Legacy ingress may only exist in compatibility fences.",
+            include_globs=("**/*.py", "**/*.md", "**/*.yaml", "**/*.yml"),
+            exclude_globs=(
+                "tests/**",
+                "contracts/**",
+                "docs/**",
+                "engine/packet/**",
+                "tools/contract_scanner.py",
+                "tools/spec_extract.py",
+            ),
+            pair_forbidden=(
+                r"\bGate_SDK\b",
+                r"\b(inflate_ingress|deflate_egress|POST /v1/execute|single ingress envelope)\b",
+            ),
+        ),
+        Rule(
+            rule_id="CUTOVER-CH-001",
+            contract="CHASSIS_FIRST_ASSUMPTIONS_REMOVED",
+            severity="HIGH",
+            message="Chassis-first architectural assumptions remain in active tooling.",
+            remediation="Replace chassis-first language with Gate_SDK or Gate/TransportPacket cutover language.",
+            include_globs=("tools/**/*.py", "tools/**/*.yaml", "README*.md", "ARCHITECTURE*.md"),
+            exclude_globs=("contracts/**", "docs/**", "tests/**"),
+            regex=r"\b(chassis owns HTTP|universal chassis|single ingress|POST /v1/execute|ExecuteRequest|ExecuteResponse)\b",
+        ),
+        # Existing security and architecture law still matter.
+        Rule(
+            rule_id="SEC-001",
+            contract="CYPHER_SAFETY",
+            severity="CRITICAL",
+            message="Potential Cypher interpolation without sanitize_label().",
+            remediation="Use sanitize_label() for labels and parameters for values.",
+            include_globs=("engine/**/*.py",),
+            exclude_globs=("engine/handlers.py",),
+            regex=r"f[\"'].*(?:MATCH|MERGE)\s*\([^\n]*\{",
+        ),
+        Rule(
+            rule_id="SEC-002",
+            contract="BANNED_PATTERNS",
+            severity="CRITICAL",
+            message="eval() is banned.",
+            remediation="Use a dispatch table or explicit parser.",
+            include_globs=("engine/**/*.py", "tools/**/*.py"),
+            exclude_globs=("engine/utils/safe_eval.py", "tests/**", "tools/contract_scanner.py"),
+            regex=r"\beval\s*\(",
+        ),
+        Rule(
+            rule_id="SEC-003",
+            contract="BANNED_PATTERNS",
+            severity="CRITICAL",
+            message="exec() is banned.",
+            remediation="Remove exec() entirely.",
+            include_globs=("engine/**/*.py", "tools/**/*.py"),
+            exclude_globs=("tests/**", "tools/contract_scanner.py"),
+            regex=r"\bexec\s*\(",
+        ),
+        Rule(
+            rule_id="ARCH-001",
+            contract="ENGINE_BOUNDARY",
+            severity="CRITICAL",
+            message="FastAPI import in engine. HTTP belongs outside engine business logic.",
+            remediation="Remove FastAPI imports from engine code.",
+            include_globs=("engine/**/*.py",),
+            regex=r"\b(from\s+fastapi\s+import|import\s+fastapi)\b",
+        ),
+        Rule(
+            rule_id="ARCH-002",
+            contract="ENGINE_BOUNDARY",
+            severity="CRITICAL",
+            message="Starlette import in engine. HTTP/middleware belongs outside engine business logic.",
+            remediation="Remove Starlette imports from engine code.",
+            include_globs=("engine/**/*.py",),
+            regex=r"\b(from\s+starlette\s+import|import\s+starlette)\b",
+        ),
+        Rule(
+            rule_id="ARCH-003",
+            contract="ENGINE_BOUNDARY",
+            severity="CRITICAL",
+            message="uvicorn import in engine. ASGI bootstrap is not engine business logic.",
+            remediation="Remove uvicorn imports from engine code.",
+            include_globs=("engine/**/*.py",),
+            regex=r"\bimport\s+uvicorn\b",
+        ),
+        Rule(
+            rule_id="ERR-001",
+            contract="ERROR_HANDLING",
+            severity="HIGH",
+            message="Bare except is forbidden.",
+            remediation="Catch explicit exceptions and log or re-raise intentionally.",
+            include_globs=("engine/**/*.py", "tools/**/*.py"),
+            regex=r"^\s*except\s*:\s*$",
+        ),
+        Rule(
+            rule_id="OBS-001",
+            contract="OBSERVABILITY",
+            severity="HIGH",
+            message="Engine must not configure structlog.",
+            remediation="Use structlog.get_logger(__name__) only.",
+            include_globs=("engine/**/*.py",),
+            regex=r"\bstructlog\.configure\s*\(",
+        ),
+        Rule(
+            rule_id="OBS-002",
+            contract="OBSERVABILITY",
+            severity="HIGH",
+            message="Engine must not call logging.basicConfig().",
+            remediation="Use a module logger and leave configuration to the host runtime.",
+            include_globs=("engine/**/*.py",),
+            regex=r"\blogging\.basicConfig\s*\(",
+        ),
+        Rule(
+            rule_id="NAME-001",
+            contract="PYDANTIC_YAML_MAPPING",
+            severity="HIGH",
+            message="Pydantic aliases are banned in engine code.",
+            remediation="Use snake_case field names that match YAML keys directly.",
+            include_globs=("engine/**/*.py",),
+            regex=r"\bField\s*\([^\n]*alias\s*=",
+        ),
+        Rule(
+            rule_id="PKT-001",
+            contract="PACKET_TYPE_REGISTRY",
+            severity="HIGH",
+            message="packet_type values must be lowercase snake_case.",
+            remediation="Rename the packet_type value to lowercase snake_case.",
+            include_globs=("**/*.py", "**/*.yaml", "**/*.yml", "**/*.md"),
+            regex=r"packet_type\s*[:=]\s*[\"'][A-Z]",
+        ),
+        Rule(
+            rule_id="ARCH-004",
+            contract="ENGINE_BOUNDARY",
+            severity="CRITICAL",
+            message="engine/api directory must not exist.",
+            remediation="Delete custom HTTP directories from engine.",
+            path_exists_forbidden=("engine/api",),
+        ),
+    ]
+
+
+def iter_candidate_files(root: Path, explicit_paths: list[Path]) -> Iterable[Path]:
+    if explicit_paths:
+        for candidate in explicit_paths:
+            if candidate.is_file():
+                yield candidate.resolve()
+            elif candidate.is_dir():
+                for path in sorted(candidate.rglob("*")):
+                    if path.is_file() and not should_skip(path):
+                        yield path.resolve()
+        return
+
+    for path in sorted(root.rglob("*")):
+        if path.is_file() and not should_skip(path):
+            yield path.resolve()
+
+
+def should_skip(path: Path) -> bool:
+    if any(part in DEFAULT_SKIP_DIRS for part in path.parts):
+        return True
+    return bool(path.suffix and path.suffix not in TEXT_SUFFIXES)
+
+
+def rel_path(path: Path, root: Path) -> str:
     try:
-        abs_path = file_path.resolve()
-        abs_root = root.resolve()
-        rel = abs_path.relative_to(abs_root)
+        return str(path.resolve().relative_to(root.resolve())).replace("\\", "/")
     except ValueError:
-        # Path is already relative or not under root
-        rel = file_path
-    rel_str = str(rel).replace("\\", "/")
+        return str(path).replace("\\", "/")
 
-    for rule in RULES:
-        if not _path_matches_rule(Path(rel_str), rule):
+
+def first_line_for_regex(content: str, pattern: str, flags: int = re.MULTILINE) -> tuple[int | None, str]:
+    match = re.search(pattern, content, flags)
+    if not match:
+        return None, ""
+    line_no = content.count("\n", 0, match.start()) + 1
+    line = content.splitlines()[line_no - 1] if content.splitlines() else ""
+    return line_no, line.strip()
+
+
+def scan_file(path: Path, root: Path, rules: list[Rule]) -> list[Violation]:
+    rel = rel_path(path, root)
+    text = path.read_text(encoding="utf-8", errors="replace")
+    violations: list[Violation] = []
+
+    for rule in rules:
+        if not rule.applies_to(rel):
             continue
-        try:
-            pat = re.compile(rule["pattern"], re.MULTILINE | re.DOTALL)
-        except re.error:
-            continue
-        for i, line in enumerate(content.splitlines(), start=1):
-            if pat.search(line):
+
+        if rule.regex:
+            line_no, evidence = first_line_for_regex(text, rule.regex, rule.regex_flags)
+            if line_no is not None:
                 violations.append(
                     Violation(
-                        file=rel_str,
-                        line=i,
-                        rule_id=rule["id"],
-                        contract=rule["contract"],
-                        severity=rule["severity"],
-                        message=rule["message"],
-                        remediation=rule["remediation"],
+                        file=rel,
+                        line=line_no,
+                        rule_id=rule.rule_id,
+                        contract=rule.contract,
+                        severity=rule.severity,
+                        message=rule.message,
+                        remediation=rule.remediation,
+                        evidence=evidence,
                     )
                 )
+
+        if rule.required_regex and not re.search(rule.required_regex, text, re.MULTILINE):
+            violations.append(
+                Violation(
+                    file=rel,
+                    line=None,
+                    rule_id=rule.rule_id,
+                    contract=rule.contract,
+                    severity=rule.severity,
+                    message=rule.required_message or rule.message,
+                    remediation=rule.remediation,
+                    evidence="required authority anchor not found",
+                )
+            )
+
+        if rule.pair_forbidden:
+            left, right = rule.pair_forbidden
+            if re.search(left, text, re.MULTILINE) and re.search(right, text, re.MULTILINE):
+                line_no, evidence = first_line_for_regex(text, left, re.MULTILINE)
+                violations.append(
+                    Violation(
+                        file=rel,
+                        line=line_no,
+                        rule_id=rule.rule_id,
+                        contract=rule.contract,
+                        severity=rule.severity,
+                        message=rule.message,
+                        remediation=rule.remediation,
+                        evidence=evidence or "forbidden co-occurrence detected",
+                    )
+                )
+
     return violations
 
 
-def main() -> int:
-    root = Path.cwd()
-    skip_dirs = {".venv", "venv", "__pycache__", ".git", "site-packages"}
-    if len(sys.argv) > 1:
-        # Pre-commit passes filenames
-        paths = [Path(p) for p in sys.argv[1:] if Path(p).suffix == ".py" and not any(s in str(p) for s in skip_dirs)]
-    else:
-        paths = [p for p in root.rglob("*.py") if not any(s in str(p) for s in skip_dirs)]
+def scan_repo(root: Path, explicit_paths: list[Path]) -> list[Violation]:
+    rules = compile_rules()
+    violations: list[Violation] = []
 
-    all_violations: list[Violation] = []
-    for path in paths:
-        if not path.is_file():
+    for rule in rules:
+        for forbidden_path in rule.path_exists_forbidden:
+            absolute = root / forbidden_path
+            if absolute.exists():
+                violations.append(
+                    Violation(
+                        file=forbidden_path,
+                        line=None,
+                        rule_id=rule.rule_id,
+                        contract=rule.contract,
+                        severity=rule.severity,
+                        message=rule.message,
+                        remediation=rule.remediation,
+                        evidence="forbidden path exists",
+                    )
+                )
+
+    seen: set[str] = set()
+    for path in iter_candidate_files(root, explicit_paths):
+        rel = rel_path(path, root)
+        if rel in seen:
             continue
-        try:
-            text = path.read_text(encoding="utf-8", errors="replace")
-        except OSError:
-            continue
-        all_violations.extend(scan_file(path, text, root))
+        seen.add(rel)
+        violations.extend(scan_file(path, root, rules))
 
-    all_violations.sort(key=lambda v: (SEVERITY_ORDER.get(v.severity, 99), v.file, v.line))
+    violations.sort(key=lambda item: (SEVERITY_ORDER.get(item.severity, 99), item.file, item.line or 0, item.rule_id))
+    return violations
 
-    if not all_violations:
-        print("L9 contract scan: no violations.")
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Fail-closed CEG cutover contract scanner")
+    parser.add_argument("paths", nargs="*", help="Optional file or directory paths to scan")
+    parser.add_argument(
+        "--root",
+        default=".",
+        help="Repository root. Defaults to current working directory.",
+    )
+    parser.add_argument(
+        "--format",
+        choices=("text", "json"),
+        default="text",
+        help="Output format.",
+    )
+    return parser.parse_args()
+
+
+def emit_text(violations: list[Violation]) -> int:
+    if not violations:
+        print("CEG cutover contract scan: no violations.")
         return 0
 
-    print("L9 Contract Violations (commit/merge blocked):\n", file=sys.stderr)
-    for v in all_violations:
+    print("CEG cutover contract violations detected:\n", file=sys.stderr)
+    for violation in violations:
+        location = f":{violation.line}" if violation.line is not None else ""
         print(
-            f"  [{v.rule_id}] {v.file}:{v.line} ({v.severity})\n    {v.message}\n    → {v.remediation}\n",
+            f"[{violation.rule_id}] {violation.file}{location} ({violation.severity})\n"
+            f"  Contract: {violation.contract}\n"
+            f"  Issue: {violation.message}\n"
+            f"  Evidence: {violation.evidence}\n"
+            f"  Fix: {violation.remediation}\n",
             file=sys.stderr,
         )
-    print(
-        f"Total: {len(all_violations)} violation(s). Fix before committing.",
-        file=sys.stderr,
-    )
+    print(f"Total: {len(violations)} violation(s).", file=sys.stderr)
     return 1
 
 
+def emit_json(violations: list[Violation]) -> int:
+    payload = {
+        "ok": not violations,
+        "violation_count": len(violations),
+        "violations": [asdict(item) for item in violations],
+    }
+    print(json.dumps(payload, indent=2))
+    return 0 if not violations else 1
+
+
+def main() -> int:
+    args = parse_args()
+    root = Path(args.root).resolve()
+    explicit_paths = [Path(path).resolve() for path in args.paths]
+    violations = scan_repo(root=root, explicit_paths=explicit_paths)
+    if args.format == "json":
+        return emit_json(violations)
+    return emit_text(violations)
+
+
 if __name__ == "__main__":
-    sys.exit(main())
+    raise SystemExit(main())
