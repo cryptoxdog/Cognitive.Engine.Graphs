@@ -65,7 +65,7 @@ jobs:
           echo "max_files=${{ vars.PR_MAX_FILES || '' }}${MAX_FILES}" | sed 's/[^0-9].*//' >> $GITHUB_OUTPUT
 
       - name: Check PR Size and Policies
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         with:
           script: |
             const pr = context.payload.pull_request;
