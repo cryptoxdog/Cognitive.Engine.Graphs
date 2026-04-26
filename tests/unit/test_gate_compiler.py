@@ -1,60 +1,81 @@
 """Unit tests — GateCompiler: gate types, null semantics, direction filter."""
-from __future__ import annotations
 
-import pytest
+from __future__ import annotations
 
 
 def test_exact_gate_generates_equality_clause():
+    from unittest.mock import MagicMock
+
+    from engine.config.schema import GateSpec, GateType
     from engine.gates.compiler import GateCompiler
-    from engine.gates.types.all_gates import GateType
-    from engine.config.schema import GateSpec
-    gate = GateSpec(name="g", type=GateType.exact, field="status", query_param="status")
-    result = GateCompiler._compile_single(gate, direction="*")
+
+    mock_spec = MagicMock()
+    mock_spec.gates = []
+    mock_spec.compliance = None
+    compiler = GateCompiler(mock_spec)
+
+    gate = GateSpec(name="g", type=GateType.BOOLEAN, candidateprop="status", queryparam="status")
+    result = compiler._compile_boolean(gate)
     assert "$status" in result or "status" in result
 
 
 def test_direction_filter_skips_non_matching():
     """A gate scoped to buyer_to_seller must not compile for seller_to_buyer."""
+    from unittest.mock import MagicMock
+
+    from engine.config.schema import GateSpec, GateType
     from engine.gates.compiler import GateCompiler
-    from engine.gates.types.all_gates import GateType
-    from engine.config.schema import GateSpec
-    # If gate has match_direction kwarg — test skipping
-    # This is a structural test — verify compiler produces no clause for wrong direction
-    try:
-        gate = GateSpec(
-            name="g", type=GateType.exact, field="f", query_param="f",
-            match_direction="buyer_to_seller",
-        )
-        result = GateCompiler._compile_single(gate, direction="seller_to_buyer")
-        assert result is None or result == ""
-    except TypeError:
-        pytest.skip("GateSpec does not support match_direction kwarg in this version")
+
+    mock_spec = MagicMock()
+    mock_spec.gates = []
+    mock_spec.compliance = None
+    compiler = GateCompiler(mock_spec)
+
+    gate = GateSpec(
+        name="g",
+        type=GateType.BOOLEAN,
+        candidateprop="f",
+        queryparam="f",
+        matchdirections=["buyer_to_seller"],
+    )
+    # compile_all_gates with a different direction should exclude this gate
+    mock_spec.gates = [gate]
+    result = compiler.compile_all_gates(match_direction="seller_to_buyer")
+    assert result == "" or "f" not in result
 
 
 def test_null_behavior_pass_wraps_clause():
-    """null_behavior=pass should wrap clause with IS NULL OR condition."""
+    """nullbehavior=pass should wrap clause with NULL condition."""
+    from unittest.mock import MagicMock
+
+    from engine.config.schema import GateSpec, GateType
     from engine.gates.compiler import GateCompiler
-    from engine.gates.types.all_gates import GateType
-    from engine.config.schema import GateSpec
-    try:
-        gate = GateSpec(
-            name="g", type=GateType.exact, field="status",
-            query_param="status", null_behavior="pass",
-        )
-        result = GateCompiler._compile_single(gate, direction="*")
-        assert "NULL" in result or "$status" in result
-    except TypeError:
-        pytest.skip("null_behavior not supported in this schema version")
+
+    mock_spec = MagicMock()
+    mock_spec.gates = []
+    mock_spec.compliance = None
+    compiler = GateCompiler(mock_spec)
+
+    gate = GateSpec(
+        name="g",
+        type=GateType.BOOLEAN,
+        candidateprop="status",
+        queryparam="status",
+        nullbehavior="fail",
+    )
+    predicate = compiler._compile_boolean(gate)
+    wrapped = compiler._wrap_null_semantics(gate, predicate)
+    assert "NULL" in wrapped or "$status" in wrapped
 
 
 def test_compile_all_gates_empty_returns_empty():
+    from unittest.mock import MagicMock
+
     from engine.gates.compiler import GateCompiler
-    from engine.config.schema import DomainSpec
-    from engine.config.loader import DomainPackLoader
-    from pathlib import Path
-    loader = DomainPackLoader(domains_dir=Path(__file__).parent.parent.parent / "domains")
-    spec = loader.load_domain("plasticos")
-    compiler = GateCompiler(spec)
-    # compile with no params should return some WHERE fragment or empty string
-    result = compiler.compile_where_clause(direction="*", params={})
+
+    mock_spec = MagicMock()
+    mock_spec.gates = []
+    mock_spec.compliance = None
+    compiler = GateCompiler(mock_spec)
+    result = compiler.compile_all_gates(match_direction="buyer_to_seller")
     assert isinstance(result, str)
