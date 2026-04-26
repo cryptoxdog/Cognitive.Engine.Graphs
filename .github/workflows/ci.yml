@@ -89,6 +89,13 @@ jobs:
           python tools/check_deprecated_imports.py --check .
           echo "✅ No deprecated DomainSpecLoader usage found"
 
+      - name: Check PacketEnvelope Prohibition
+        run: |
+          echo "Scanning for prohibited PacketEnvelope usage..."
+          echo "PacketEnvelope has been superseded by transportPacket"
+          python tools/check_packet_envelope_prohibited.py --check .
+          echo "✅ No PacketEnvelope violations found"
+
       - name: Validate YAML Files
         run: |
           python3 -c "

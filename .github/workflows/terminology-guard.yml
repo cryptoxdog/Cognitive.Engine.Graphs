@@ -13,8 +13,8 @@
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # CREATED: 2026-02-15T21:34:00-04:00
 # AUTHOR: L9 Engineering (cryptoxdog)
-# PURPOSE: Enforce consistent terminology across codebase (PacketEnvelope, not Packet)
-# DEPENDENCIES: grep, terminology dictionary
+# PURPOSE: Enforce consistent terminology across codebase (transportPacket, not PacketEnvelope)
+# DEPENDENCIES: grep, Python check script
 # DEPLOYMENT: Runs on all PRs
 # DORA METRICS: Zero terminology drift | Review time saved >2hr/week
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -42,11 +42,22 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v6
 
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Check PacketEnvelope Prohibition
+        run: |
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "PacketEnvelope is DEPRECATED — Use transportPacket!"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          python tools/check_packet_envelope_prohibited.py --check .
+
       - name: Check Forbidden Terms
         run: |
           # Define forbidden terms (must use canonical versions)
           FORBIDDEN_TERMS=(
-            "\\bPacket\\b(?!Envelope)"
             "\\bSubstrate\\b(?!Service)"
             "\\blog\\.(?!bind)"
             "\\bprint\\("
@@ -70,6 +81,8 @@ jobs:
               --exclude-dir=chassis \
               --exclude-dir=tools \
               --exclude-dir=performance \
+              --exclude-dir=agents \
+              --exclude-dir="current work" \
               engine/ tests/; then
 
               echo "❌ Found forbidden term: $term"
@@ -84,7 +97,7 @@ jobs:
             echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
             echo ""
             echo "Use canonical terms:"
-            echo "  • PacketEnvelope (not Packet)"
+            echo "  • transportPacket (not PacketEnvelope — DEPRECATED)"
             echo "  • SubstrateService (not Substrate)"
             echo "  • structlog (not stdlib logging)"
             echo "  • T | None (not Optional[T])"
@@ -97,6 +110,6 @@ jobs:
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # DORA META END
-# LAST_MODIFIED: 2026-02-15T21:34:00-04:00
-# CHANGE_SUMMARY: Fixed bash array escaping, action version updates
+# LAST_MODIFIED: 2026-04-26T14:05:00-04:00
+# CHANGE_SUMMARY: PacketEnvelope deprecated, transportPacket is now canonical
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

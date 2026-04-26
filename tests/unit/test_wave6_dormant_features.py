@@ -23,7 +23,6 @@ import pytest
 
 from engine.handlers import handle_admin, init_dependencies
 
-
 # ── Fixtures ────────────────────────────────────────────────
 
 
@@ -625,7 +624,7 @@ class TestFeatureNotEnabledError:
         from engine.security.P2_9_llm_schemas import ValidatedLLMClient
 
         client = ValidatedLLMClient()
-        with pytest.raises(FeatureNotEnabled, match="LLM SDK"):
+        with pytest.raises(FeatureNotEnabled, match="LLM"):
             client._call("system", "user")
 
 

@@ -165,6 +165,7 @@ def minimal_domain_spec():
         },
         "matchentities": {
             "candidate": [{"label": "Facility", "matchdirection": "intake_to_buyer"}],
+            "queryentity": [{"label": "Facility", "matchdirection": "intake_to_buyer"}],
         },
         "queryschema": {"matchdirections": ["intake_to_buyer"], "fields": []},
         "traversal": {"steps": []},

@@ -127,7 +127,17 @@ repos:
         types: [python]
         pass_filenames: true
 
-  # Terminology guard (canonical terms: PacketEnvelope, list[T], T | None)
+  # PacketEnvelope prohibition — superseded by transportPacket
+  - repo: local
+    hooks:
+      - id: packet-envelope-prohibited
+        name: "Deprecated API: PacketEnvelope → transportPacket"
+        entry: python3 tools/check_packet_envelope_prohibited.py
+        language: system
+        types: [python]
+        pass_filenames: true
+
+  # Terminology guard (canonical terms: transportPacket, list[T], T | None)
   - repo: local
     hooks:
       - id: terminology-guard
@@ -135,14 +145,14 @@ repos:
         entry: >
           bash -c '
           VIOLATIONS=0;
-          for pattern in "\\bPacket\\b" "\\bprint\\(" "\\bOptional\\[" "\\bList\\[" "\\bDict\\["; do
+          for pattern in "\\bprint\\(" "\\bOptional\\[" "\\bList\\[" "\\bDict\\["; do
             if git diff --cached --name-only | grep "\.py$" | grep -E "^(engine|tests)/" |
                xargs grep -l -P "$pattern" 2>/dev/null | grep -v __pycache__ | grep -q .; then
               echo "❌ Found forbidden term: $pattern";
               VIOLATIONS=$((VIOLATIONS+1));
             fi;
           done;
-          [ $VIOLATIONS -eq 0 ] || { echo "Use: PacketEnvelope, list[T], T | None"; exit 1; };
+          [ $VIOLATIONS -eq 0 ] || { echo "Use: transportPacket, list[T], T | None"; exit 1; };
           exit 0'
         language: system
         pass_filenames: false
