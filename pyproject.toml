@@ -119,7 +119,7 @@ ignore = [
 "domains/**" = ["PTH123"]
 "engine/packet/test_*.py" = ["B017"]
 "scripts/**" = ["S603", "S607", "E402"]
-"tools/**" = ["S603", "S607", "TRY300", "PTH123", "PLR0915", "PLW1510", "E402", "B904"]
+"tools/**" = ["S603", "S607", "TRY300", "PTH123", "PLR0915", "PLW1510", "E402", "B904", "TID251"]
 "auth/**" = ["S101", "S105", "S106", "TC002", "TRY301", "TRY401"]
 "chassis/**" = ["TRY300", "TRY301", "TRY401", "S105", "B027", "B904"]
 "chassis/auth/test_*.py" = ["S101", "S105", "S106"]
@@ -175,6 +175,15 @@ ignore = [
     "S603",
     "S607",
 ]
+
+# ---------------------------------------------------------------------------
+# Deprecated API enforcement — DomainSpecLoader is banned, use DomainPackLoader
+# Detected by TID251 (flake8-tidy-imports). Rule fires on any import of the
+# deprecated symbol from engine.config.loader.
+# Auto-fix: python tools/check_deprecated_imports.py --fix .
+# ---------------------------------------------------------------------------
+[tool.ruff.lint.flake8-tidy-imports.banned-api]
+"engine.config.loader.DomainSpecLoader" = {msg = "DomainSpecLoader was renamed to DomainPackLoader (commit 4c0fb5868b). Use: `from engine.config.loader import DomainPackLoader` and `DomainPackLoader(config_path=str(SPEC_PATH))`. Auto-fix: python tools/check_deprecated_imports.py --fix ."}
 
 [tool.mypy]
 python_version = "3.12"

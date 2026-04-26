@@ -83,6 +83,12 @@ jobs:
             -exec python -m py_compile {} +
           echo "✅ All Python files have valid syntax"
 
+      - name: Check Deprecated API Usage
+        run: |
+          echo "Scanning for deprecated DomainSpecLoader usage..."
+          python tools/check_deprecated_imports.py --check .
+          echo "✅ No deprecated DomainSpecLoader usage found"
+
       - name: Validate YAML Files
         run: |
           python3 -c "

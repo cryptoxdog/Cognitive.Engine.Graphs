@@ -4,14 +4,13 @@ import pytest
 
 from engine.arbitration.engine import ArbitrationEngine
 from engine.arbitration.schema import ArbitrationInput
-from engine.config.loader import DomainSpecLoader
-
+from engine.config.loader import DomainPackLoader
 
 SPEC_PATH = Path("domains/plasticos/spec.yaml")
 
 
 def test_arbitration_rejects_on_hard_constraint() -> None:
-    loader = DomainSpecLoader(SPEC_PATH)
+    loader = DomainPackLoader(config_path=str(SPEC_PATH))
     engine = ArbitrationEngine()
     result = engine.resolve(
         loader.spec.decision_policy,
@@ -21,7 +20,7 @@ def test_arbitration_rejects_on_hard_constraint() -> None:
 
 
 def test_arbitration_approves_on_high_composite() -> None:
-    loader = DomainSpecLoader(SPEC_PATH)
+    loader = DomainPackLoader(config_path=str(SPEC_PATH))
     engine = ArbitrationEngine()
     result = engine.resolve(
         loader.spec.decision_policy,

@@ -1,18 +1,17 @@
-from pathlib import Path
 import asyncio
+from pathlib import Path
 
-from engine.config.loader import DomainSpecLoader
+from engine.config.loader import DomainPackLoader
 from engine.graph.driver import GraphDriver
 from engine.outcomes.engine import OutcomeEngine
 from engine.outcomes.schema import OutcomeEvent
 from engine.scoring.assembler import ScoringAssembler
 
-
 SPEC_PATH = Path("domains/plasticos/spec.yaml")
 
 
 def test_outcome_engine_is_idempotent() -> None:
-    loader = DomainSpecLoader(SPEC_PATH)
+    loader = DomainPackLoader(config_path=str(SPEC_PATH))
     graph = GraphDriver(loader.allowed_canonical_labels())
     scoring = ScoringAssembler(loader)
     engine = OutcomeEngine(graph, scoring)
