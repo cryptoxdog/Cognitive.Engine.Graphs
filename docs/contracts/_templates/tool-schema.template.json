@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/cryptoxdog/Cognitive.Engine.Graphs/docs/contracts/agents/tool-schemas/{tool-name}.schema.json",
+  "title": "{PascalCaseName}Payload",
+  "description": "Payload schema for the '{tool_name}' action. {One-line purpose}. Source: engine/handlers.py:handle_{tool_name}()",
+  "type": "object",
+  "properties": {
+    "{required_field}": {
+      "type": "string",
+      "description": "{Description of field. Include source reference: engine/handlers.py:_require_key(payload, '{required_field}')}"
+    },
+    "{optional_field}": {
+      "type": "string",
+      "nullable": true,
+      "description": "{Description}. Source: engine/handlers.py:payload.get('{optional_field}', {default})",
+      "default": "{default_value}"
+    }
+  },
+  "required": ["{required_field}"],
+  "additionalProperties": false,
+  "examples": [
+    {
+      "{required_field}": "{example_value}",
+      "{optional_field}": "{example_value}"
+    }
+  ]
+}

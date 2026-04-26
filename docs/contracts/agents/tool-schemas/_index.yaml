@@ -1,0 +1,52 @@
+# ═══════════════════════════════════════════════════════════════
+# Contract: Agent Tool Schema Registry
+# Source:   chassis/actions.py:_engine_handlers
+#           engine/auth/capabilities.py:ACTION_PERMISSION_MAP
+# Version:  1.0.0
+# Updated:  2026-04-07
+# ═══════════════════════════════════════════════════════════════
+
+tools:
+  - name: match
+    schema_file: match.schema.json
+    capability: "match:read"
+    handler: engine/handlers.py:handle_match
+    description: Gate-then-score graph traversal. Returns ranked candidates.
+
+  - name: sync
+    schema_file: sync.schema.json
+    capability: "sync:write"
+    handler: engine/handlers.py:handle_sync
+    description: Batch MERGE/SET upsert of entities into the domain graph.
+
+  - name: admin
+    schema_file: admin.schema.json
+    capability: "admin:write"
+    handler: engine/handlers.py:handle_admin
+    description: |
+      Admin introspection and management actions.
+      Subactions: list_domains, get_domain, init_schema, trigger_gds, calibration_run.
+    subactions:
+      - list_domains
+      - get_domain
+      - init_schema
+      - trigger_gds
+      - calibration_run
+
+  - name: outcomes
+    schema_file: outcomes.schema.json
+    capability: "sync:write"
+    handler: engine/handlers.py:handle_outcomes
+    description: Records match outcome feedback (TransactionOutcome node + RESULTED_IN edge).
+
+  - name: resolve
+    schema_file: resolve.schema.json
+    capability: "match:read"
+    handler: engine/handlers.py:handle_resolve
+    description: Entity resolution — creates RESOLVED_FROM edges between duplicate entities.
+
+  - name: enrich
+    schema_file: enrich.schema.json
+    capability: "sync:write"
+    handler: engine/handlers.py:handle_enrich
+    description: Computes and sets derived property values on existing entities.

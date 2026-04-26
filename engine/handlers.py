@@ -514,10 +514,7 @@ async def handle_match(tenant: str, payload: dict[str, Any]) -> dict[str, Any]:
                 results = apply_constraint_penalties(list(results), constraint_dicts)
 
             # Spec-driven Pareto filter using declared objectives
-            arb_dims = [
-                obj.dimension
-                for obj in domain_spec.decision_arbitration.pareto_config.objectives
-            ]
+            arb_dims = [obj.dimension for obj in domain_spec.decision_arbitration.pareto_config.objectives]
             if arb_dims and len(results) > 1:
                 arb_pareto = apply_pareto_filter(results, arb_dims)
                 if pareto_metadata is None:
@@ -1317,10 +1314,7 @@ async def handle_admin(tenant: str, payload: dict[str, Any]) -> dict[str, Any]:
                 tenant=tenant,
             )
 
-        dimension_names = [
-            obj.dimension
-            for obj in spec.decision_arbitration.pareto_config.objectives
-        ]
+        dimension_names = [obj.dimension for obj in spec.decision_arbitration.pareto_config.objectives]
 
         if not dimension_names:
             raise ValidationError(
@@ -1365,10 +1359,12 @@ async def handle_admin(tenant: str, payload: dict[str, Any]) -> dict[str, Any]:
                     continue
             if not isinstance(ds, dict):
                 continue
-            outcome_history.append({
-                "dimension_scores": {k: float(v) for k, v in ds.items()},
-                "was_selected": bool(rec.get("was_selected", False)),
-            })
+            outcome_history.append(
+                {
+                    "dimension_scores": {k: float(v) for k, v in ds.items()},
+                    "was_selected": bool(rec.get("was_selected", False)),
+                }
+            )
 
         if len(outcome_history) < 10:
             return {
@@ -1694,6 +1690,37 @@ async def handle_outcomes(tenant: str, payload: dict[str, Any]) -> dict[str, Any
         loop = ConvergenceLoop(graph_driver, domain_spec)
         feedback_metadata = await loop.on_outcome_recorded(outcome_data)
         response["feedback"] = feedback_metadata
+
+    # W2-02b: Persist outcome_jsonb to PacketStore (feedback loop substrate linkage).
+    # Dual-gated: settings.outcome_persistence_enabled AND PACKET_STORE_ENABLED=true.
+    # Requires payload.match_packet_id to link outcome back to originating match packet.
+    # Non-fatal: PacketStore.record_outcome() never raises; always returns bool.
+    from engine.config.settings import settings as _outcome_settings
+
+    if _outcome_settings.outcome_persistence_enabled:
+        _match_packet_id = payload.get("match_packet_id")
+        if _match_packet_id:
+            from engine.packet.packet_store import get_packet_store as _get_store
+
+            _feedback_meta = response.get("feedback")
+            await _get_store().record_outcome(
+                match_packet_id=_match_packet_id,
+                tenant=tenant,
+                outcome_id=outcome_id,
+                outcome=outcome,
+                match_id=match_id,
+                candidate_id=candidate_id,
+                value=payload.get("value"),
+                feedback_metadata=_feedback_meta,
+            )
+        else:
+            logger.debug(
+                "W2-02b: outcome_persistence_enabled=True but "
+                "payload.match_packet_id not provided -- PacketStore linkage skipped. "
+                "tenant=%s outcome_id=%s",
+                tenant,
+                outcome_id,
+            )
 
     # Causal edge creation: auto-create causal chain from outcome
     if domain_spec.causal.enabled:

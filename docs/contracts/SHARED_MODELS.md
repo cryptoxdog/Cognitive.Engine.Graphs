@@ -15,10 +15,37 @@ status: active
 # L9 Shared Models Contract
 
 ## Rule
-Constellation-wide Pydantic models live in the `l9-core` package. Individual
-engines import from `l9.core`, NEVER redefine these models.
+Constellation-wide Pydantic models live in shared packages. Individual
+engines import from these packages, NEVER redefine these models.
 
-## Package: l9-core
+---
+
+## Package: constellation-node-sdk (Gate SDK — Current Standard)
+
+For inter-node communication, use the Gate SDK:
+
+```python
+# ✅ CORRECT — import from constellation_node_sdk
+from constellation_node_sdk import TransportPacket, GateClient
+from constellation_node_sdk import create_transport_packet
+from constellation_node_sdk import get_gate_client_config_from_env
+from constellation_node_sdk import register_from_env
+
+# ✅ CORRECT — use engine wrappers
+from engine.gate_client import get_gate_client
+from engine.packet_bridge import build_request_packet, build_response_packet
+```
+
+Installation (pyproject.toml):
+```toml
+constellation-node-sdk = {git = "https://github.com/cryptoxdog/Gate_SDK.git"}
+```
+
+---
+
+## Package: l9-core (Internal Models)
+
+For internal engine operations and memory substrate:
 ```
 
 l9/
@@ -34,7 +61,7 @@ types.py             \# PacketType enum, shared type aliases
 
 ## Import Pattern
 ```python
-# ✅ CORRECT — import from l9.core
+# ✅ CORRECT — import from l9.core (internal operations)
 from l9.core.envelope import PacketEnvelope, TenantContext, PacketLineage
 from l9.core.contract import ExecuteRequest, ExecuteResponse
 from l9.core.delegation import delegate_to_node
@@ -43,6 +70,10 @@ from l9.core.types import PacketType
 # ❌ WRONG — redefining in engine code
 class PacketEnvelope(BaseModel):  # BANNED — already in l9-core
     packet_id: UUID
+    ...
+
+# ❌ WRONG — redefining TransportPacket
+class TransportPacket(BaseModel):  # BANNED — already in constellation_node_sdk
     ...
 
 # ❌ WRONG — copying the model file into your repo

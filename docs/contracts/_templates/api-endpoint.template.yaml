@@ -1,0 +1,62 @@
+# ═══════════════════════════════════════════════════════════════
+# Contract: {EndpointName} — API Endpoint Template
+# Source:   {source_file}:{line_number}
+# Version:  1.0.0
+# Updated:  {ISO 8601 date}
+# ═══════════════════════════════════════════════════════════════
+# USAGE: Copy this file, replace all {placeholders}, add to openapi.yaml paths.
+
+paths:
+  /v1/{resource}:
+    {method}:  # get | post | put | patch | delete
+      operationId: {camelCaseOperationId}
+      summary: "{One-line purpose}"
+      description: |
+        {Detailed behavior description.}
+        Source: {source_file}:{function_name}
+      x-source-file: "{source_file}:{line_number}"
+      tags:
+        - {tag_name}
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: {param_name}
+          in: path
+          required: true
+          schema:
+            type: string
+            description: "{Description}"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                {field_name}:
+                  type: string
+                  description: "{Description}"
+              required:
+                - {field_name}
+            examples:
+              default:
+                value:
+                  {field_name}: "{example_value}"
+      responses:
+        "200":
+          description: "{Success description}"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  {response_field}:
+                    type: string
+              examples:
+                success:
+                  value:
+                    {response_field}: "{example}"
+        "422":
+          description: Validation failure
+        "500":
+          description: Unhandled error

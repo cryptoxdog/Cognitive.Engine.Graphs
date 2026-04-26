@@ -115,6 +115,7 @@ class Settings(BaseSettings):
     monoculture_threshold: float = 0.70  # W2-03: single-dimension dominance cap
     ensemble_max_divergence: float = 0.30  # W2-03: GDS/KGE divergence cap (Wave 6)
     score_normalize: bool = False  # W2-04: post-query min-max normalization (opt-in)
+    outcome_persistence_enabled: bool = False  # W2-02b: persist outcomes to PacketStore (opt-in)
 
     # --- Wave 3: Capability & Access Control (seL4-inspired) ---
     tenant_auth_enabled: bool = True  # W3-01: JWT allowed_tenants enforcement

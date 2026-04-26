@@ -1,0 +1,115 @@
+# ═══════════════════════════════════════════════════════════════
+# Contract: Neo4j Graph Schema
+# Source:   engine/config/schema.py (NodeSpec, EdgeSpec, OntologySpec)
+#           engine/handlers.py (handle_outcomes — TransactionOutcome node)
+#           engine/handlers.py (handle_resolve — RESOLVED_FROM edge)
+#           engine/packet/packet_store.sql (PacketEnvelope node)
+# Version:  1.0.0
+# Updated:  2026-04-26
+# ═══════════════════════════════════════════════════════════════
+
+# NOTE: The graph schema is DOMAIN-DRIVEN. Node labels, properties,
+# and edge types are declared per-tenant in domains/*.yaml (OntologySpec).
+# This file documents the SYSTEM nodes that exist across all domains,
+# plus the schema abstraction layer used to declare domain schemas.
+
+system_nodes:
+
+  - label: TransactionOutcome
+    description: |
+      Records the result of a match transaction. Created by handle_outcomes().
+      Has a RESULTED_IN edge from the matched candidate entity.
+    source: engine/handlers.py:handle_outcomes()
+    properties:
+      - name: outcome_id
+        type: string
+        description: "Unique ID: out_{uuid4 hex[:12]}"
+        required: true
+        indexed: true
+      - name: match_id
+        type: string
+        description: ID of the originating match request.
+        required: true
+        indexed: true
+      - name: candidate_id
+        type: string
+        description: ID of the candidate entity involved.
+        required: true
+        indexed: true
+      - name: outcome
+        type: string
+        description: "One of: success | failure | partial"
+        required: true
+      - name: created_at
+        type: datetime
+        description: UTC creation timestamp.
+        required: true
+
+system_edges:
+
+  - type: RESULTED_IN
+    from: "< matched candidate node >"
+    to: TransactionOutcome
+    description: |
+      Causal edge from a candidate entity to its outcome record.
+      Validated by CausalEdgeRuntimeValidator (R3) when causal.enabled=true
+      in the domain spec.
+    source: engine/handlers.py:handle_outcomes()
+    properties:
+      - name: confidence
+        type: float
+        nullable: true
+        description: Outcome confidence score [0.0, 1.0].
+      - name: source_ts
+        type: datetime
+        nullable: true
+        description: Source event timestamp for causal validation.
+      - name: target_ts
+        type: datetime
+        nullable: true
+        description: Target event timestamp for causal validation.
+
+  - type: RESOLVED_FROM
+    from: "< canonical entity >"
+    to: "< duplicate entity >"
+    description: |
+      Created by handle_resolve(). Links a canonical entity to a duplicate.
+      Used for entity deduplication. Created automatically when
+      semantic_registry.enabled=true and similarity exceeds threshold.
+    source: engine/handlers.py:handle_resolve()
+    properties:
+      - name: confidence
+        type: float
+        nullable: true
+        description: Resolution similarity confidence [0.0, 1.0].
+      - name: resolved_at
+        type: datetime
+        description: Timestamp of resolution.
+
+domain_schema_abstraction:
+  description: |
+    Domain-specific nodes and edges are declared in domains/{domain_id}.yaml
+    under the `ontology` key. The schema follows engine/config/schema.py:OntologySpec.
+
+    Node fields:
+      label: string          # Neo4j label
+      description: string
+      candidate: boolean     # Is this the "supply" side of a match?
+      queryentity: boolean   # Is this the "demand" side of a match?
+      properties:
+        - name, type, required, nullable, values (enum), managedby, description
+
+    Edge fields:
+      type: string           # Relationship type (SCREAMING_SNAKE_CASE)
+      from: string           # Source node label
+      to: string             # Target node label
+      direction: OUTBOUND | INBOUND | BIDIRECTIONAL
+      category: GRAPH | METADATA | AUDIT | CAUSAL
+      managedby: engine | external | both
+      properties: [...]
+
+  schema_init_command: |
+    Constraints and indexes are created via handle_admin(subaction="init_schema").
+    Source: engine/handlers.py:_init_schema()
+
+  reference_domain_example: domains/plasticos_domain_spec.yaml

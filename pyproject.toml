@@ -118,6 +118,7 @@ ignore = [
 "tests/**" = ["S101", "S105", "S106", "S108", "ARG001", "ARG002", "PLR2004", "PT011", "B017", "F841", "SIM117", "RUF043"]
 "domains/**" = ["PTH123"]
 "engine/packet/test_*.py" = ["B017"]
+"engine/packet/packet_store.py" = ["TRY300"]
 "scripts/**" = ["S603", "S607", "E402"]
 "tools/**" = ["S603", "S607", "TRY300", "PTH123", "PLR0915", "PLW1510", "E402", "B904", "TID251"]
 "auth/**" = ["S101", "S105", "S106", "TC002", "TRY301", "TRY401"]

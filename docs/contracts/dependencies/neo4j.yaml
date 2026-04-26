@@ -1,0 +1,64 @@
+# ═══════════════════════════════════════════════════════════════
+# Contract: Neo4j 5 Enterprise Dependency
+# Source:   engine/graph/driver.py:GraphDriver
+#           docker-compose.yml (neo4j service)
+#           engine/config/settings.py (neo4j_* fields)
+# Version:  1.0.0
+# Updated:  2026-04-26
+# ═══════════════════════════════════════════════════════════════
+
+service_name: neo4j
+type: external
+protocol: bolt
+version: "5-enterprise"
+plugins:
+  - apoc
+  - graph-data-science
+
+connection:
+  base_url_env: NEO4J_URI
+  default_url: "bolt://neo4j:7687"
+  auth_method: basic
+  username_env: NEO4J_USERNAME
+  password_env: NEO4J_PASSWORD
+  database_env: NEO4J_DATABASE
+  pool_size_env: NEO4J_POOL_SIZE
+  max_connection_lifetime_env: NEO4J_MAX_CONNECTION_LIFETIME
+  acquisition_timeout_env: NEO4J_CONNECTION_ACQUISITION_TIMEOUT
+
+circuit_breaker:
+  enabled: true
+  implementation: engine/graph/circuit_breaker.py:CircuitBreaker
+  failure_threshold_env: NEO4J_CIRCUIT_THRESHOLD
+  failure_threshold_default: 5
+  cooldown_seconds_env: NEO4J_CIRCUIT_COOLDOWN
+  cooldown_seconds_default: 30.0
+  half_open_max_env: NEO4J_CIRCUIT_HALF_OPEN_MAX
+  half_open_max_default: 3
+  error_on_open: engine/graph/circuit_breaker.py:CircuitOpenError
+  http_status_on_open: 503
+
+query_interface:
+  method: engine/graph/driver.py:GraphDriver.execute_query()
+  description: All Cypher queries MUST go through this method (CONTRACT-24).
+  direct_access: forbidden
+
+health_check:
+  query: "RETURN 1 AS ping"
+  database: neo4j
+  source: engine/handlers.py:handle_health()
+
+docker_compose:
+  image: neo4j:5-enterprise
+  ports:
+    browser: "7475:7474"
+    bolt: "7688:7687"
+  memory:
+    heap_initial: 512m
+    heap_max: 1g
+    pagecache: 512m
+  license_env: NEO4J_ACCEPT_LICENSE_AGREEMENT=yes
+
+fallback: |
+  When circuit is OPEN: CircuitOpenError raised → HTTP 200 with
+  status="circuit_open", data.retry_after=30 in ExecuteResponse.

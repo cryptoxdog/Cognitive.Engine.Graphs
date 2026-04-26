@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$comment": "Test fixture for handle_match() — source: engine/handlers.py:375",
+  "action": "match",
+  "tenant": "plasticos",
+  "payload": {
+    "query": {
+      "material_type": "HDPE",
+      "quantity_kg": 500,
+      "location": {
+        "lat": 29.7604,
+        "lon": -95.3698
+      }
+    },
+    "match_direction": "supplier_to_buyer",
+    "top_n": 10,
+    "weights": {
+      "structural": 0.30,
+      "geo": 0.25,
+      "reinforcement": 0.20,
+      "freshness": 0.10
+    }
+  },
+  "trace_id": "test_match_001"
+}

@@ -12,4 +12,5 @@ pytest-timeout>=2.3.0,<3.0.0
 ruff==0.15.5
 mypy==1.14.0
 faker>=40.5.1,<41.0.0
+jsonschema>=4.23.0,<5.0.0
 testcontainers[neo4j]>=4.8.0,<5.0.0

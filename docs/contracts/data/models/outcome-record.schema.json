@@ -1,0 +1,66 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/cryptoxdog/Cognitive.Engine.Graphs/docs/contracts/data/models/outcome-record.schema.json",
+  "title": "OutcomeRecord",
+  "description": "Match outcome feedback record. Source: engine/models/outcomes.py:OutcomeRecord, engine/handlers.py:handle_outcomes()",
+  "type": "object",
+  "properties": {
+    "match_id": {
+      "type": "string",
+      "description": "ID of the originating match request."
+    },
+    "candidate_id": {
+      "type": "string",
+      "description": "ID of the candidate entity."
+    },
+    "outcome": {
+      "type": "string",
+      "enum": ["success", "failure", "partial"],
+      "description": "Match outcome value."
+    },
+    "dimension_scores": {
+      "type": "object",
+      "description": "Per-dimension scores at time of match.",
+      "additionalProperties": {
+        "type": "number",
+        "minimum": 0.0,
+        "maximum": 1.0
+      }
+    },
+    "was_selected": {
+      "type": "boolean",
+      "description": "Whether the candidate was selected by the requester."
+    },
+    "feedback_score": {
+      "type": ["number", "null"],
+      "minimum": 0.0,
+      "maximum": 1.0,
+      "default": null,
+      "description": "Optional explicit feedback score [0.0, 1.0]."
+    },
+    "created_at": {
+      "type": ["string", "null"],
+      "format": "date-time",
+      "description": "UTC creation timestamp.",
+      "default": null
+    }
+  },
+  "required": ["match_id", "candidate_id", "outcome", "dimension_scores", "was_selected"],
+  "additionalProperties": false,
+  "examples": [
+    {
+      "match_id": "match_abc123",
+      "candidate_id": "buyer_042",
+      "outcome": "success",
+      "dimension_scores": {
+        "structural": 0.92,
+        "geo": 0.71,
+        "reinforcement": 0.88,
+        "freshness": 0.95
+      },
+      "was_selected": true,
+      "feedback_score": null,
+      "created_at": "2026-04-07T15:00:00Z"
+    }
+  ]
+}

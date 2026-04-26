@@ -1,0 +1,310 @@
+# ═══════════════════════════════════════════════════════════════
+# Contract: L9 Cognitive Engine Graph — Unified API
+# Source:   chassis/app.py, chassis/chassis_app.py, chassis/actions.py
+# Version:  1.0.0
+# Updated:  2026-04-26
+# Verified: Against chassis/app.py lines 82-99, 330-361, handlers.py
+# ═══════════════════════════════════════════════════════════════
+
+openapi: 3.1.0
+
+info:
+  title: L9 Cognitive Engine Graph API
+  description: |
+    Domain-agnostic graph-native matching engine. All engine behavior is
+    accessed through the single universal ingress: POST /v1/execute.
+    The `action` field routes to one of 8 named handlers in engine/handlers.py.
+    Behavior is entirely driven by domain spec YAML files loaded at runtime.
+  version: 1.0.0
+  contact:
+    email: eng@l9.dev
+
+servers:
+  - url: http://localhost:8000
+    description: Local development (Docker Compose)
+
+security:
+  - ApiKeyAuth: []
+
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: x-api-key
+      description: |
+        Static API key validated against API_KEY environment variable.
+        Source: chassis/middleware.py
+        Default dev value: "dev-key-sha256-not-for-production"
+
+  schemas:
+    ExecuteRequest:
+      type: object
+      description: |
+        Universal execute request envelope — chassis contract.
+        Source: chassis/app.py:ExecuteRequest (lines 82-88)
+      properties:
+        action:
+          type: string
+          enum: [match, sync, admin, outcomes, resolve, health, healthcheck, enrich]
+          description: Engine action. Routes to handler in engine/handlers.py via register_all().
+        tenant:
+          type: string
+          description: Domain pack ID (e.g. "plasticos"). Validated against TENANT_ALLOWLIST.
+        payload:
+          type: object
+          description: Action-specific payload. See agents/tool-schemas/{action}.schema.json.
+          additionalProperties: true
+          default: {}
+        trace_id:
+          type: string
+          nullable: true
+          description: Caller trace ID. Chassis generates UUID4 if omitted.
+      required: [action, tenant]
+      additionalProperties: false
+
+    ExecuteResponse:
+      type: object
+      description: |
+        Universal execute response envelope — chassis contract.
+        Source: chassis/app.py:ExecuteResponse (lines 91-98)
+      properties:
+        status:
+          type: string
+          enum: [success, failed, circuit_open]
+        action:
+          type: string
+        tenant:
+          type: string
+        data:
+          type: object
+          additionalProperties: true
+        meta:
+          type: object
+          properties:
+            trace_id: {type: string}
+            execution_ms: {type: number}
+            version: {type: string}
+            timestamp: {type: string, format: date-time}
+          required: [trace_id]
+      required: [status, action, tenant, data, meta]
+
+    HealthResponse:
+      type: object
+      description: |
+        Health check response.
+        Source: engine/handlers.py:handle_health() (lines 1847-1880)
+      properties:
+        status:
+          type: string
+          enum: [healthy, degraded]
+        checks:
+          type: object
+          properties:
+            neo4j: {type: string}
+            domain_spec: {type: string}
+      required: [status, checks]
+
+paths:
+  /v1/execute:
+    post:
+      operationId: executeAction
+      summary: Execute a named engine action
+      description: |
+        Universal single-ingress endpoint for all engine operations.
+        Routes to: match, sync, admin, outcomes, resolve, health, healthcheck, enrich.
+
+        HTTP status code mapping (source: chassis/app.py:_raise_for_failed_result):
+          200 — success, failed, or circuit_open (check body .status)
+          400 — unknown action (ValueError from engine)
+          422 — payload validation failure (Pydantic or engine ValidationError)
+          500 — unhandled engine error
+
+        Each call is wrapped in a PacketEnvelope (inflate_ingress → handler →
+        deflate_egress → PacketStore.persist). CONTRACT-06, CONTRACT-07, CONTRACT-08.
+      x-source-file: chassis/app.py:execute()
+      tags: [engine]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ExecuteRequest"
+            examples:
+              match:
+                summary: Match — find ranked candidates
+                value:
+                  action: match
+                  tenant: plasticos
+                  payload:
+                    query:
+                      material_type: HDPE
+                      quantity_kg: 500
+                      location_lat: 35.79
+                      location_lon: -83.98
+                    match_direction: supplier_to_buyer
+                    top_n: 10
+                    weights: {structural: 0.35, geo: 0.30, reinforcement: 0.20, freshness: 0.15}
+                  trace_id: req_abc123
+              sync:
+                summary: Sync — upsert entities
+                value:
+                  action: sync
+                  tenant: plasticos
+                  payload:
+                    entity_type: Supplier
+                    batch:
+                      - id: sup_001
+                        name: Recycled Polymers Co
+                        material_types: [HDPE, LDPE]
+                        location_lat: 35.79
+                        location_lon: -83.98
+              admin_list:
+                summary: Admin — list domains
+                value:
+                  action: admin
+                  tenant: platform
+                  payload:
+                    subaction: list_domains
+              outcomes:
+                summary: Outcomes — record match result
+                value:
+                  action: outcomes
+                  tenant: plasticos
+                  payload:
+                    match_id: match_abc123
+                    candidate_id: buyer_042
+                    outcome: success
+              enrich:
+                summary: Enrich — compute properties
+                value:
+                  action: enrich
+                  tenant: plasticos
+                  payload:
+                    entity_type: Supplier
+                    entity_ids: [sup_001]
+                    enrichments:
+                      - property: reliability_score
+                        expression: "n.successful_matches / (n.successful_matches + n.failed_matches)"
+      responses:
+        "200":
+          description: |
+            Executed. Check body.status — "success", "failed", or "circuit_open".
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExecuteResponse"
+              examples:
+                match_success:
+                  value:
+                    status: success
+                    action: match
+                    tenant: plasticos
+                    data:
+                      matches:
+                        - candidate_id: buyer_042
+                          score: 0.87
+                          dimensions: {structural: 0.92, geo: 0.71, reinforcement: 0.88, freshness: 0.95}
+                    meta:
+                      trace_id: req_abc123
+                      execution_ms: 42.1
+                      version: "1.1.0"
+                      timestamp: "2026-04-05T20:42:00Z"
+                circuit_open:
+                  value:
+                    status: circuit_open
+                    action: match
+                    tenant: plasticos
+                    data:
+                      error: "Circuit breaker OPEN for neo4j"
+                      retry_after: 30
+                      status_code: 503
+                    meta:
+                      trace_id: req_abc123
+                      execution_ms: 0.1
+                      version: "1.1.0"
+                      timestamp: "2026-04-05T20:42:00Z"
+        "400":
+          description: Unknown action
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  detail: {type: string}
+        "401":
+          description: Missing or invalid x-api-key
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  detail: {type: string}
+        "422":
+          description: Payload validation failure
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  detail: {}
+        "500":
+          description: Unhandled engine error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  detail: {type: string}
+
+  /v1/health:
+    get:
+      operationId: getHealth
+      summary: Liveness / readiness probe
+      description: |
+        Unauthenticated health check. Delegates to handle_health() which runs:
+        1. RETURN 1 AS ping against "neo4j" database
+        2. domain_loader.load_domain(tenant) spec validation
+
+        Returns 200 when healthy, 503 when Neo4j unreachable.
+        Source: chassis/app.py:health(), engine/handlers.py:handle_health()
+      x-source-file: chassis/app.py:health()
+      tags: [health]
+      security: []
+      parameters:
+        - name: tenant
+          in: query
+          required: false
+          schema:
+            type: string
+            default: default
+          description: Tenant to validate domain spec for.
+      responses:
+        "200":
+          description: All checks passed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
+              example:
+                status: healthy
+                checks:
+                  neo4j: ok
+                  domain_spec: ok
+        "503":
+          description: Neo4j unreachable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
+              example:
+                status: degraded
+                checks:
+                  neo4j: neo4j_connection_failed
+                  domain_spec: ok
+
+tags:
+  - name: engine
+    description: Core engine action execution
+  - name: health
+    description: Liveness and readiness probes

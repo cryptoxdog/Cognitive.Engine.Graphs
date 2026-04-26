@@ -1,0 +1,480 @@
+# ═══════════════════════════════════════════════════════════════
+# Contract: Engine + Chassis Environment Variables
+# Source:   engine/config/settings.py:Settings
+#           chassis/app.py:ChassisSettings
+#           docker-compose.yml
+# Version:  1.0.0
+# Updated:  2026-04-05
+# ═══════════════════════════════════════════════════════════════
+
+variables:
+
+  # ── Project Identity ──────────────────────────────────────
+  - name: L9_PROJECT
+    type: string
+    required: false
+    default: l9-engine
+    description: Project identifier for logging and metrics labeling.
+    source: env
+    sensitive: false
+
+  - name: L9_ENV
+    type: string
+    required: false
+    default: dev
+    description: |
+      Deployment environment. Triggers production secret validation
+      when set to "prod" (rejects default passwords).
+    source: env
+    sensitive: false
+    validation: "enum: dev | staging | prod"
+    example: prod
+
+  # ── Neo4j ─────────────────────────────────────────────────
+  - name: NEO4J_URI
+    type: url
+    required: true
+    default: "bolt://localhost:7687"
+    description: |
+      Neo4j Bolt connection URI. In Docker Compose, uses service name:
+      bolt://neo4j:7687. In production, use encrypted bolt+s://.
+    source: env
+    sensitive: false
+    example: "bolt://neo4j:7687"
+
+  - name: NEO4J_USERNAME
+    type: string
+    required: true
+    default: neo4j
+    description: Neo4j authentication username.
+    source: env
+    sensitive: false
+
+  - name: NEO4J_PASSWORD
+    type: secret
+    required: true
+    default: "password"
+    description: |
+      Neo4j authentication password. MUST be changed from default in production.
+      Validated by Settings._validate_production_secrets() — raises ValueError
+      if L9_ENV=prod and value is in {"password", "change-me-in-production"}.
+    source: env
+    sensitive: true
+    example: "prod-secure-password-here"
+
+  - name: NEO4J_DATABASE
+    type: string
+    required: false
+    default: neo4j
+    description: Neo4j default database name for query execution.
+    source: env
+    sensitive: false
+
+  - name: NEO4J_POOL_SIZE
+    type: integer
+    required: false
+    default: 50
+    description: Neo4j async driver connection pool size.
+    source: env
+    sensitive: false
+
+  - name: NEO4J_MAX_CONNECTION_LIFETIME
+    type: integer
+    required: false
+    default: 3600
+    description: Max connection lifetime in seconds before recycling.
+    source: env
+    sensitive: false
+
+  - name: NEO4J_CONNECTION_ACQUISITION_TIMEOUT
+    type: integer
+    required: false
+    default: 60
+    description: Seconds to wait when acquiring a connection from the pool.
+    source: env
+    sensitive: false
+
+  # ── Redis ─────────────────────────────────────────────────
+  - name: REDIS_URL
+    type: url
+    required: true
+    default: "redis://localhost:6379/0"
+    description: |
+      Redis connection URL. In Docker Compose: redis://redis:6379/0.
+      Used for scoring result caching and GDS output caching.
+    source: env
+    sensitive: false
+    example: "redis://redis:6379/0"
+
+  # ── API Surface ───────────────────────────────────────────
+  - name: API_KEY
+    type: secret
+    required: true
+    default: "change-me-in-production"
+    description: |
+      Static API key for x-api-key header authentication. MUST be changed
+      from default in production. Validated by Settings._validate_production_secrets().
+    source: env
+    sensitive: true
+    example: "sha256-generated-secure-key"
+
+  - name: API_PORT
+    type: integer
+    required: false
+    default: 8000
+    description: Port for the Uvicorn server.
+    source: env
+    sensitive: false
+
+  - name: API_WORKERS
+    type: integer
+    required: false
+    default: 4
+    description: Number of Uvicorn worker processes.
+    source: env
+    sensitive: false
+
+  - name: CORS_ORIGINS
+    type: string
+    required: false
+    default: "[]"
+    description: |
+      JSON array of allowed CORS origins. Default deny-all.
+      Example: '["http://localhost:3000","https://app.example.com"]'
+    source: env
+    sensitive: false
+
+  # ── Domain Packs ──────────────────────────────────────────
+  - name: DOMAINS_ROOT
+    type: string
+    required: false
+    default: "./domains"
+    description: |
+      Filesystem path to the domain spec YAML directory.
+      Each subdirectory or YAML file here is a loadable domain pack.
+    source: env
+    sensitive: false
+
+  # ── Chassis Lifecycle ─────────────────────────────────────
+  - name: L9_LIFECYCLE_HOOK
+    type: string
+    required: false
+    default: ""
+    description: |
+      Dotted module path to the engine's LifecycleHook class.
+      Format: "module.path:ClassName"
+      Example: "engine.boot:GraphLifecycle"
+      Source: chassis/app.py:ChassisSettings.l9_lifecycle_hook
+    source: env
+    sensitive: false
+
+  # ── Logging ───────────────────────────────────────────────
+  - name: LOG_LEVEL
+    type: string
+    required: false
+    default: INFO
+    description: Python logging level. One of DEBUG, INFO, WARNING, ERROR, CRITICAL.
+    source: env
+    sensitive: false
+    validation: "enum: DEBUG | INFO | WARNING | ERROR | CRITICAL"
+
+  # ── Scoring Weights (defaults) ────────────────────────────
+  - name: W_STRUCTURAL
+    type: number
+    required: false
+    default: 0.30
+    description: |
+      Default weight for the structural graph scoring dimension.
+      Overridable per-request via payload.weights.structural.
+      Sum of all W_* defaults must be <= 1.0 (CONTRACT-22).
+    source: env
+    sensitive: false
+    validation: "range: [0.0, 1.0]"
+
+  - name: W_GEO
+    type: number
+    required: false
+    default: 0.25
+    description: Default weight for geographic proximity dimension.
+    source: env
+    sensitive: false
+    validation: "range: [0.0, 1.0]"
+
+  - name: W_REINFORCEMENT
+    type: number
+    required: false
+    default: 0.20
+    description: Default weight for reinforcement/historical dimension.
+    source: env
+    sensitive: false
+    validation: "range: [0.0, 1.0]"
+
+  - name: W_FRESHNESS
+    type: number
+    required: false
+    default: 0.10
+    description: Default weight for data freshness dimension.
+    source: env
+    sensitive: false
+    validation: "range: [0.0, 1.0]"
+
+  - name: GEO_DECAY_KM
+    type: number
+    required: false
+    default: 800.0
+    description: Geographic decay half-distance in kilometers.
+    source: env
+    sensitive: false
+
+  - name: COMMUNITY_CROSS_BIAS
+    type: number
+    required: false
+    default: 0.92
+    description: |
+      Penalty multiplier applied to cross-community matches.
+      Values < 1.0 down-weight inter-community candidates.
+    source: env
+    sensitive: false
+    validation: "range: [0.0, 1.0]"
+
+  - name: MAX_RESULTS
+    type: integer
+    required: false
+    default: 25
+    description: Global default for max candidates returned per match.
+    source: env
+    sensitive: false
+
+  # ── Wave 1: Validation Hardening ──────────────────────────
+  - name: DOMAIN_STRICT_VALIDATION
+    type: boolean
+    required: false
+    default: true
+    description: |
+      W1-01 (seL4-inspired): Run cross-reference validators at domain load time.
+      Set to False only for development/debugging.
+    source: env
+    sensitive: false
+
+  - name: SCORE_CLAMP_ENABLED
+    type: boolean
+    required: false
+    default: true
+    description: "W1-02: Clamp dimension scores to [0.0, 1.0]. Safety feature."
+    source: env
+    sensitive: false
+
+  - name: STRICT_NULL_GATES
+    type: boolean
+    required: false
+    default: true
+    description: "W1-03: Reject gates with null-resolved parameters at compile time."
+    source: env
+    sensitive: false
+
+  - name: MAX_HOP_HARD_CAP
+    type: integer
+    required: false
+    default: 10
+    description: "W1-04: Maximum hops allowed in traversal patterns."
+    source: env
+    sensitive: false
+
+  - name: PARAM_STRICT_MODE
+    type: boolean
+    required: false
+    default: true
+    description: "W1-05: Raise on derived parameter resolution failures."
+    source: env
+    sensitive: false
+
+  # ── Wave 2: Scoring Refinement ────────────────────────────
+  - name: FEEDBACK_ENABLED
+    type: boolean
+    required: false
+    default: false
+    description: |
+      W2-02: Enable outcome feedback loop for score calibration.
+      Opt-in — disabled by default for safety.
+    source: env
+    sensitive: false
+
+  - name: CONFIDENCE_CHECK_ENABLED
+    type: boolean
+    required: false
+    default: true
+    description: "W2-03: Enable ensemble confidence bounds checking."
+    source: env
+    sensitive: false
+
+  - name: MONOCULTURE_THRESHOLD
+    type: number
+    required: false
+    default: 0.70
+    description: "W2-03: Single-dimension dominance cap."
+    source: env
+    sensitive: false
+    validation: "range: [0.0, 1.0]"
+
+  - name: SCORE_NORMALIZE
+    type: boolean
+    required: false
+    default: false
+    description: "W2-04: Post-query min-max score normalization. Opt-in."
+    source: env
+    sensitive: false
+
+  # ── Wave 3: Access Control ────────────────────────────────
+  - name: TENANT_AUTH_ENABLED
+    type: boolean
+    required: false
+    default: true
+    description: "W3-01: Enable JWT allowed_tenants claim enforcement."
+    source: env
+    sensitive: false
+
+  - name: TENANT_AUTH_BYPASS_KEY
+    type: secret
+    required: false
+    default: ""
+    description: "W3-01: Service-to-service bypass key (skips JWT tenant check)."
+    source: env
+    sensitive: true
+
+  - name: CAPABILITY_AUTH_ENABLED
+    type: boolean
+    required: false
+    default: true
+    description: "W3-02/W3-03: Enable domain-spec capability-based access control."
+    source: env
+    sensitive: false
+
+  - name: TENANT_ALLOWLIST
+    type: string
+    required: false
+    default: ""
+    description: |
+      Comma-separated list of allowed tenant IDs. Empty = all tenants allowed.
+      Source: engine/handlers.py:init_dependencies()
+    source: env
+    sensitive: false
+    example: "plasticos,freight,healthcare"
+
+  # ── Wave 4: Resilience ────────────────────────────────────
+  - name: NEO4J_CIRCUIT_THRESHOLD
+    type: integer
+    required: false
+    default: 5
+    description: "W4-02: Consecutive Neo4j failures before circuit breaker opens."
+    source: env
+    sensitive: false
+
+  - name: NEO4J_CIRCUIT_COOLDOWN
+    type: number
+    required: false
+    default: 30.0
+    description: "W4-02: Seconds in OPEN state before attempting HALF_OPEN probe."
+    source: env
+    sensitive: false
+
+  - name: NEO4J_CIRCUIT_HALF_OPEN_MAX
+    type: integer
+    required: false
+    default: 3
+    description: "W4-02: Maximum probe calls allowed in HALF_OPEN state."
+    source: env
+    sensitive: false
+
+  - name: DOMAIN_CACHE_TTL_SECONDS
+    type: integer
+    required: false
+    default: 30
+    description: "W4-03: TTL for async domain pack LRU cache entries."
+    source: env
+    sensitive: false
+
+  - name: DOMAIN_CACHE_MAXSIZE
+    type: integer
+    required: false
+    default: 100
+    description: "W4-03: Maximum entries in the domain pack cache."
+    source: env
+    sensitive: false
+
+  # ── Wave 6: Dormant Features ──────────────────────────────
+  - name: GDPR_ERASURE_ENABLED
+    type: boolean
+    required: false
+    default: false
+    description: "W6-02: Enable GDPR erasure endpoint. Opt-in."
+    source: env
+    sensitive: false
+
+  - name: GDPR_DRY_RUN
+    type: boolean
+    required: false
+    default: true
+    description: "W6-02: When true, compute erasure scope without executing deletions."
+    source: env
+    sensitive: false
+
+  - name: GDS_MAX_STALENESS_HOURS
+    type: integer
+    required: false
+    default: 25
+    description: "W6-03: Max hours before a GDS job result is considered stale."
+    source: env
+    sensitive: false
+
+  # ── KGE ───────────────────────────────────────────────────
+  - name: KGE_ENABLED
+    type: boolean
+    required: false
+    default: false
+    description: Enable Knowledge Graph Embedding (CompoundE3D) scoring dimension.
+    source: env
+    sensitive: false
+
+  - name: KGE_EMBEDDING_DIM
+    type: integer
+    required: false
+    default: 256
+    description: KGE embedding dimension. Must match KGESpec.embeddingdim in domain spec.
+    source: env
+    sensitive: false
+
+  - name: KGE_CONFIDENCE_THRESHOLD
+    type: number
+    required: false
+    default: 0.3
+    description: Minimum KGE link prediction confidence to include in scoring.
+    source: env
+    sensitive: false
+    validation: "range: [0.0, 1.0]"
+
+  # ── Pareto / Multi-Objective ──────────────────────────────
+  - name: PARETO_ENABLED
+    type: boolean
+    required: false
+    default: true
+    description: Enable Pareto-frontier multi-objective optimization.
+    source: env
+    sensitive: false
+
+  - name: PARETO_N_SAMPLES
+    type: integer
+    required: false
+    default: 50
+    description: Number of Pareto weight samples per optimization run.
+    source: env
+    sensitive: false
+
+  - name: PARETO_WEIGHT_DISCOVERY_ENABLED
+    type: boolean
+    required: false
+    default: false
+    description: |
+      Enable automated Pareto weight discovery from outcome history.
+      Off until outcome data flows (requires FEEDBACK_ENABLED=true first).
+    source: env
+    sensitive: false

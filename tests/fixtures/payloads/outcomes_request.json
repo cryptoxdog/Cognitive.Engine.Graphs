@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$comment": "Test fixture for handle_outcomes() — source: engine/handlers.py:1572",
+  "action": "outcomes",
+  "tenant": "plasticos",
+  "payload": {
+    "match_id": "q_abc123def456",
+    "candidate_id": "sup_001",
+    "outcome": "success",
+    "value": 0.92,
+    "fingerprint": {
+      "active_dimensions": ["structural", "geo", "reinforcement"],
+      "dimension_weights": {
+        "structural": 0.30,
+        "geo": 0.25,
+        "reinforcement": 0.20
+      },
+      "gates_passed": ["material_type_match", "capacity_threshold", "geo_range"],
+      "match_direction": "supplier_to_buyer",
+      "candidate_count": 15
+    },
+    "source_ts": "2026-04-26T10:30:00Z",
+    "target_ts": "2026-04-26T10:30:05Z",
+    "confidence": 0.95
+  },
+  "trace_id": "test_outcomes_001"
+}

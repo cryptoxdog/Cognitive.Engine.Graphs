@@ -54,6 +54,9 @@ status: active
 - [ ] Commit or discard uncommitted changes
 - [ ] Wire `make audit` into local/dev workflow
 
+### Automation
+- [ ] Inject L9_META headers into all files that have it missing using a script
+
 ---
 
 ## 📝 Notes

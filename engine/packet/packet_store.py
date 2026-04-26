@@ -10,9 +10,18 @@ status: active
 --- /L9_META ---
 
 engine/packet/packet_store.py
-PacketStore — async persistence layer for PacketEnvelope audit trail.
+PacketStore — async persistence layer for PacketEnvelope audit trail
+plus outcome_jsonb feedback-loop linkage (migration 0001_outcome_jsonb).
 Writes immutable request/response pairs to the packet_store PostgreSQL
 schema defined in engine/packet/packet_store.sql.
+
+New in this version:
+  PacketStore.record_outcome(...)
+    -- Writes outcome_jsonb to an existing packet_store row, linking a
+       TransactionOutcome node (Neo4j) back to the PacketEnvelope that
+       triggered the match. Called from handle_outcomes() when both
+       PACKET_STORE_ENABLED=true and settings.outcome_persistence_enabled=True.
+    -- Non-fatal: degrades gracefully on any DB error (log warning, return False).
 
 Configuration via environment variables:
   - PACKET_STORE_ENABLED: "true" to enable persistence (default: "false")
@@ -21,6 +30,7 @@ Configuration via environment variables:
   - PACKET_STORE_POOL_MIN: Minimum pool connections (default: 2)
   - PACKET_STORE_POOL_MAX: Maximum pool connections (default: 10)
 """
+
 from __future__ import annotations
 
 import json
@@ -82,9 +92,17 @@ _INSERT_DELEGATION_SQL = """
         packet_id, delegator, delegatee, scope, granted_at, expires_at, proof_hash, seq
     ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 """
+# NEW: Outcome feedback-loop linkage
+_UPDATE_OUTCOME_SQL = """
+    UPDATE packet_store
+    SET outcome_jsonb = $1
+    WHERE packet_id = $2::uuid
+      AND actor_tenant = $3
+"""
 
 
 # ── Pool Management ──────────────────────────────────────────
+
 
 class _PoolManager:
     """Lazy-initialised asyncpg connection pool."""
@@ -98,18 +116,16 @@ class _PoolManager:
             return self._pool
 
         try:
-            import asyncpg  # noqa: F811
+            import asyncpg
         except ImportError as exc:
             raise RuntimeError(
-                "asyncpg is required for PacketStore persistence. "
-                "Install with: pip install asyncpg"
+                "asyncpg is required for PacketStore persistence. Install with: pip install asyncpg"
             ) from exc
 
         dsn = os.environ.get("PACKET_STORE_DSN")
         if not dsn:
             raise RuntimeError(
-                "PACKET_STORE_DSN environment variable is required. "
-                "Set it to your PostgreSQL connection string."
+                "PACKET_STORE_DSN environment variable is required. Set it to your PostgreSQL connection string."
             )
 
         min_size = int(os.environ.get("PACKET_STORE_POOL_MIN", "2"))
@@ -123,7 +139,8 @@ class _PoolManager:
         )
         logger.info(
             "PacketStore pool initialized: min=%d max=%d",
-            min_size, max_size,
+            min_size,
+            max_size,
         )
         return self._pool
 
@@ -139,6 +156,7 @@ _pool_manager = _PoolManager()
 
 
 # ── Extraction Helpers ───────────────────────────────────────
+
 
 def _extract_packet_row(packet: PacketEnvelope) -> tuple[Any, ...]:
     """Extract a flat tuple of values from a PacketEnvelope for INSERT."""
@@ -193,6 +211,7 @@ def _extract_packet_row(packet: PacketEnvelope) -> tuple[Any, ...]:
 
 # ── PacketStore ──────────────────────────────────────────────
 
+
 class PacketStore:
     """Async persistence layer for PacketEnvelope request/response pairs.
 
@@ -214,65 +233,163 @@ class PacketStore:
         """
         if not _PACKET_STORE_ENABLED:
             logger.debug(
-                "PacketStore is disabled. Set PACKET_STORE_ENABLED=true to enable. "
-                "packet_id=%s",
+                "PacketStore is disabled. Set PACKET_STORE_ENABLED=true to enable. packet_id=%s",
                 request.packet_id,
             )
             return
 
         pool = await _pool_manager.get_pool()
 
-        async with pool.acquire() as conn:
-            async with conn.transaction():
-                # Insert both packets
-                for packet in (request, response):
-                    row = _extract_packet_row(packet)
-                    await conn.execute(_INSERT_PACKET_SQL, *row)
+        async with pool.acquire() as conn, conn.transaction():
+            # Insert both packets
+            for packet in (request, response):
+                row = _extract_packet_row(packet)
+                await conn.execute(_INSERT_PACKET_SQL, *row)
 
-                    # Insert hop trace entries
-                    for seq, hop in enumerate(packet.hop_trace):
-                        await conn.execute(
-                            _INSERT_HOP_SQL,
-                            str(packet.packet_id),
-                            hop.node_id,
-                            hop.action,
-                            hop.entered_at,
-                            hop.exited_at,
-                            hop.status,
-                            hop.signature,
-                            seq,
-                        )
+                # Insert hop trace entries
+                for seq, hop in enumerate(packet.hop_trace):
+                    await conn.execute(
+                        _INSERT_HOP_SQL,
+                        str(packet.packet_id),
+                        hop.node_id,
+                        hop.action,
+                        hop.entered_at,
+                        hop.exited_at,
+                        hop.status,
+                        hop.signature,
+                        seq,
+                    )
 
-                    # Insert delegation chain entries
-                    for seq, deleg in enumerate(packet.delegation_chain):
-                        await conn.execute(
-                            _INSERT_DELEGATION_SQL,
-                            str(packet.packet_id),
-                            deleg.delegator,
-                            deleg.delegatee,
-                            list(deleg.scope),
-                            deleg.granted_at,
-                            deleg.expires_at,
-                            deleg.proof_hash,
-                            seq,
-                        )
+                # Insert delegation chain entries
+                for seq, deleg in enumerate(packet.delegation_chain):
+                    await conn.execute(
+                        _INSERT_DELEGATION_SQL,
+                        str(packet.packet_id),
+                        deleg.delegator,
+                        deleg.delegatee,
+                        list(deleg.scope),
+                        deleg.granted_at,
+                        deleg.expires_at,
+                        deleg.proof_hash,
+                        seq,
+                    )
 
-                    # Insert lineage graph edges
-                    for parent_id in packet.lineage.parent_ids:
-                        await conn.execute(
-                            _INSERT_LINEAGE_SQL,
-                            str(parent_id),
-                            str(packet.packet_id),
-                            packet.lineage.generation,
-                            packet.lineage.derivation_type,
-                            datetime.now(UTC),
-                        )
+                # Insert lineage graph edges
+                for parent_id in packet.lineage.parent_ids:
+                    await conn.execute(
+                        _INSERT_LINEAGE_SQL,
+                        str(parent_id),
+                        str(packet.packet_id),
+                        packet.lineage.generation,
+                        packet.lineage.derivation_type,
+                        datetime.now(UTC),
+                    )
 
         logger.info(
             "PacketStore persisted pair: request=%s response=%s",
             request.packet_id,
             response.packet_id,
         )
+
+    async def record_outcome(
+        self,
+        *,
+        match_packet_id: str,
+        tenant: str,
+        outcome_id: str,
+        outcome: str,
+        match_id: str,
+        candidate_id: str,
+        value: float | None,
+        feedback_metadata: dict[str, Any] | None,
+    ) -> bool:
+        """Write outcome_jsonb to the packet_store row for a match packet.
+
+        Links the TransactionOutcome node written to Neo4j back to the
+        PacketEnvelope row that triggered the match, completing the
+        feedback loop substrate. This is the write half of the loop;
+        SignalWeightCalculator is the read half.
+
+        Args:
+            match_packet_id: packet_id (UUID str) of the original match PacketEnvelope.
+                             Provided by caller via payload.match_packet_id.
+            tenant:          actor_tenant for RLS scoping. Always in the WHERE clause.
+            outcome_id:      TransactionOutcome.outcome_id (Neo4j node id).
+            outcome:         "success" | "failure" | "partial".
+            match_id:        payload.match_id from the outcomes request.
+            candidate_id:    payload.candidate_id from the outcomes request.
+            value:           optional numeric outcome value (may be None).
+            feedback_metadata: ConvergenceLoop metadata dict (may be None).
+
+        Returns:
+            True  -- UPDATE modified exactly one row (outcome recorded).
+            False -- store disabled, packet not found, tenant mismatch, or DB error.
+
+        Contracts:
+            Non-fatal: exceptions logged as warnings, never re-raised.
+            Tenant-scoped: actor_tenant always in SQL WHERE clause (Contract 3).
+            Idempotent: repeated calls overwrite outcome_jsonb (UPDATE, not INSERT).
+            Feature-gated: only called when settings.outcome_persistence_enabled=True
+                           (callers enforce this; method itself does not re-check).
+        """
+        if not _PACKET_STORE_ENABLED:
+            logger.debug(
+                "PacketStore disabled -- outcome not persisted: outcome_id=%s match_packet_id=%s",
+                outcome_id,
+                match_packet_id,
+            )
+            return False
+
+        outcome_payload: dict[str, Any] = {
+            "outcome_id": outcome_id,
+            "outcome": outcome,
+            "match_id": match_id,
+            "candidate_id": candidate_id,
+            "value": value,
+            "recorded_at": datetime.now(UTC).isoformat(),
+            "feedback": feedback_metadata,
+        }
+
+        try:
+            pool = await _pool_manager.get_pool()
+            async with pool.acquire() as conn:
+                result = await conn.execute(
+                    _UPDATE_OUTCOME_SQL,
+                    json.dumps(outcome_payload),
+                    match_packet_id,
+                    tenant,
+                )
+            rows_affected = int(result.split()[-1]) if result else 0
+            if rows_affected == 1:
+                logger.info(
+                    "PacketStore.record_outcome: outcome_jsonb written packet_id=%s outcome=%s outcome_id=%s tenant=%s",
+                    match_packet_id,
+                    outcome,
+                    outcome_id,
+                    tenant,
+                )
+                return True
+
+            logger.warning(
+                "PacketStore.record_outcome: no row updated "
+                "(packet not found or tenant mismatch) "
+                "packet_id=%s tenant=%s outcome_id=%s rows_affected=%d",
+                match_packet_id,
+                tenant,
+                outcome_id,
+                rows_affected,
+            )
+            return False
+
+        except Exception as exc:
+            logger.warning(
+                "PacketStore.record_outcome failed (non-fatal): outcome_id=%s match_packet_id=%s tenant=%s error=%s",
+                outcome_id,
+                match_packet_id,
+                tenant,
+                exc,
+            )
+            return False
 
     async def close(self) -> None:
         """Close the underlying connection pool."""

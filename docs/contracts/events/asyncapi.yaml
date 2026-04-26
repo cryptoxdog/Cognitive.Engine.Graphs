@@ -1,0 +1,83 @@
+# ═══════════════════════════════════════════════════════════════
+# Contract: Internal Event / Packet Routing Contracts
+# Source:   engine/packet/packet_envelope.py:PacketType
+#           engine/packet/chassis_contract.py
+#           chassis/actions.py:execute_action()
+# Version:  1.0.0
+# Updated:  2026-04-05
+# ═══════════════════════════════════════════════════════════════
+
+asyncapi: 3.0.0
+
+info:
+  title: L9 CEG Internal Packet Events
+  version: 1.0.0
+  description: |
+    CEG does not use an external message broker (no Kafka, RabbitMQ, or Redis Pub/Sub
+    found in source). Internal "events" are PacketEnvelope objects flowing through
+    the synchronous inflate → handle → deflate → persist pipeline within a single
+    HTTP request lifecycle.
+
+    If async event processing is added in a future version, this spec will be
+    updated with broker bindings.
+
+channels:
+  chassis.request.ingress:
+    description: |
+      Inbound action request arriving at POST /v1/execute.
+      PacketEnvelope created by inflate_ingress().
+      Source: chassis/actions.py:execute_action() → inflate_ingress()
+    messages:
+      ActionRequest:
+        name: ActionRequest
+        payload:
+          type: object
+          properties:
+            packet_id: {type: string, format: uuid}
+            packet_type: {type: string, const: REQUEST}
+            action:
+              type: string
+              enum: [match, sync, admin, outcomes, resolve, health, healthcheck, enrich]
+            tenant: {type: string}
+            payload: {type: object, additionalProperties: true}
+            trace_id: {type: string}
+            content_hash: {type: string}
+          required: [packet_id, packet_type, action, tenant, payload, content_hash]
+
+  chassis.response.egress:
+    description: |
+      Outbound action response leaving via POST /v1/execute.
+      Derived PacketEnvelope created by deflate_egress().
+      Source: chassis/actions.py:execute_action() → deflate_egress()
+    messages:
+      ActionResponse:
+        name: ActionResponse
+        payload:
+          type: object
+          properties:
+            packet_id: {type: string, format: uuid}
+            packet_type: {type: string, const: RESPONSE}
+            parent_id: {type: string, format: uuid}
+            action: {type: string}
+            tenant: {type: string}
+            payload:
+              type: object
+              properties:
+                status: {type: string, enum: [success, failed, circuit_open]}
+                data: {type: object}
+                meta: {type: object}
+            content_hash: {type: string}
+
+  engine.audit.persist:
+    description: |
+      Packet pair persistence to audit trail. Called after every action.
+      Source: chassis/actions.py:execute_action() → PacketStore.persist()
+      NOTE: Currently a no-op stub unless a backing store is wired.
+    messages:
+      AuditPersist:
+        name: AuditPersist
+        payload:
+          type: object
+          properties:
+            request_packet: {type: object}
+            response_packet: {type: object}

@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/cryptoxdog/Cognitive.Engine.Graphs/docs/contracts/data/models/{model-name}.schema.json",
+  "title": "{PascalCaseName}",
+  "description": "{One-line purpose}. Source: {source_file}:{ClassName}",
+  "type": "object",
+  "properties": {
+    "{field_name}": {
+      "type": "string",
+      "description": "{Description}. Source: {ClassName}.{field_name}"
+    },
+    "{nullable_field}": {
+      "type": ["string", "null"],
+      "description": "{Description}.",
+      "default": null
+    }
+  },
+  "required": ["{field_name}"],
+  "additionalProperties": false,
+  "examples": [
+    {
+      "{field_name}": "{realistic_example_value}"
+    }
+  ]
+}

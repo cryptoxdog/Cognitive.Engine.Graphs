@@ -11,6 +11,35 @@ status: active
 <!-- L9_TEMPLATE: true -->
 # L9 PacketEnvelope Field Contract
 
+> **Migration Notice (GMP-133):** For inter-node communication, use `TransportPacket`
+> from `constellation_node_sdk` via `engine/packet_bridge.py`. PacketEnvelope remains
+> valid for internal engine use and memory substrate operations.
+
+## TransportPacket (Gate SDK — Current Standard)
+
+```python
+from constellation_node_sdk import TransportPacket
+from engine.packet_bridge import build_request_packet, build_response_packet
+
+# Build outbound packet
+packet = build_request_packet(
+    action="graph-query",
+    payload={"cypher": "MATCH (n) RETURN n"},
+    tenant="plasticos",
+    trace_id="trace-12345",
+)
+
+# Access fields
+packet.header.action        # "graph-query"
+packet.header.trace_id      # "trace-12345"
+packet.payload              # {"cypher": "..."}
+packet.tenant.actor         # "plasticos"
+```
+
+---
+
+## PacketEnvelope (Internal Use)
+
 ## Rule
 PacketEnvelope is immutable (frozen=True). Every constellation node that creates,
 reads, or derives a packet MUST use these exact field names. No aliases. No abbreviations.

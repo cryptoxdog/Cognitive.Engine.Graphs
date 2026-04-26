@@ -1,0 +1,38 @@
+# ═══════════════════════════════════════════════════════════════
+# Contract: Redis 7 Dependency
+# Source:   docker-compose.yml (redis service)
+#           engine/config/settings.py:redis_url
+# Version:  1.0.0
+# Updated:  2026-04-26
+# ═══════════════════════════════════════════════════════════════
+
+service_name: redis
+type: external
+protocol: redis
+version: "7-alpine"
+
+connection:
+  base_url_env: REDIS_URL
+  default_url: "redis://redis:6379/0"
+  auth_method: none
+
+usage:
+  - purpose: Scoring result caching
+    description: GDS and scoring dimension results are cached to avoid recomputation.
+  - purpose: Domain pack cache
+    description: Async domain spec cache with TTL (W4-03). TTL=DOMAIN_CACHE_TTL_SECONDS.
+
+docker_compose:
+  image: redis:7-alpine
+  port: "6379:6379"
+  command: "redis-server --maxmemory 128mb --maxmemory-policy allkeys-lru"
+  eviction_policy: allkeys-lru
+  max_memory: 128mb
+
+health_check:
+  command: "redis-cli ping"
+
+fallback: |
+  No explicit Redis fallback/circuit breaker implemented.
+  Engine will degrade if Redis is unavailable — scoring will proceed
+  without cache.

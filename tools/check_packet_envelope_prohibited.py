@@ -62,6 +62,9 @@ SKIP_PATTERNS = {
     "agents/cursor/",  # Agent rules reference it in documentation
     "current work/",  # Working notes
     "tests/unit/test_packet_bridge.py",  # Tests need to test packet functionality
+    "tests/contracts/test_packet_envelope.py",  # Contract schema validation tests
+    "tests/contracts/test_contracts.py",  # Architectural contract tests that validate PacketEnvelope
+    "engine/packet/packet_store.py",  # Core packet persistence — uses PacketEnvelope until transportPacket exists
 }
 
 
