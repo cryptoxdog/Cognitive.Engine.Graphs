@@ -1,16 +1,15 @@
-from pathlib import Path
 import asyncio
+from pathlib import Path
 
-from engine.config.loader import DomainSpecLoader
+from engine.config.loader import DomainPackLoader
 from engine.graph.driver import GraphDriver
 from engine.handlers import handle_admin, handle_match, handle_sync, init_dependencies
-
 
 SPEC_PATH = Path("domains/plasticos/spec.yaml")
 
 
 def test_handle_sync_runs_end_to_end() -> None:
-    loader = DomainSpecLoader(SPEC_PATH)
+    loader = DomainPackLoader(config_path=str(SPEC_PATH))
     graph = GraphDriver(loader.allowed_canonical_labels())
     init_dependencies(graph_driver=graph, domain_loader=loader)
     result = asyncio.run(
@@ -35,7 +34,7 @@ def test_handle_sync_runs_end_to_end() -> None:
 
 
 def test_handle_match_runs_end_to_end() -> None:
-    loader = DomainSpecLoader(SPEC_PATH)
+    loader = DomainPackLoader(config_path=str(SPEC_PATH))
     graph = GraphDriver(loader.allowed_canonical_labels())
     init_dependencies(graph_driver=graph, domain_loader=loader)
     result = asyncio.run(
@@ -58,7 +57,7 @@ def test_handle_match_runs_end_to_end() -> None:
 
 
 def test_handle_admin_records_outcome() -> None:
-    loader = DomainSpecLoader(SPEC_PATH)
+    loader = DomainPackLoader(config_path=str(SPEC_PATH))
     graph = GraphDriver(loader.allowed_canonical_labels())
     init_dependencies(graph_driver=graph, domain_loader=loader)
     result = asyncio.run(

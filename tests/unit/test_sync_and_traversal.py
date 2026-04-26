@@ -1,15 +1,14 @@
 from pathlib import Path
 
-from engine.config.loader import DomainSpecLoader
+from engine.config.loader import DomainPackLoader
 from engine.sync.generator import SyncGenerator
 from engine.traversal.assembler import TraversalAssembler
-
 
 SPEC_PATH = Path("domains/plasticos/spec.yaml")
 
 
 def test_sync_generator_uses_canonical_label() -> None:
-    loader = DomainSpecLoader(SPEC_PATH)
+    loader = DomainPackLoader(config_path=str(SPEC_PATH))
     generator = SyncGenerator(loader)
     query, params, canonical_label = generator.generate_node_upsert(
         "Buyer",
@@ -27,7 +26,7 @@ def test_sync_generator_uses_canonical_label() -> None:
 
 
 def test_traversal_assembler_uses_canonical_labels() -> None:
-    loader = DomainSpecLoader(SPEC_PATH)
+    loader = DomainPackLoader(config_path=str(SPEC_PATH))
     assembler = TraversalAssembler(loader)
     queries = assembler.build_queries()
     assert queries
