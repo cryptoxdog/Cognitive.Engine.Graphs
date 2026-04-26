@@ -117,8 +117,8 @@ def test_valid_transport_packet_validates(packet_envelope_schema):
         "tenant": {"actor": "plasticos", "originator": "plasticos"},
         "payload": {"query": {"material_type": "HDPE"}},
         "security": {
-            "payload_hash": "a3f5c8d2e1b4f607c8d9e0a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f80011",
-            "transport_hash": "b4c5d6e7f80011a3f5c8d2e1b4f607c8d9e0a1b2c3d4e5f6a7b8c9d0e1f2a3",
+            "payload_hash": "a3f5c8d2e1b4f607c8d9e0a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8001a00",
+            "transport_hash": "b4c5d6e7f80011a3f5c8d2e1b4f607c8d9e0a1b2c3d4e5f6a7b8c9d0e1f2a300",
         },
         "lineage": {
             "root_id": "550e8400-e29b-41d4-a716-446655440000",
@@ -166,8 +166,8 @@ def test_invalid_packet_type_fails(packet_envelope_schema):
         "tenant": {"actor": "plasticos"},
         "payload": {},
         "security": {
-            "payload_hash": "a3f5c8d2e1b4f607c8d9e0a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f80011",
-            "transport_hash": "b4c5d6e7f80011a3f5c8d2e1b4f607c8d9e0a1b2c3d4e5f6a7b8c9d0e1f2a3",
+            "payload_hash": "a3f5c8d2e1b4f607c8d9e0a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8001a00",
+            "transport_hash": "b4c5d6e7f80011a3f5c8d2e1b4f607c8d9e0a1b2c3d4e5f6a7b8c9d0e1f2a300",
         },
         "lineage": {
             "root_id": "550e8400-e29b-41d4-a716-446655440000",
