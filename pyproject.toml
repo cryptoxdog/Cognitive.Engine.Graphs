@@ -8,8 +8,8 @@ packages = [{include = "engine"}]
 
 [tool.poetry.dependencies]
 python = "^3.12"
-fastapi = "^0.135.2"
-uvicorn = {extras = ["standard"], version = "^0.42.0"}
+fastapi = ">=0.135.2,<0.137.0"
+uvicorn = {extras = ["standard"], version = ">=0.42,<0.47"}
 neo4j = "^5.25.0"
 pydantic = "^2.10.0"
 pydantic-settings = "^2.6.0"
