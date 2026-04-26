@@ -59,3 +59,34 @@ Enforced by `tools/contract_scanner.py` and `tools/verify_contracts.py`.
 | 22 | Scoring Weight Ceiling | Default weights sum ≤ 1.0. Enforced at startup. Reduce existing when adding new. |
 | 23 | Admin Subaction Registration | snake_case, return {status, subaction}, log with tenant, validate with _require_key(). |
 | 24 | Resilience Patterns | All Neo4j via GraphDriver. Circuit breaker 3/30s. Bounded caches only. No module-level globals. |
+
+## Enforcement Matrix
+
+| Contract | CI Automation | Human Review Required |
+|----------|---------------|----------------------|
+| C-001 | Contract scanner ARCH-001/002/003 | No |
+| C-002 | Signature validation | No |
+| C-003 | No static check | Yes — manual verification |
+| C-004 | Contract scanner OBS-001/002 | No |
+| C-005 | CODEOWNERS | Yes — PR review |
+| C-006 | Integration tests | No |
+| C-007 | Contract scanner SHARED-001 + DB constraint | No |
+| C-008 | Contract scanner DEL-001/002 | No |
+| C-009 | make cypher-lint + SEC-001 to SEC-007 | No |
+| C-010 | Compliance tests | No |
+| C-011 | Structlog filter tests | No |
+| C-012 | Pydantic validation | No |
+| C-013 | Unit + integration tests | No |
+| C-014 | Unit tests | No |
+| C-015 | Unit tests | No |
+| C-016 | CODEOWNERS | Yes — architectural approval |
+| C-017 | CI pytest | No |
+| C-018 | Pre-commit + CI | No |
+| C-019 | GDS tests | No |
+| C-020 | Integration tests (when enabled) | No |
+| C-021 | Code review | Yes — flag must exist in settings.py |
+| C-022 | Startup assertion | No |
+| C-023 | Integration tests | No |
+| C-024 | Contract scanner + code review | Yes — circuit breaker config |
+
+**Automated**: 18/24 (75%) | **Manual**: 6/24 (25%)

@@ -30,6 +30,7 @@ make cypher-lint        # Scan generated Cypher for injection vectors
 - Integration tests: `tests/integration/` — testcontainers-neo4j
 - Compliance tests: `tests/compliance/` — prohibited factors blocked at compile time
 - Minimum: every new function needs at least one test
+- CI pipeline: 7 phases, 15 pre-commit hooks — see `docs/CI_PIPELINE.md`
 
 ## Project Structure
 
@@ -109,3 +110,12 @@ tools/                   # contract_scanner.py, verify_contracts.py, validate_do
 3. **Gate-then-score in Cypher** — no post-filtering in Python
 4. **PacketEnvelope for all persisted events** — `inflate_ingress()` / `deflate_egress()`
 5. **24 contracts enforced** — see `tools/contract_scanner.py` and `docs/contracts/`
+
+## Agent Reference Docs
+
+| Doc | Purpose | When to Load |
+|-----|---------|-------------|
+| `docs/TROUBLESHOOTING.md` | 10 common failure scenarios with diagnosis + resolution | Debugging errors, CI failures |
+| `docs/AI_AGENT_REVIEW_CHECKLIST.md` | PR review rubric, severity scoring, comment templates | Reviewing PRs (CodeRabbit, Qodo, Claude) |
+| `docs/CI_PIPELINE.md` | 7 CI phases, 15 pre-commit hooks, blocking vs advisory | CI failure diagnosis |
+| `.claude/rules/contracts.md` | 24 contracts + enforcement matrix (automated vs manual) | Contract uncertainty |
