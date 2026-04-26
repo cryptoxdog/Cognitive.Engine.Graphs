@@ -1,44 +1,29 @@
-"""Unit tests — PacketEnvelope bridge: hash determinism, payload sensitivity."""
+"""Unit tests — TransportPacket bridge: hash determinism, derive semantics."""
+
 from __future__ import annotations
 
 
-def test_packet_envelope_content_hash_is_deterministic():
-    from engine.packet.packet_envelope import PacketEnvelope, PacketType, Action
-    from engine.chassis.tenant_context import TenantContext
-    tenant = TenantContext(tenant_id="test", actor="unit-test")
-    p1 = PacketEnvelope(
-        packet_type=PacketType.REQUEST,
-        tenant=tenant,
-        payload={"action": "match", "x": 1},
-    )
-    p2 = PacketEnvelope(
-        packet_type=PacketType.REQUEST,
-        tenant=tenant,
-        payload={"action": "match", "x": 1},
-    )
+def test_transport_packet_content_hash_is_deterministic() -> None:
+    from l9_core.models import TransportPacket
+
+    fixed_id = "test-deterministic-id"
+    p1 = TransportPacket(packet_id=fixed_id, action="match", payload={"x": 1})
+    p2 = TransportPacket(packet_id=fixed_id, action="match", payload={"x": 1})
     assert p1.content_hash == p2.content_hash
-    assert len(p1.content_hash) == 64  # SHA-256 hex
+    assert len(p1.content_hash) == 64
 
 
-def test_packet_envelope_hash_changes_with_payload():
-    from engine.packet.packet_envelope import PacketEnvelope, PacketType
-    from engine.chassis.tenant_context import TenantContext
-    tenant = TenantContext(tenant_id="test", actor="unit-test")
-    p1 = PacketEnvelope(
-        packet_type=PacketType.REQUEST,
-        tenant=tenant,
-        payload={"action": "match"},
-    )
-    p2 = PacketEnvelope(
-        packet_type=PacketType.REQUEST,
-        tenant=tenant,
-        payload={"action": "sync"},
-    )
+def test_transport_packet_hash_changes_with_payload() -> None:
+    from l9_core.models import TransportPacket
+
+    p1 = TransportPacket.create(action="match", payload={"x": 1})
+    p2 = TransportPacket.create(action="match", payload={"x": 2})
     assert p1.content_hash != p2.content_hash
 
 
-def test_packet_bridge_inflate_ingress():
+def test_packet_bridge_inflate_ingress() -> None:
     from engine.packet.bridge import PacketBridge
+
     bridge = PacketBridge()
     packet = bridge.inflate_ingress(
         tenant_id="tenant-a",
@@ -46,13 +31,14 @@ def test_packet_bridge_inflate_ingress():
         packet_type="graph_sync",
         payload={"entity_type": "Facility", "batch": []},
     )
-    assert packet.packet_type == "graph_sync"
+    assert packet.action == "graph_sync"
     assert packet.content_hash
-    assert packet.lineage.root_id
+    assert packet.transport_authority == "TransportPacket"
 
 
-def test_packet_bridge_derive_preserves_lineage():
+def test_packet_bridge_derive_preserves_action() -> None:
     from engine.packet.bridge import PacketBridge
+
     bridge = PacketBridge()
     root = bridge.inflate_ingress(
         tenant_id="tenant-a",
@@ -60,7 +46,6 @@ def test_packet_bridge_derive_preserves_lineage():
         packet_type="graph_sync",
         payload={"entity_type": "Facility"},
     )
-    derived = root.derive("outcome_event", {"result": "ok"})
-    assert derived.lineage.root_id == root.lineage.root_id
-    assert derived.lineage.parent_id == root.packet_id
-    assert derived.lineage.hop_count == 1
+    derived = bridge.outcome_packet(packet=root, outcome={"result": "ok"})
+    assert derived.action == "outcome_event"
+    assert derived.packet_id != root.packet_id

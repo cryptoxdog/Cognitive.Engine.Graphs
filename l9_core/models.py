@@ -1,84 +1,73 @@
+"""Shared transport models for strict cutover.
+
+TransportPacket is the canonical container.
+PacketEnvelope exists only as a deprecated compatibility wrapper.
+"""
+
 from __future__ import annotations
 
-from datetime import datetime, timezone
-from hashlib import sha256
 import json
+from dataclasses import dataclass, field
+from hashlib import sha256
 from typing import Any
 from uuid import uuid4
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+def _stable_hash(payload: dict[str, Any]) -> str:
+    canonical = json.dumps(payload, sort_keys=True, separators=(",", ":"))
+    return sha256(canonical.encode("utf-8")).hexdigest()
 
 
-class TenantContext(BaseModel):
-    model_config = ConfigDict(frozen=True)
-
-    tenant_id: str
-    actor: str
-
-
-class PacketLineage(BaseModel):
-    model_config = ConfigDict(frozen=True)
-
-    root_id: str
-    parent_id: str | None = None
-    hop_count: int = 0
-
-
-class PacketEnvelope(BaseModel):
-    model_config = ConfigDict(frozen=True)
-
-    packet_id: str = Field(default_factory=lambda: str(uuid4()))
-    packet_type: str
-    tenant: TenantContext
+@dataclass(frozen=True)
+class TransportPacket:
+    packet_id: str
+    action: str
     payload: dict[str, Any]
-    lineage: PacketLineage
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    content_hash: str = ""
+    runtime_authority: str = "Gate_SDK"
+    routing_authority: str = "Gate"
+    transport_authority: str = "TransportPacket"
+    content_hash: str = field(init=False)
 
-    @field_validator("packet_type")
-    @classmethod
-    def validate_packet_type(cls, value: str) -> str:
-        if value != value.lower() or "-" in value or " " in value:
-            raise ValueError("packet_type must be lowercase snake_case")
-        return value
-
-    def model_post_init(self, __context: Any) -> None:
-        if not self.content_hash:
-            object.__setattr__(self, "content_hash", self.compute_content_hash())
-
-    def compute_content_hash(self) -> str:
-        canonical_json = json.dumps(
-            {
-                "packet_type": self.packet_type,
-                "tenant": self.tenant.model_dump(mode="json"),
-                "payload": self.payload,
-                "lineage": self.lineage.model_dump(mode="json"),
-            },
-            sort_keys=True,
-            separators=(",", ":"),
-            default=str,
-        )
-        return sha256(canonical_json.encode("utf-8")).hexdigest()
-
-    def derive(self, packet_type: str, payload: dict[str, Any]) -> "PacketEnvelope":
-        return PacketEnvelope(
-            packet_type=packet_type,
-            tenant=self.tenant,
-            payload=payload,
-            lineage=PacketLineage(
-                root_id=self.lineage.root_id,
-                parent_id=self.packet_id,
-                hop_count=self.lineage.hop_count + 1,
+    def __post_init__(self) -> None:
+        object.__setattr__(
+            self,
+            "content_hash",
+            _stable_hash(
+                {
+                    "packet_id": self.packet_id,
+                    "action": self.action,
+                    "payload": self.payload,
+                    "runtime_authority": self.runtime_authority,
+                    "routing_authority": self.routing_authority,
+                    "transport_authority": self.transport_authority,
+                }
             ),
         )
 
+    @classmethod
+    def create(cls, action: str, payload: dict[str, Any]) -> TransportPacket:
+        return cls(packet_id=str(uuid4()), action=action, payload=payload)
 
-def make_root_packet(packet_type: str, tenant_id: str, actor: str, payload: dict[str, Any]) -> PacketEnvelope:
-    packet_id = str(uuid4())
-    return PacketEnvelope(
-        packet_id=packet_id,
-        packet_type=packet_type,
-        tenant=TenantContext(tenant_id=tenant_id, actor=actor),
-        payload=payload,
-        lineage=PacketLineage(root_id=packet_id, parent_id=None, hop_count=0),
-    )
+    def derive(self, action: str | None = None, payload: dict[str, Any] | None = None) -> TransportPacket:
+        next_action = action if action is not None else self.action
+        next_payload = payload if payload is not None else dict(self.payload)
+        return TransportPacket.create(action=next_action, payload=next_payload)
+
+
+@dataclass(frozen=True)
+class PacketEnvelope:
+    """Deprecated compatibility wrapper.
+
+    This type must not be used as canonical runtime truth.
+    """
+
+    packet_type: str
+    action: str
+    payload: dict[str, Any]
+
+    @classmethod
+    def from_transport_packet(cls, packet: TransportPacket) -> PacketEnvelope:
+        return cls(packet_type="compatibility_only", action=packet.action, payload=dict(packet.payload))
+
+    def to_transport_packet(self) -> TransportPacket:
+        return TransportPacket.create(action=self.action, payload=dict(self.payload))

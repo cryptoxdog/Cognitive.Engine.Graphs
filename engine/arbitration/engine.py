@@ -1,7 +1,11 @@
 from __future__ import annotations
 
-from engine.arbitration.schema import ArbitrationInput, ArbitrationResult
-from engine.config.schema import DecisionPolicy
+from engine.arbitration.schema import (
+    ArbitrationInput,
+    ArbitrationResult,
+    DecisionPolicy,
+    DecisionState,
+)
 
 
 class ArbitrationEngine:
@@ -24,8 +28,11 @@ class ArbitrationEngine:
             - (data.risk * weights.risk)
             + (data.capacity * weights.capacity)
         )
-        spread = max(data.revenue, data.margin, data.risk, data.capacity) - min(data.revenue, data.margin, data.risk, data.capacity)
+        spread = max(data.revenue, data.margin, data.risk, data.capacity) - min(
+            data.revenue, data.margin, data.risk, data.capacity
+        )
 
+        state: DecisionState
         if composite >= policy.thresholds.approve_threshold:
             state = "approve"
             reason = "composite score met approve threshold"
@@ -47,7 +54,7 @@ class ArbitrationEngine:
         )
 
     @staticmethod
-    def _evaluate(actual: object, operator: str, expected: object) -> bool:
+    def _evaluate(actual: float, operator: str, expected: float) -> bool:
         if operator == "eq":
             return actual == expected
         if operator == "lt":

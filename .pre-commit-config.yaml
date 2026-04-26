@@ -114,14 +114,14 @@ repos:
         entry: >
           bash -c '
           VIOLATIONS=0;
-          for pattern in "\\bPacket\\b" "\\bprint\\(" "\\bOptional\\[" "\\bList\\[" "\\bDict\\["; do
+          for pattern in "import.*PacketEnvelope|PacketEnvelope\\(" "\\bprint\\(" "\\bOptional\\[" "\\bList\\[" "\\bDict\\["; do
             if git diff --cached --name-only | grep "\.py$" | grep -E "^(engine|tests)/" |
                xargs grep -l -P "$pattern" 2>/dev/null | grep -v __pycache__ | grep -q .; then
               echo "❌ Found forbidden term: $pattern";
               VIOLATIONS=$((VIOLATIONS+1));
             fi;
           done;
-          [ $VIOLATIONS -eq 0 ] || { echo "Use: PacketEnvelope, list[T], T | None"; exit 1; };
+          [ $VIOLATIONS -eq 0 ] || { echo "Use: TransportPacket (not PacketEnvelope), list[T], T | None"; exit 1; };
           exit 0'
         language: system
         pass_filenames: false
