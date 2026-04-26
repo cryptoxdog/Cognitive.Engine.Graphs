@@ -31,7 +31,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from constellation_node_sdk.transport.packet import TransportPacket, create_transport_packet
+from constellation_node_sdk import TransportPacket, create_transport_packet
 
 logger = logging.getLogger(__name__)
 

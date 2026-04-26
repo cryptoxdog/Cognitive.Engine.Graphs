@@ -24,8 +24,7 @@ from __future__ import annotations
 
 import logging
 
-from constellation_node_sdk.client import GateClient
-from constellation_node_sdk.config import get_gate_client_config_from_env
+from constellation_node_sdk import GateClient, get_gate_client_config_from_env
 
 logger = logging.getLogger(__name__)
 

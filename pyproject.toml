@@ -20,7 +20,7 @@ httpx = "^0.28.0"
 structlog = "^25.5.0"
 prometheus-client = "^0.24.1"
 numpy = "^2.4.3"
-constellation-node-sdk = { git = "https://github.com/cryptoxdog/Gate_SDK.git" }
+constellation-node-sdk = {git = "https://github.com/cryptoxdog/Gate_SDK.git"}
 
 [tool.poetry.group.dev.dependencies]
 pytest = "9.0.2"

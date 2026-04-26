@@ -25,7 +25,7 @@ from __future__ import annotations
 
 import logging
 
-from constellation_node_sdk.registration import register_from_env
+from constellation_node_sdk import register_from_env
 
 logger = logging.getLogger(__name__)
 
