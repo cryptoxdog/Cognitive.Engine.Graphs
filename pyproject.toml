@@ -20,6 +20,7 @@ httpx = "^0.28.0"
 structlog = "^25.5.0"
 prometheus-client = "^0.24.1"
 numpy = "^2.4.3"
+constellation-node-sdk = { git = "https://github.com/cryptoxdog/Gate_SDK.git" }
 
 [tool.poetry.group.dev.dependencies]
 pytest = "9.0.2"
@@ -74,6 +75,7 @@ select = [
     "A", "C4", "DTZ", "T10", "EM", "ISC", "ICN", "PIE", "PT", "RET", "TCH", "ARG", "PTH", "PL", "TRY", "RUF",
     "S",        # flake8-bandit: security checks (harvested from L9 Kernel)
     "ASYNC",    # flake8-async: async antipattern detection (harvested from L9 Kernel)
+    "TID",      # flake8-tidy-imports: banned deprecated APIs (DomainSpecLoader → DomainPackLoader)
 ]
 ignore = [
     "E501",     # line too long (handled by formatter)

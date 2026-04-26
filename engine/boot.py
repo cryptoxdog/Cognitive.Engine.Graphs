@@ -99,6 +99,11 @@ class GraphLifecycle(LifecycleHook):
 
         init_dependencies(self._graph_driver, self._domain_loader)
 
+        # Gate_SDK: self-register this node with Gate routing table
+        from engine.gate_registration import register_node_with_gate
+
+        await register_node_with_gate()
+
         # Start GDS schedulers for all loaded domains (if GDS enabled)
         if settings.gds_enabled:
             for domain_id in self._domain_loader.list_domains():
@@ -124,9 +129,7 @@ class GraphLifecycle(LifecycleHook):
             logger.info("GDS disabled via settings.gds_enabled=False — skipping scheduler startup")
 
         # W4-04: Start periodic compliance audit flush task
-        self._compliance_flush_task = asyncio.create_task(
-            self._compliance_flush_loop()
-        )
+        self._compliance_flush_task = asyncio.create_task(self._compliance_flush_loop())
         logger.info(
             "W4-04: Compliance flush task started (interval=%ds, buffer_max=%d)",
             settings.compliance_flush_interval,

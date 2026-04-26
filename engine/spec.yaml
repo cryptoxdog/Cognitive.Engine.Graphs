@@ -1,0 +1,48 @@
+# --- L9_META ---
+# l9_schema: 1
+# origin: engine-specific
+# engine: graph
+# layer: [config]
+# tags: [spec, registration, gate-sdk]
+# owner: engine-team
+# status: active
+# --- /L9_META ---
+
+# engine/spec.yaml — Node registration contract for Cognitive.Engine.Graphs
+# Read by: constellation_node_sdk.registration.build_registration_payload
+# Consumed by: Gate /v1/admin/register at node startup
+
+node:
+  id: graph
+  version: "1.1.0"
+  type: engine
+  internal_url: "http://graph:8000"
+  health_endpoint: /v1/health
+  priority_class: P1
+  max_concurrent: 100
+  timeout_ms: 30000
+
+  actions:
+    - graph-query
+    - graph-traverse
+    - graph-expand
+    - graph-neighborhood
+    - graph-similarity
+    - graph-path
+    - graph-match
+    - graph-score
+    - graph-rank
+    - graph-converge
+    - graph-arbitrate
+    - graph-infer
+    - graph-resolve
+    - graph-enrich
+    - graph-intake
+    - graph-upsert
+    - graph-delete
+    - graph-feedback
+    - graph-decay
+    - graph-reinforce
+    - graph-health
+    - graph-audit
+    - graph-explain
