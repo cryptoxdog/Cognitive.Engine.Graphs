@@ -181,15 +181,15 @@ class TestContract05InfrastructureIsTemplate:
 # ============================================================================
 
 
-class TestContract06PacketEnvelope:
-    """CONTRACT 6: PacketEnvelope is the only inter-service data container."""
+class TestContract06TransportPacket:
+    """CONTRACT 6: TransportPacket is the canonical inter-service data container."""
 
     @pytest.mark.contract
-    def test_packet_envelope_exists(self):
-        """PacketEnvelope model is importable."""
-        from engine.packet.packet_envelope import PacketEnvelope
+    def test_transport_packet_exists(self):
+        """TransportPacket is importable from constellation_node_sdk."""
+        from constellation_node_sdk import TransportPacket
 
-        assert PacketEnvelope is not None
+        assert TransportPacket is not None
 
     @pytest.mark.contract
     def test_inflate_deflate_functions_exist(self):
@@ -200,35 +200,30 @@ class TestContract06PacketEnvelope:
         assert callable(deflate_egress)
 
 
-class TestContract07ImmutabilityContentHash:
-    """CONTRACT 7: PacketEnvelope is frozen; content_hash is SHA-256."""
+class TestContract07ImmutabilityPayloadHash:
+    """CONTRACT 7: TransportPacket is frozen; payload_hash is SHA-256."""
 
     @pytest.mark.contract
-    def test_packet_envelope_frozen(self):
-        from engine.packet.packet_envelope import PacketEnvelope
+    def test_transport_packet_frozen(self):
+        from constellation_node_sdk import TransportPacket
 
-        config = PacketEnvelope.model_config
-        assert config.get("frozen") is True, "PacketEnvelope must be frozen"
+        config = TransportPacket.model_config
+        assert config.get("frozen") is True, "TransportPacket must be frozen"
 
     @pytest.mark.contract
     def test_derive_creates_new_instance(self):
-        from engine.packet.packet_envelope import (
-            Action,
-            PacketType,
-            create_packet,
-        )
+        from constellation_node_sdk import create_transport_packet
 
-        p1 = create_packet(
-            packet_type=PacketType.REQUEST,
-            action=Action.MATCH,
-            source_node="node_a",
-            actor_tenant="test_tenant",
+        p1 = create_transport_packet(
+            action="match",
             payload={"data": "hello"},
+            tenant="test_tenant",
+            source_node="node_a",
             trace_id="trace-1",
         )
         p2 = p1.derive(payload={"data": "world"})
-        assert p1.security.content_hash != p2.security.content_hash
-        assert p1.packet_id in p2.lineage.parent_ids
+        assert p1.security.payload_hash != p2.security.payload_hash
+        assert p2.lineage.parent_id == p1.header.packet_id
 
 
 class TestContract08LineageAudit:
@@ -236,23 +231,18 @@ class TestContract08LineageAudit:
 
     @pytest.mark.contract
     def test_lineage_chain(self):
-        from engine.packet.packet_envelope import (
-            Action,
-            PacketType,
-            create_packet,
-        )
+        from constellation_node_sdk import create_transport_packet
 
-        root = create_packet(
-            packet_type=PacketType.REQUEST,
-            action=Action.MATCH,
-            source_node="a",
-            actor_tenant="test_tenant",
+        root = create_transport_packet(
+            action="match",
             payload={"x": 1},
+            tenant="test_tenant",
+            source_node="a",
             trace_id="trace-lineage",
         )
         child = root.derive(payload={"x": 2})
-        assert root.packet_id in child.lineage.parent_ids
-        assert child.lineage.root_id == root.packet_id
+        assert child.lineage.parent_id == root.header.packet_id
+        assert child.lineage.root_id == root.header.packet_id
         assert child.lineage.generation == root.lineage.generation + 1
 
     @pytest.mark.contract

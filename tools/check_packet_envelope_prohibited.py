@@ -12,8 +12,9 @@ status: active
 
 PacketEnvelope Prohibition Scanner
 
-PacketEnvelope is DEPRECATED and has been superseded by transportPacket.
-This script enforces the migration by blocking any usage of PacketEnvelope.
+PacketEnvelope is DEPRECATED and has been superseded by TransportPacket
+(from constellation_node_sdk). This script enforces the migration by
+blocking any usage of PacketEnvelope.
 
 Exit code 1 = violations found = commit/merge blocked.
 
@@ -62,9 +63,6 @@ SKIP_PATTERNS = {
     "agents/cursor/",  # Agent rules reference it in documentation
     "current work/",  # Working notes
     "tests/unit/test_packet_bridge.py",  # Tests need to test packet functionality
-    "tests/contracts/test_packet_envelope.py",  # Contract schema validation tests
-    "tests/contracts/test_contracts.py",  # Architectural contract tests that validate PacketEnvelope
-    "engine/packet/packet_store.py",  # Core packet persistence — uses PacketEnvelope until transportPacket exists
 }
 
 
@@ -195,14 +193,14 @@ def main() -> int:
         print("✅ PacketEnvelope prohibition check: no violations.")
         return 0
 
-    print("❌ PacketEnvelope PROHIBITED — Use transportPacket instead!\n", file=sys.stderr)
-    print("PacketEnvelope has been superseded by transportPacket.", file=sys.stderr)
-    print("See: docs/contracts/TRANSPORT_PACKET.md\n", file=sys.stderr)
+    print("❌ PacketEnvelope PROHIBITED — Use TransportPacket from constellation_node_sdk!\n", file=sys.stderr)
+    print("PacketEnvelope has been superseded by TransportPacket.", file=sys.stderr)
+    print("See: docs/contracts/SHARED_MODELS.md\n", file=sys.stderr)
 
     for v in all_violations:
         print(f"  [{v.code}] {v.file}:{v.line}", file=sys.stderr)
         print(f"    {v.message}", file=sys.stderr)
-        print("    → Replace with: transportPacket\n", file=sys.stderr)
+        print("    → Replace with: TransportPacket from constellation_node_sdk\n", file=sys.stderr)
 
     print(
         f"Total: {len(all_violations)} violation(s). Fix before committing.",

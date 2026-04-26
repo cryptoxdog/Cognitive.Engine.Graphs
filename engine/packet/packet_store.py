@@ -10,15 +10,17 @@ status: active
 --- /L9_META ---
 
 engine/packet/packet_store.py
-PacketStore — async persistence layer for PacketEnvelope audit trail
+PacketStore — async persistence layer for TransportPacket audit trail
 plus outcome_jsonb feedback-loop linkage (migration 0001_outcome_jsonb).
 Writes immutable request/response pairs to the packet_store PostgreSQL
 schema defined in engine/packet/packet_store.sql.
 
+Uses constellation_node_sdk.TransportPacket as the canonical wire format.
+
 New in this version:
   PacketStore.record_outcome(...)
     -- Writes outcome_jsonb to an existing packet_store row, linking a
-       TransactionOutcome node (Neo4j) back to the PacketEnvelope that
+       TransactionOutcome node (Neo4j) back to the TransportPacket that
        triggered the match. Called from handle_outcomes() when both
        PACKET_STORE_ENABLED=true and settings.outcome_persistence_enabled=True.
     -- Non-fatal: degrades gracefully on any DB error (log warning, return False).
@@ -37,9 +39,10 @@ import json
 import logging
 import os
 from datetime import UTC, datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from engine.packet.packet_envelope import PacketEnvelope
+if TYPE_CHECKING:
+    from constellation_node_sdk import TransportPacket
 
 logger = logging.getLogger(__name__)
 
@@ -158,54 +161,63 @@ _pool_manager = _PoolManager()
 # ── Extraction Helpers ───────────────────────────────────────
 
 
-def _extract_packet_row(packet: PacketEnvelope) -> tuple[Any, ...]:
-    """Extract a flat tuple of values from a PacketEnvelope for INSERT."""
+def _extract_packet_row(packet: TransportPacket) -> tuple[Any, ...]:
+    """Extract a flat tuple of values from a TransportPacket for INSERT."""
+    hdr = packet.header
+    addr = packet.address
+    sec = packet.security
+    gov = packet.governance
+    lin = packet.lineage
+    ten = packet.tenant
+
+    parent_ids = [str(lin.parent_id)] if lin.parent_id else []
+
     return (
         # identity
-        str(packet.packet_id),
-        packet.packet_type.value,
-        packet.action.value,
-        packet.schema_version,
+        str(hdr.packet_id),
+        hdr.packet_type,
+        hdr.action,
+        hdr.schema_version,
         # routing
-        packet.address.source_node,
-        packet.address.destination_node,
-        packet.address.reply_to,
+        addr.source_node,
+        addr.destination_node,
+        addr.reply_to,
         # tenant
-        packet.tenant.actor,
-        packet.tenant.on_behalf_of,
-        packet.tenant.originator or packet.tenant.actor,
-        packet.tenant.org_id,
-        packet.tenant.user_id,
-        # payload (full envelope as JSONB)
-        json.dumps(packet.to_wire(), default=str),
+        ten.actor,
+        ten.on_behalf_of,
+        ten.originator or ten.actor,
+        ten.org_id,
+        getattr(ten, "user_id", None),
+        # payload (full packet as JSONB)
+        json.dumps(json.loads(packet.model_dump_json()), default=str),
         # security
-        packet.security.content_hash,
-        packet.security.hash_algorithm,
-        packet.security.signature,
-        packet.security.signing_key_id,
-        packet.security.classification,
-        packet.security.encryption_status,
+        sec.payload_hash,
+        "sha256",
+        sec.signature,
+        sec.signing_key_id,
+        sec.classification,
+        sec.encryption_status,
         # observability
-        packet.observability.trace_id,
-        packet.observability.span_id,
-        packet.observability.correlation_id,
-        packet.observability.created_at,
+        hdr.trace_id,
+        None,  # span_id (not in TransportHeader)
+        hdr.correlation_id,
+        hdr.created_at,
         datetime.now(UTC),  # ingested_at
         # lineage
-        [str(pid) for pid in packet.lineage.parent_ids],
-        str(packet.lineage.root_id) if packet.lineage.root_id else None,
-        packet.lineage.generation,
-        packet.lineage.derivation_type,
+        parent_ids,
+        str(lin.root_id),
+        lin.generation,
+        None,  # derivation_type (not in TransportLineage)
         # governance
-        packet.governance.intent,
-        list(packet.governance.compliance_tags),
-        packet.governance.retention_days,
-        packet.governance.redaction_applied,
-        packet.governance.audit_required,
-        packet.governance.data_subject_id,
+        gov.intent,
+        list(gov.compliance_tags),
+        gov.retention_days,
+        getattr(gov, "redaction_applied", False),
+        getattr(gov, "audit_required", False),
+        getattr(gov, "data_subject_id", None),
         # labels + expiry
-        list(packet.tags),
-        packet.ttl,
+        [],
+        hdr.expires_at,
     )
 
 
@@ -213,7 +225,7 @@ def _extract_packet_row(packet: PacketEnvelope) -> tuple[Any, ...]:
 
 
 class PacketStore:
-    """Async persistence layer for PacketEnvelope request/response pairs.
+    """Async persistence layer for TransportPacket request/response pairs.
 
     When PACKET_STORE_ENABLED=true and PACKET_STORE_DSN is set, persists
     packets to the PostgreSQL schema defined in packet_store.sql.
@@ -222,10 +234,10 @@ class PacketStore:
 
     async def persist(
         self,
-        request: PacketEnvelope,
-        response: PacketEnvelope,
+        request: TransportPacket,
+        response: TransportPacket,
     ) -> None:
-        """Persist an immutable request/response PacketEnvelope pair.
+        """Persist an immutable request/response TransportPacket pair.
 
         Writes both packets to packet_store, their lineage to lineage_graph,
         hop entries to hop_trace, and delegation links to delegation_chain.
@@ -234,7 +246,7 @@ class PacketStore:
         if not _PACKET_STORE_ENABLED:
             logger.debug(
                 "PacketStore is disabled. Set PACKET_STORE_ENABLED=true to enable. packet_id=%s",
-                request.packet_id,
+                request.header.packet_id,
             )
             return
 
@@ -250,13 +262,13 @@ class PacketStore:
                 for seq, hop in enumerate(packet.hop_trace):
                     await conn.execute(
                         _INSERT_HOP_SQL,
-                        str(packet.packet_id),
-                        hop.node_id,
+                        str(packet.header.packet_id),
+                        hop.node,
                         hop.action,
-                        hop.entered_at,
-                        hop.exited_at,
+                        hop.timestamp,
+                        None,  # exited_at (TransportHop uses duration_ms)
                         hop.status,
-                        hop.signature,
+                        hop.hop_hash,
                         seq,
                     )
 
@@ -264,31 +276,32 @@ class PacketStore:
                 for seq, deleg in enumerate(packet.delegation_chain):
                     await conn.execute(
                         _INSERT_DELEGATION_SQL,
-                        str(packet.packet_id),
+                        str(packet.header.packet_id),
                         deleg.delegator,
                         deleg.delegatee,
                         list(deleg.scope),
                         deleg.granted_at,
                         deleg.expires_at,
-                        deleg.proof_hash,
+                        deleg.proof,
                         seq,
                     )
 
                 # Insert lineage graph edges
-                for parent_id in packet.lineage.parent_ids:
+                parent_ids = [packet.lineage.parent_id] if packet.lineage.parent_id else []
+                for parent_id in parent_ids:
                     await conn.execute(
                         _INSERT_LINEAGE_SQL,
                         str(parent_id),
-                        str(packet.packet_id),
+                        str(packet.header.packet_id),
                         packet.lineage.generation,
-                        packet.lineage.derivation_type,
+                        None,  # derivation_type (not in TransportLineage)
                         datetime.now(UTC),
                     )
 
         logger.info(
             "PacketStore persisted pair: request=%s response=%s",
-            request.packet_id,
-            response.packet_id,
+            request.header.packet_id,
+            response.header.packet_id,
         )
 
     async def record_outcome(
@@ -306,12 +319,12 @@ class PacketStore:
         """Write outcome_jsonb to the packet_store row for a match packet.
 
         Links the TransactionOutcome node written to Neo4j back to the
-        PacketEnvelope row that triggered the match, completing the
+        TransportPacket row that triggered the match, completing the
         feedback loop substrate. This is the write half of the loop;
         SignalWeightCalculator is the read half.
 
         Args:
-            match_packet_id: packet_id (UUID str) of the original match PacketEnvelope.
+            match_packet_id: packet_id (UUID str) of the original match TransportPacket.
                              Provided by caller via payload.match_packet_id.
             tenant:          actor_tenant for RLS scoping. Always in the WHERE clause.
             outcome_id:      TransactionOutcome.outcome_id (Neo4j node id).

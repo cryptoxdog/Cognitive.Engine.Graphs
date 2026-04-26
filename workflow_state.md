@@ -54,5 +54,4 @@ status: active
 3. Iterate rules for repo-specific false positives.
 
 ## Recent Sessions (7-day window)
-- 2026-03-01: GMP-130 — L9 Contract Enforcement System (contract_scanner, verify_contracts, pre-commit, contracts.yml, .coderabbit.yaml).
-- ✅ 2026-03-01: Harvested template-tagged audit harness files and validated syntax/YAML; initialized workflow state.
+- ✅ 2026-04-26: Quick analysis session — confirmed DomainSpec is NOT superseded (Contract 12 source of truth, 42+ consumers, no replacement candidate). PacketEnvelope→transportPacket supersession is a separate concern.

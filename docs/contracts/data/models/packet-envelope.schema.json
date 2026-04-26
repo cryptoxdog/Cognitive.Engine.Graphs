@@ -1,67 +1,166 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/cryptoxdog/Cognitive.Engine.Graphs/docs/contracts/data/models/packet-envelope.schema.json",
-  "title": "PacketEnvelope",
-  "description": "Immutable message envelope wrapping every engine action. Source: engine/packet/packet_envelope.py:PacketEnvelope. CONTRACT-06: every packet persisted. CONTRACT-07: immutability. CONTRACT-08: content_hash = SHA-256.",
+  "title": "TransportPacket",
+  "description": "Immutable message envelope wrapping every engine action. Source: constellation_node_sdk.TransportPacket. CONTRACT-06: every packet persisted. CONTRACT-07: immutability (frozen=True). CONTRACT-08: payload_hash = SHA-256.",
   "type": "object",
   "properties": {
-    "packet_id": {
-      "type": "string",
-      "format": "uuid",
-      "description": "UUID v4 unique packet identifier. Source: engine/packet/packet_envelope.py:uuid.uuid4()"
+    "header": {
+      "type": "object",
+      "description": "Packet identity, timing, and observability metadata.",
+      "properties": {
+        "packet_id": {
+          "type": "string",
+          "format": "uuid",
+          "description": "UUID v4 unique packet identifier."
+        },
+        "packet_type": {
+          "type": "string",
+          "enum": ["request", "response", "event", "error", "command", "query", "tool_call", "tool_result", "reasoning", "delegation", "governance", "heartbeat"],
+          "description": "Packet type. Source: constellation_node_sdk.TransportHeader"
+        },
+        "action": {
+          "type": "string",
+          "enum": ["match", "sync", "admin", "outcomes", "resolve", "health", "healthcheck", "enrich"],
+          "description": "Engine action routed by chassis."
+        },
+        "trace_id": {
+          "type": ["string", "null"],
+          "description": "W3C traceparent trace-id for distributed tracing."
+        },
+        "correlation_id": {
+          "type": ["string", "null"],
+          "description": "Business-level correlation identifier."
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time",
+          "description": "ISO 8601 creation timestamp."
+        }
+      },
+      "required": ["packet_id", "packet_type", "action"]
     },
-    "packet_type": {
-      "type": "string",
-      "enum": ["REQUEST", "RESPONSE"],
-      "description": "Packet direction. Source: engine/packet/packet_envelope.py:PacketType"
-    },
-    "action": {
-      "type": "string",
-      "enum": ["match", "sync", "admin", "outcomes", "resolve", "health", "healthcheck", "enrich"],
-      "description": "Engine action. Source: engine/packet/packet_envelope.py:Action"
+    "address": {
+      "type": "object",
+      "description": "Routing: source, destination, and reply-to nodes.",
+      "properties": {
+        "source_node": { "type": "string" },
+        "destination_node": { "type": "string" },
+        "reply_to": { "type": "string" }
+      },
+      "required": ["source_node", "destination_node", "reply_to"]
     },
     "tenant": {
-      "type": "string",
-      "description": "Tenant/domain ID. Enforces tenant isolation. Source: engine/handlers.py:init_dependencies()"
+      "type": "object",
+      "description": "Multi-tenant identity stack. Enforces tenant isolation (Contract 3).",
+      "properties": {
+        "actor": { "type": "string", "description": "Tenant performing the action." },
+        "on_behalf_of": { "type": ["string", "null"] },
+        "originator": { "type": ["string", "null"] },
+        "org_id": { "type": ["string", "null"] },
+        "user_id": { "type": ["string", "null"] }
+      },
+      "required": ["actor"]
     },
     "payload": {
       "type": "object",
       "description": "Action-specific payload. Opaque at envelope level.",
       "additionalProperties": true
     },
-    "content_hash": {
-      "type": "string",
-      "description": "SHA-256 hex digest of canonical payload. CONTRACT-08: immutability verification.",
-      "minLength": 16
+    "security": {
+      "type": "object",
+      "description": "Cryptographic integrity. CONTRACT-08: payload_hash = SHA-256.",
+      "properties": {
+        "payload_hash": {
+          "type": "string",
+          "minLength": 64,
+          "maxLength": 64,
+          "description": "SHA-256 hex digest of canonical payload."
+        },
+        "transport_hash": {
+          "type": "string",
+          "minLength": 64,
+          "maxLength": 64,
+          "description": "SHA-256 hex digest of full transport fields."
+        },
+        "classification": { "type": "string" },
+        "encryption_status": { "type": "string" }
+      },
+      "required": ["payload_hash", "transport_hash"]
     },
-    "trace_id": {
-      "type": ["string", "null"],
-      "description": "Caller or chassis-generated trace ID. Propagated through full lifecycle.",
-      "default": null
+    "governance": {
+      "type": "object",
+      "description": "Audit and compliance metadata.",
+      "properties": {
+        "intent": { "type": ["string", "null"] },
+        "compliance_tags": { "type": "array", "items": { "type": "string" } },
+        "retention_days": { "type": "integer", "minimum": 1 }
+      }
     },
-    "parent_id": {
-      "type": ["string", "null"],
-      "format": "uuid",
-      "description": "For RESPONSE packets: packet_id of the originating REQUEST.",
-      "default": null
+    "lineage": {
+      "type": "object",
+      "description": "Derivation chain. Immutable ancestry.",
+      "properties": {
+        "parent_id": { "type": ["string", "null"], "format": "uuid" },
+        "root_id": { "type": "string", "format": "uuid" },
+        "generation": { "type": "integer", "minimum": 0 }
+      },
+      "required": ["root_id", "generation"]
+    },
+    "hop_trace": {
+      "type": "array",
+      "description": "Append-only journey trace through constellation nodes.",
+      "items": { "type": "object" }
+    },
+    "delegation_chain": {
+      "type": "array",
+      "description": "Scoped authorization chain through multi-hop flows.",
+      "items": { "type": "object" }
     }
   },
-  "required": ["packet_id", "packet_type", "action", "tenant", "payload", "content_hash"],
-  "additionalProperties": false,
+  "required": ["header", "address", "tenant", "payload", "security", "lineage"],
+  "additionalProperties": true,
   "examples": [
     {
-      "packet_id": "550e8400-e29b-41d4-a716-446655440000",
-      "packet_type": "REQUEST",
-      "action": "match",
-      "tenant": "plasticos",
+      "header": {
+        "packet_id": "550e8400-e29b-41d4-a716-446655440000",
+        "packet_type": "request",
+        "action": "match",
+        "trace_id": "req_abc123",
+        "created_at": "2026-04-26T12:00:00Z"
+      },
+      "address": {
+        "source_node": "client",
+        "destination_node": "gate",
+        "reply_to": "client"
+      },
+      "tenant": {
+        "actor": "plasticos",
+        "originator": "plasticos"
+      },
       "payload": {
         "query": {"material_type": "HDPE", "quantity_kg": 500},
         "match_direction": "supplier_to_buyer",
         "top_n": 10
       },
-      "content_hash": "a3f5c8d2e1b4f607c8d9e0a1b2c3d4e5f6a7b8c9",
-      "trace_id": "req_abc123",
-      "parent_id": null
+      "security": {
+        "payload_hash": "a3f5c8d2e1b4f607c8d9e0a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f80011",
+        "transport_hash": "b4c5d6e7f80011a3f5c8d2e1b4f607c8d9e0a1b2c3d4e5f6a7b8c9d0e1f2a3",
+        "classification": "internal",
+        "encryption_status": "plaintext"
+      },
+      "governance": {
+        "intent": null,
+        "compliance_tags": [],
+        "retention_days": 90
+      },
+      "lineage": {
+        "parent_id": null,
+        "root_id": "550e8400-e29b-41d4-a716-446655440000",
+        "generation": 0
+      },
+      "hop_trace": [],
+      "delegation_chain": []
     }
   ]
 }
