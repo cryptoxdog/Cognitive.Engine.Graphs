@@ -892,6 +892,52 @@ class ArbitrationConstraintSpec(BaseModel):
     penalty: float = Field(default=0.5, ge=0.0, le=1.0, description="Soft penalty multiplier when below threshold")
 
 
+class HardConstraint(BaseModel):
+    """Hard constraint for DecisionPolicy — fails if not met."""
+
+    model_config = ConfigDict(frozen=True)
+
+    metric: str = Field(description="Input metric to evaluate (e.g. 'risk', 'compliance_pass')")
+    operator: str = Field(description="Comparison operator: eq, lt, lte, gt, gte")
+    value: bool | float | int | str = Field(description="Threshold value for comparison")
+
+
+class PolicyWeights(BaseModel):
+    """Weight distribution for composite score calculation."""
+
+    model_config = ConfigDict(frozen=True)
+
+    revenue: float = Field(ge=0.0, le=1.0)
+    margin: float = Field(ge=0.0, le=1.0)
+    risk: float = Field(ge=0.0, le=1.0)
+    capacity: float = Field(ge=0.0, le=1.0)
+
+
+class PolicyThresholds(BaseModel):
+    """Decision thresholds for approve/reject/escalate outcomes."""
+
+    model_config = ConfigDict(frozen=True)
+
+    approve_threshold: float = Field(ge=0.0, le=1.0, description="Composite score >= this → approve")
+    reject_threshold: float = Field(ge=0.0, le=1.0, description="Composite score < this → reject")
+    conflict_tolerance: float = Field(ge=0.0, le=1.0, description="Signal spread > this → escalate")
+
+
+class DecisionPolicy(BaseModel):
+    """Decision policy for the ArbitrationEngine.
+
+    Defines hard constraints, scoring weights, and decision thresholds
+    used by engine/arbitration/engine.py to resolve approve/reject/defer/escalate.
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    version: str = Field(description="Policy version identifier")
+    hard_constraints: list[HardConstraint] = Field(default_factory=list)
+    weights: PolicyWeights
+    thresholds: PolicyThresholds
+
+
 class DecisionArbitrationSpec(BaseModel):
     """Multi-objective decision arbitration configuration.
 
@@ -945,6 +991,7 @@ class DomainSpec(BaseModel):
     counterfactual: CounterfactualSpec = Field(default_factory=CounterfactualSpec)
     semantic_registry: SemanticRegistrySpec = Field(default_factory=SemanticRegistrySpec)
     decision_arbitration: DecisionArbitrationSpec = Field(default_factory=DecisionArbitrationSpec)
+    decision_policy: DecisionPolicy | None = None
 
     @model_validator(mode="after")
     def validate_cross_references(self) -> DomainSpec:
