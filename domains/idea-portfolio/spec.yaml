@@ -1,0 +1,311 @@
+# --- L9_META ---
+# l9_schema: 1
+# origin: domain-specific
+# engine: graph
+# layer: [config]
+# tags: [domains, ideaos, portfolio, matching]
+# owner: domain-team
+# status: candidate
+# --- /L9_META ---
+---
+domain:
+  id: idea-portfolio
+  name: IdeaOS Portfolio Graph
+  description: >
+    Cross-idea portfolio intelligence for IdeaOS. IdeaOS remains authoritative
+    for idea identity and lifecycle truth. CEG owns graph intersections,
+    leverage matching, portfolio ranking, and graph-derived signals.
+  version: 0.1.0
+
+ontology:
+  nodes:
+    - label: Idea
+      managedby: sync
+      candidate: true
+      properties:
+        - {name: idea_id, type: string, required: true}
+        - {name: source_digest, type: string}
+        - {name: projection_digest, type: string}
+        - {name: graph_revision, type: string}
+        - {name: lifecycle_stage, type: string}
+        - {name: decision, type: enum, values: [GO, CONDITIONAL_GO, HOLD, NO_GO]}
+        - {name: proof_state, type: string}
+        - {name: execution_state, type: string}
+        - {name: unknowns_json, type: string}
+        - {name: self_dependency_facet_id, type: string}
+        - {name: active, type: bool}
+        - {name: hydrated_at, type: datetime}
+        - {name: tombstoned_at, type: datetime}
+
+    - label: IdeaQuery
+      managedby: api
+      queryentity: true
+      properties:
+        - {name: idea_id, type: string}
+
+    - label: PortfolioFacet
+      managedby: sync
+      auxiliary: true
+      properties:
+        - {name: facet_id, type: string, required: true}
+        - {name: kind, type: enum, values: [capability, substrate, proof_asset, data_asset, market, customer_type, dependency]}
+        - {name: key, type: string, required: true}
+        - {name: last_seen_revision, type: string}
+
+  edges:
+    - type: PRODUCES
+      from: Idea
+      to: PortfolioFacet
+      direction: DIRECTED
+      category: capability
+      managedby: sync
+      properties:
+        - {name: assertion_id, type: string, required: true}
+        - {name: kind, type: string}
+        - {name: evidence_state, type: string}
+        - {name: source_refs_json, type: string}
+        - {name: projection_digest, type: string}
+        - {name: graph_revision, type: string}
+
+    - type: REQUIRES
+      from: Idea
+      to: PortfolioFacet
+      direction: DIRECTED
+      category: capability
+      managedby: sync
+      properties:
+        - {name: assertion_id, type: string, required: true}
+        - {name: kind, type: string}
+        - {name: evidence_state, type: string}
+        - {name: source_refs_json, type: string}
+        - {name: projection_digest, type: string}
+        - {name: graph_revision, type: string}
+
+    - type: TARGETS
+      from: Idea
+      to: PortfolioFacet
+      direction: DIRECTED
+      category: market
+      managedby: sync
+      properties:
+        - {name: assertion_id, type: string, required: true}
+        - {name: kind, type: string}
+        - {name: evidence_state, type: string}
+        - {name: source_refs_json, type: string}
+        - {name: projection_digest, type: string}
+        - {name: graph_revision, type: string}
+
+    - type: USES
+      from: Idea
+      to: PortfolioFacet
+      direction: DIRECTED
+      category: capability
+      managedby: sync
+      properties:
+        - {name: assertion_id, type: string, required: true}
+        - {name: kind, type: string}
+        - {name: evidence_state, type: string}
+        - {name: source_refs_json, type: string}
+        - {name: projection_digest, type: string}
+        - {name: graph_revision, type: string}
+
+    - type: DEPENDS_ON
+      from: Idea
+      to: PortfolioFacet
+      direction: DIRECTED
+      category: context
+      managedby: sync
+      properties:
+        - {name: assertion_id, type: string, required: true}
+        - {name: kind, type: string}
+        - {name: evidence_state, type: string}
+        - {name: source_refs_json, type: string}
+        - {name: projection_digest, type: string}
+        - {name: graph_revision, type: string}
+
+matchentities:
+  candidate:
+    - {label: Idea, matchdirection: portfolio_context_for_idea}
+  queryentity:
+    - {label: IdeaQuery, matchdirection: portfolio_context_for_idea}
+
+queryschema:
+  matchdirections: [portfolio_context_for_idea]
+  fields:
+    - {name: idea_id, type: string, required: true}
+    - {name: requires_facets, type: string, default: ""}
+    - {name: requires_count, type: int, default: 0}
+    - {name: produces_facets, type: string, default: ""}
+    - {name: produces_count, type: int, default: 0}
+    - {name: uses_facets, type: string, default: ""}
+    - {name: uses_count, type: int, default: 0}
+    - {name: targets_facets, type: string, default: ""}
+    - {name: targets_count, type: int, default: 0}
+    - {name: depends_on_facets, type: string, default: ""}
+    - {name: self_dependency_facet_id, type: string, default: ""}
+
+traversal:
+  steps: []
+
+gates:
+  - name: active_only
+    type: boolean
+    candidateprop: active
+    nullbehavior: fail
+    matchdirections: [portfolio_context_for_idea]
+
+  - name: exclude_self
+    type: threshold
+    candidateprop: idea_id
+    queryparam: idea_id
+    operator: "!="
+    nullbehavior: fail
+    matchdirections: [portfolio_context_for_idea]
+
+scoring:
+  dimensions:
+    - name: incoming_requirement_fit
+      source: computed
+      computation: customcypher
+      expression: >
+        CASE WHEN $requires_count <= 0 THEN 0.0 ELSE
+        toFloat(size([(candidate)-[:PRODUCES]->(f:PortfolioFacet)
+        WHERE $requires_facets CONTAINS ('|' + f.facet_id + '|') | f])) /
+        toFloat($requires_count) END
+      weightkey: wincoming
+      defaultweight: 0.25
+      matchdirections: [portfolio_context_for_idea]
+
+    - name: outgoing_requirement_fit
+      source: computed
+      computation: customcypher
+      expression: >
+        CASE WHEN $produces_count <= 0 THEN 0.0 ELSE
+        toFloat(size([(candidate)-[:REQUIRES]->(f:PortfolioFacet)
+        WHERE $produces_facets CONTAINS ('|' + f.facet_id + '|') | f])) /
+        toFloat($produces_count) END
+      weightkey: woutgoing
+      defaultweight: 0.25
+      matchdirections: [portfolio_context_for_idea]
+
+    - name: shared_usage
+      source: computed
+      computation: customcypher
+      expression: >
+        CASE WHEN $uses_count <= 0 THEN 0.0 ELSE
+        toFloat(size([(candidate)-[:USES]->(f:PortfolioFacet)
+        WHERE $uses_facets CONTAINS ('|' + f.facet_id + '|') | f])) /
+        toFloat($uses_count) END
+      weightkey: wusage
+      defaultweight: 0.20
+      matchdirections: [portfolio_context_for_idea]
+
+    - name: shared_target
+      source: computed
+      computation: customcypher
+      expression: >
+        CASE WHEN $targets_count <= 0 THEN 0.0 ELSE
+        toFloat(size([(candidate)-[:TARGETS]->(f:PortfolioFacet)
+        WHERE $targets_facets CONTAINS ('|' + f.facet_id + '|') | f])) /
+        toFloat($targets_count) END
+      weightkey: wtarget
+      defaultweight: 0.15
+      matchdirections: [portfolio_context_for_idea]
+
+    - name: query_depends_on_candidate
+      source: computed
+      computation: customcypher
+      expression: >
+        CASE WHEN candidate.self_dependency_facet_id IS NOT NULL AND
+        $depends_on_facets CONTAINS ('|' + candidate.self_dependency_facet_id + '|')
+        THEN 1.0 ELSE 0.0 END
+      weightkey: wquerydependency
+      defaultweight: 0.10
+      matchdirections: [portfolio_context_for_idea]
+
+    - name: candidate_depends_on_query
+      source: computed
+      computation: customcypher
+      expression: >
+        CASE WHEN $self_dependency_facet_id = '' THEN 0.0 ELSE
+        CASE WHEN size([(candidate)-[:DEPENDS_ON]->(f:PortfolioFacet)
+        WHERE f.facet_id = $self_dependency_facet_id | f]) > 0
+        THEN 1.0 ELSE 0.0 END END
+      weightkey: wcandidatedependency
+      defaultweight: 0.05
+      matchdirections: [portfolio_context_for_idea]
+
+sync:
+  endpoints:
+    - path: /sync/idea_projection
+      targetnode: Idea
+      idproperty: idea_id
+      batchstrategy: unwindmerge
+
+# Centrality is intentionally not declared yet. The current CEG scheduler does
+# not implement PageRank, and declaring a skipped algorithm would create false
+# capability. Community and learned-weight jobs can be added only when a proof
+# requirement justifies them.
+gdsjobs: []
+
+compliance:
+  enabled: true
+  audit:
+    enabled: true
+    logallmatches: true
+    logretentiondays: 365
+  pii:
+    enabled: false
+  prohibitedfactors: []
+  regionalrules: []
+  counterfactualaudit: false
+
+capabilities:
+  - name: portfolio_read
+    actions: [match:read]
+    allowed_subjects: ["*"]
+  - name: portfolio_write
+    actions: [sync:write]
+    allowed_subjects: ["*"]
+
+feedbackloop:
+  enabled: false
+
+causal:
+  enabled: false
+
+counterfactual:
+  enabled: false
+
+semantic_registry:
+  enabled: false
+
+decision_arbitration:
+  enabled: false
+
+feature_catalog:
+  features:
+    - feature_id: incoming_requirement_fit
+      owner: ceg
+      provenance_required: true
+      evidence_required: true
+    - feature_id: outgoing_requirement_fit
+      owner: ceg
+      provenance_required: true
+      evidence_required: true
+    - feature_id: shared_usage
+      owner: ceg
+      provenance_required: true
+      evidence_required: true
+    - feature_id: shared_target
+      owner: ceg
+      provenance_required: true
+      evidence_required: true
+    - feature_id: query_depends_on_candidate
+      owner: ceg
+      provenance_required: true
+      evidence_required: true
+    - feature_id: candidate_depends_on_query
+      owner: ceg
+      provenance_required: true
+      evidence_required: true
