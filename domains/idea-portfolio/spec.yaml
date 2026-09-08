@@ -291,28 +291,27 @@ decision_arbitration:
   enabled: false
 
 feature_catalog:
-  features:
-    - feature_id: incoming_requirement_fit
-      owner: ceg
-      provenance_required: true
-      evidence_required: true
-    - feature_id: outgoing_requirement_fit
-      owner: ceg
-      provenance_required: true
-      evidence_required: true
-    - feature_id: shared_usage
-      owner: ceg
-      provenance_required: true
-      evidence_required: true
-    - feature_id: shared_target
-      owner: ceg
-      provenance_required: true
-      evidence_required: true
-    - feature_id: query_depends_on_candidate
-      owner: ceg
-      provenance_required: true
-      evidence_required: true
-    - feature_id: candidate_depends_on_query
-      owner: ceg
-      provenance_required: true
-      evidence_required: true
+  - feature_id: incoming_requirement_fit
+    owner: ceg
+    scoring_dimension: incoming_requirement_fit
+    evidence_required: true
+  - feature_id: outgoing_requirement_fit
+    owner: ceg
+    scoring_dimension: outgoing_requirement_fit
+    evidence_required: true
+  - feature_id: shared_usage
+    owner: ceg
+    scoring_dimension: shared_usage
+    evidence_required: true
+  - feature_id: shared_target
+    owner: ceg
+    scoring_dimension: shared_target
+    evidence_required: true
+  - feature_id: query_depends_on_candidate
+    owner: ceg
+    scoring_dimension: query_depends_on_candidate
+    evidence_required: true
+  - feature_id: candidate_depends_on_query
+    owner: ceg
+    scoring_dimension: candidate_depends_on_query
+    evidence_required: true
