@@ -101,7 +101,12 @@ class TestIdeaPortfolioDomain:
         spec = loader.load_domain("idea-portfolio")
 
         assert spec.domain.id == "idea-portfolio"
-        assert {node.label for node in spec.ontology.nodes} == {"Idea", "IdeaQuery", "PortfolioFacet"}
+        assert {node.label for node in spec.ontology.nodes} == {
+            "Idea",
+            "IdeaQuery",
+            "PortfolioFacet",
+            "IdeaPortfolioHydrationState",
+        }
         assert {edge.type for edge in spec.ontology.edges} == {
             "PRODUCES",
             "REQUIRES",
@@ -109,6 +114,7 @@ class TestIdeaPortfolioDomain:
             "USES",
             "DEPENDS_ON",
         }
+        assert spec.sync.endpoints == []
         assert sum(d.defaultweight for d in spec.scoring.dimensions) == pytest.approx(1.0)
 
         gate_clause = GateCompiler(spec).compile_all_gates("portfolio_context_for_idea")
@@ -161,13 +167,14 @@ class TestProjectionBoundary:
 
     def test_upsert_replaces_source_projection_edges(self) -> None:
         projection = IdeaGraphProjection.model_validate(_projection())
-        command = compile_upsert_command(projection, graph_revision=_digest("c"), tenant="idea-portfolio")
+        command = compile_upsert_command(projection, graph_revision=_digest("c"))
 
         assert "DELETE old" in command.cypher
         assert "MERGE (idea)-[rel:PRODUCES]->(facet)" in command.cypher
         assert "rel.evidence_state" in command.cypher
         assert command.parameters["projection_digest"] == projection_digest(projection)
         assert command.parameters["unknowns_json"] == '["external demand not yet proven"]'
+        assert command.parameters["tenant"] == "idea-portfolio"
 
 
 @pytest.mark.unit
@@ -182,10 +189,35 @@ class TestHydrationRevision:
         assert child.graph_revision != first.graph_revision
 
 
-class _FakeWriter:
-    def __init__(self, responses: list[dict[str, Any]]) -> None:
-        self.responses = list(responses)
+class _FakeResult:
+    def __init__(self, rows: list[dict[str, Any]] | None = None) -> None:
+        self.rows = rows or []
+        self.consumed = False
+
+    async def data(self) -> list[dict[str, Any]]:
+        return list(self.rows)
+
+    async def consume(self) -> None:
+        self.consumed = True
+
+
+class _FakeTransaction:
+    def __init__(self, current_revision: str | None) -> None:
+        self.current_revision = current_revision
         self.calls: list[dict[str, Any]] = []
+
+    async def run(self, cypher: str, parameters: dict[str, Any]) -> _FakeResult:
+        self.calls.append({"cypher": cypher, "parameters": parameters})
+        if "RETURN state.current_revision AS current_revision" in cypher:
+            return _FakeResult([{"current_revision": self.current_revision}])
+        return _FakeResult()
+
+
+class _FakeWriter:
+    def __init__(self, current_revision: str | None = None) -> None:
+        self.tx = _FakeTransaction(current_revision)
+        self.execute_write_calls = 0
+        self.database: str | None = None
 
     async def execute_write(
         self,
@@ -196,55 +228,54 @@ class _FakeWriter:
         database: str | None = None,
         **kwargs: Any,
     ) -> dict[str, Any]:
-        self.calls.append({"cypher": cypher, "parameters": parameters, "database": database})
-        if not self.responses:
-            return {"records": []}
-        return self.responses.pop(0)
+        self.execute_write_calls += 1
+        self.database = database
+        if transaction_function is None:
+            raise AssertionError("hydrator must use one managed transaction")
+        return await transaction_function(self.tx, *args, **kwargs)
 
 
 @pytest.mark.unit
 @pytest.mark.asyncio
-async def test_hydrator_applies_then_finalizes_revision() -> None:
-    writer = _FakeWriter(
-        [
-            {"records": [{"status": "start", "current_revision": None}]},
-            {"records": [{"idea_id": "idea-alpha", "assertion_count": 5}]},
-            {"records": [{"graph_revision": _digest("d")}]},
-        ]
-    )
+async def test_hydrator_applies_whole_envelope_in_one_transaction() -> None:
+    writer = _FakeWriter(current_revision=None)
     hydrator = IdeaPortfolioHydrator(writer)
 
     receipt = await hydrator.apply(_envelope())
 
     assert receipt["status"] == "applied"
     assert receipt["applied"] == ["idea-alpha"]
-    assert len(writer.calls) == 3
-    assert all(call["database"] == "idea-portfolio" for call in writer.calls)
-    assert "IdeaPortfolioHydrationState" in str(writer.calls[0]["cypher"])
-    assert "MERGE (idea:Idea" in str(writer.calls[1]["cypher"])
-    assert "state.current_revision" in str(writer.calls[2]["cypher"])
+    assert writer.execute_write_calls == 1
+    assert writer.database == "idea-portfolio"
+    assert len(writer.tx.calls) == 3
+    assert "IdeaPortfolioHydrationState" in writer.tx.calls[0]["cypher"]
+    assert "MERGE (idea:Idea" in writer.tx.calls[1]["cypher"]
+    assert "state.current_revision" in writer.tx.calls[2]["cypher"]
 
 
 @pytest.mark.unit
 @pytest.mark.asyncio
 async def test_hydrator_exact_revision_replay_is_noop() -> None:
-    writer = _FakeWriter([{"records": [{"status": "reused", "current_revision": _digest("e")}] }])
+    plan = compile_hydration_plan(_envelope())
+    writer = _FakeWriter(current_revision=plan.graph_revision)
     hydrator = IdeaPortfolioHydrator(writer)
 
     receipt = await hydrator.apply(_envelope())
 
     assert receipt["status"] == "reused"
     assert receipt["applied"] == []
-    assert len(writer.calls) == 1
+    assert writer.execute_write_calls == 1
+    assert len(writer.tx.calls) == 1
 
 
 @pytest.mark.unit
 @pytest.mark.asyncio
-async def test_hydrator_rejects_revision_conflict_before_projection_write() -> None:
-    writer = _FakeWriter([{"records": []}])
+async def test_hydrator_rejects_parent_revision_conflict_before_projection_write() -> None:
+    writer = _FakeWriter(current_revision=_digest("e"))
     hydrator = IdeaPortfolioHydrator(writer)
 
-    with pytest.raises(IdeaPortfolioHydrationError, match="revision conflict"):
+    with pytest.raises(IdeaPortfolioHydrationError, match="expected parent"):
         await hydrator.apply(_envelope())
 
-    assert len(writer.calls) == 1
+    assert writer.execute_write_calls == 1
+    assert len(writer.tx.calls) == 1

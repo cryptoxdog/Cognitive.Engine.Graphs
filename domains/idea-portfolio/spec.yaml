@@ -52,6 +52,17 @@ ontology:
         - {name: key, type: string, required: true}
         - {name: last_seen_revision, type: string}
 
+    - label: IdeaPortfolioHydrationState
+      managedby: sync
+      auxiliary: true
+      properties:
+        - {name: state_id, type: string, required: true}
+        - {name: current_revision, type: string}
+        - {name: source_snapshot_ref, type: string}
+        - {name: source_snapshot_digest, type: string}
+        - {name: batch_digest, type: string}
+        - {name: completed_at, type: datetime}
+
   edges:
     - type: PRODUCES
       from: Idea
@@ -235,12 +246,11 @@ scoring:
       defaultweight: 0.05
       matchdirections: [portfolio_context_for_idea]
 
+# The live generic sync handler is intentionally not advertised for this
+# domain yet. Corpus hydration uses engine/sync/idea_portfolio.py through the
+# explicit admin CLI until the Gate-facing sync contract is added and tested.
 sync:
-  endpoints:
-    - path: /sync/idea_projection
-      targetnode: Idea
-      idproperty: idea_id
-      batchstrategy: unwindmerge
+  endpoints: []
 
 # Centrality is intentionally not declared yet. The current CEG scheduler does
 # not implement PageRank, and declaring a skipped algorithm would create false
@@ -263,9 +273,6 @@ compliance:
 capabilities:
   - name: portfolio_read
     actions: [match:read]
-    allowed_subjects: ["*"]
-  - name: portfolio_write
-    actions: [sync:write]
     allowed_subjects: ["*"]
 
 feedbackloop:

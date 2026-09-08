@@ -12,7 +12,7 @@ CEG must not parse raw files from IdeaOS `Ideas/`, infer an idea from a filename
 
 ## Graph model
 
-The first implementation intentionally uses two durable node classes:
+The first implementation intentionally uses two semantic node classes plus one internal revision-state node:
 
 ```text
 Idea --PRODUCES----> PortfolioFacet
@@ -20,6 +20,9 @@ Idea --PRODUCES----> PortfolioFacet
      --TARGETS-----> PortfolioFacet
      --USES--------> PortfolioFacet
      --DEPENDS_ON--> PortfolioFacet
+
+IdeaPortfolioHydrationState
+     current_revision -> parent-linked corpus mutation chain
 ```
 
 `PortfolioFacet` is globally content-addressed by the exact `(kind, key)` pair. The source assertion's epistemic state, source references, projection digest, and graph revision live on the relationship, because those facts belong to the assertion between an Idea and a facet, not to the shared facet itself.
@@ -28,15 +31,17 @@ No inferred Idea-to-Idea edge is persisted by hydration. That keeps source proje
 
 ## Why there is a dedicated hydration compiler
 
-The generic `SyncGenerator` can MERGE nodes and fixed child/taxonomy edges, but it cannot express all of the required semantics for IdeaGraphProjection hydration:
+The generic `SyncGenerator` can MERGE nodes and fixed child/taxonomy edges, but it cannot express all required IdeaGraphProjection semantics:
 
-1. the relationship type varies by assertion relation;
+1. relationship type varies by assertion relation;
 2. evidence/provenance belongs on each relationship;
-3. replacing a projection must remove relationships that no longer exist;
-4. corpus mutations need replayable revision-chain semantics;
-5. deletions need an explicit tombstone rather than silent absence.
+3. replacing a projection must remove relationships no longer present;
+4. corpus writes need parent-linked revision semantics;
+5. deletions need explicit tombstones rather than silent absence.
 
 Those are current, evidenced responsibilities. `engine/sync/idea_portfolio.py` therefore owns the smallest domain-specific persistence compiler needed to bridge that expressiveness gap. It still uses the shared `GraphDriver`; it does not introduce a graph client, queue, database, or second scoring engine.
+
+The live generic `handle_sync` path is deliberately **not** advertised in the v0.1 domain pack because its current `SyncGenerator` cannot preserve this contract. Pretending otherwise would create a false operational path. Initial corpus hydration is an explicit CEG admin operation through `tools/hydrate_idea_portfolio.py`. A later Gate-facing binding should call the same hydrator rather than reimplement it.
 
 ## Hydration contract
 
@@ -83,9 +88,9 @@ A tombstone record is explicit:
 
 The envelope contains at most one record per `idea_id`.
 
-## Revision chain
+## Atomic revision chain
 
-Every successful hydration computes:
+Every hydration computes:
 
 ```text
 batch_digest = sha256(canonical(records))
@@ -97,11 +102,25 @@ new_graph_revision = sha256(
 )
 ```
 
-The current committed revision is stored in `IdeaPortfolioHydrationState`. A batch can start only when its `expected_graph_revision` equals the committed revision. An exact interrupted revision can resume; an exact committed revision is an idempotent replay.
+The hydrator executes the entire envelope inside one managed Neo4j write transaction:
 
-This gives the graph a replayable parent-linked mutation chain without inventing a timestamp-based ordering authority.
+```text
+lock IdeaPortfolioHydrationState
+  -> compare current_revision with expected_graph_revision
+  -> apply every upsert/tombstone
+  -> advance current_revision
+  -> commit once
+```
 
-Hydration state remains `in_progress` if a write fails. A future context-read seam must refuse to label an in-progress graph as a committed snapshot. Retrying the exact same envelope resumes the interrupted revision.
+Consequences:
+
+- a wrong parent revision fails closed before graph mutation commits;
+- a mid-envelope exception rolls back the whole hydration revision;
+- readers never see a committed half-new portfolio snapshot;
+- an exact retry after a lost response is idempotent because `current_revision == new_graph_revision` returns `reused`;
+- no timestamp is promoted into ordering authority.
+
+`Idea`, `PortfolioFacet`, and `IdeaPortfolioHydrationState` all have required ID properties in the domain ontology so the existing `init_schema` path creates uniqueness constraints needed by the write transaction.
 
 ## Epistemic rules
 
@@ -158,7 +177,7 @@ Declaring a PageRank job now would advertise a capability the runtime skips. Cen
    python tools/validate_domain.py domains/idea-portfolio/spec.yaml --strict
    ```
 
-2. Ensure the `idea-portfolio` Neo4j database exists according to the deployment topology.
+2. Ensure the `idea-portfolio` Neo4j database exists according to deployment topology.
 3. Initialize schema constraints through the existing admin `init_schema` path for domain `idea-portfolio`.
 4. Produce a hydration envelope from source-bound IdeaOS projections.
 5. Dry-run it first:
@@ -185,18 +204,29 @@ Ideas/ artifact
   -> IdeaOS semantic extraction / expansion
   -> IdeaGraphProjection
   -> CEG hydration envelope
-  -> CEG idea-portfolio graph
+  -> atomic CEG idea-portfolio graph revision
 ```
 
 A raw ZIP, Markdown filename, or directory name is never sufficient evidence for semantic Idea identity or graph assertions.
 
 ## Failure boundaries
 
-- **Bad projection:** reject before graph mutation.
-- **Wrong parent revision:** reject the hydration revision.
-- **Different revision already in progress:** reject rather than interleave two writers.
-- **Mid-run failure:** keep `in_progress=true`; exact replay resumes.
-- **Tombstone:** mark Idea inactive and remove its source-projection edges; do not delete shared facet nodes.
+- **Bad projection:** reject before opening the write transaction.
+- **Wrong parent revision:** transaction aborts before portfolio mutation commits.
+- **Write failure:** whole hydration transaction rolls back.
+- **Exact replay:** returns `reused` without a second semantic mutation.
+- **Tombstone:** marks Idea inactive and removes its source-projection edges; does not delete shared facet nodes.
 - **Orphan facets:** tolerated as non-authoritative derived residue. Garbage collection is deferred rather than mixed into the critical write transaction.
 
-The v0.1 hydration transaction is atomic per graph write, while a multi-record hydration revision consists of multiple Neo4j write transactions guarded by the hydration state. The committed graph revision advances only after every record succeeds. Consumers must treat `in_progress=true` as an uncommitted snapshot boundary. A future live context adapter must enforce that read gate.
+## Deferred seam
+
+The next transport unit is intentionally small:
+
+```text
+IdeaOS IdeaGraphProvider adapter
+  -> Gate / TransportPacket
+  -> CEG owner-native portfolio context action
+  -> committed graph_revision + intersections + ranking evidence
+```
+
+That adapter must call CEG semantics. It must not copy matching, relationship classification, or ranking logic into IdeaOS.

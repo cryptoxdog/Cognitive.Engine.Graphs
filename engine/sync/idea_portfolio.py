@@ -2,12 +2,9 @@
 
 IdeaOS owns canonical idea identity and lifecycle truth. This module accepts the
 narrow ``IdeaGraphProjection`` contract, validates it, compiles graph-safe
-facets, and applies a revision-chained hydration batch to CEG. It never parses
-raw IdeaOS corpus files and never infers idea identity from filenames.
-
-Hydration is an owner-native CEG write path. The public Constellation transport
-binding can call this service later without moving semantic ownership into an
-adapter.
+facets, and applies one revision-chained hydration envelope atomically in CEG.
+It never parses raw IdeaOS corpus files and never infers idea identity from
+filenames.
 """
 
 from __future__ import annotations
@@ -24,11 +21,10 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 DIGEST_PATTERN = r"^sha256:[0-9a-f]{64}$"
 DOMAIN_ID = "idea-portfolio"
 _STATE_ID = "canonical"
-_RELATION_TYPES = ("PRODUCES", "REQUIRES", "TARGETS", "USES", "DEPENDS_ON")
 
 
 class IdeaPortfolioHydrationError(ValueError):
-    """Raised when a hydration batch cannot be safely admitted or applied."""
+    """Raised when a hydration envelope cannot be safely admitted or applied."""
 
 
 class EvidenceState(StrEnum):
@@ -72,14 +68,6 @@ _ALLOWED_RELATIONS: dict[AssertionKind, frozenset[AssertionRelation]] = {
     AssertionKind.MARKET: frozenset({AssertionRelation.TARGETS}),
     AssertionKind.CUSTOMER_TYPE: frozenset({AssertionRelation.TARGETS}),
     AssertionKind.DEPENDENCY: frozenset({AssertionRelation.DEPENDS_ON}),
-}
-
-_EDGE_BY_RELATION: dict[AssertionRelation, str] = {
-    AssertionRelation.PRODUCES: "PRODUCES",
-    AssertionRelation.REQUIRES: "REQUIRES",
-    AssertionRelation.TARGETS: "TARGETS",
-    AssertionRelation.USES: "USES",
-    AssertionRelation.DEPENDS_ON: "DEPENDS_ON",
 }
 
 
@@ -170,7 +158,8 @@ class IdeaPortfolioSyncRecord(BaseModel):
     def resolved_idea_id(self) -> str:
         if self.projection is not None:
             return self.projection.idea_id
-        assert self.idea_id is not None
+        if self.idea_id is None:
+            raise IdeaPortfolioHydrationError("validated tombstone record lacks idea_id")
         return self.idea_id
 
 
@@ -279,11 +268,10 @@ def compile_assertions(projection: IdeaGraphProjection) -> list[CompiledAssertio
 
 
 def build_portfolio_match_query(projection: IdeaGraphProjection | dict[str, Any]) -> dict[str, Any]:
-    """Compile one IdeaOS projection into the flat query shape declared by the domain pack."""
+    """Compile a projection into the flat query shape consumed by the current match handler."""
 
     model = projection if isinstance(projection, IdeaGraphProjection) else IdeaGraphProjection.model_validate(projection)
     compiled = compile_assertions(model)
-
     by_relation: dict[str, list[str]] = {relation.value: [] for relation in AssertionRelation}
     for assertion in compiled:
         by_relation[assertion.relation].append(assertion.facet_id)
@@ -322,12 +310,7 @@ def compile_hydration_plan(envelope: IdeaPortfolioHydrationEnvelope | dict[str, 
     return HydrationPlan(envelope=model, batch_digest=batch_digest, graph_revision=graph_revision)
 
 
-def compile_upsert_command(
-    projection: IdeaGraphProjection,
-    *,
-    graph_revision: str,
-    tenant: str,
-) -> WriteCommand:
+def compile_upsert_command(projection: IdeaGraphProjection, *, graph_revision: str) -> WriteCommand:
     p_digest = projection_digest(projection)
     grouped: dict[str, list[dict[str, Any]]] = {relation.value: [] for relation in AssertionRelation}
     for assertion in compile_assertions(projection):
@@ -453,7 +436,7 @@ RETURN idea.idea_id AS idea_id,
     return WriteCommand(
         cypher=cypher,
         parameters={
-            "tenant": tenant,
+            "tenant": DOMAIN_ID,
             "idea_id": projection.idea_id,
             "source_digest": projection.source_digest,
             "projection_digest": p_digest,
@@ -473,7 +456,7 @@ RETURN idea.idea_id AS idea_id,
     )
 
 
-def compile_tombstone_command(idea_id: str, *, graph_revision: str, tenant: str) -> WriteCommand:
+def compile_tombstone_command(idea_id: str, *, graph_revision: str) -> WriteCommand:
     cypher = """
 MERGE (idea:Idea {idea_id: $idea_id})
 SET idea.active = false,
@@ -487,175 +470,120 @@ RETURN idea.idea_id AS idea_id
 """.strip()
     return WriteCommand(
         cypher=cypher,
-        parameters={"tenant": tenant, "idea_id": idea_id, "graph_revision": graph_revision},
+        parameters={"tenant": DOMAIN_ID, "idea_id": idea_id, "graph_revision": graph_revision},
     )
 
 
-_ACQUIRE_HYDRATION_CYPHER = """
+_LOCK_STATE_CYPHER = """
 MERGE (state:IdeaPortfolioHydrationState {state_id: $state_id})
-SET state._cas_lock = coalesce(state._cas_lock, 0) + 1
-WITH state,
-     state.current_revision AS current_revision,
-     coalesce(state.in_progress, false) AS in_progress,
-     state.target_revision AS target_revision
-WHERE (current_revision = $graph_revision AND in_progress = false)
-   OR (in_progress = true AND target_revision = $graph_revision)
-   OR (
-        in_progress = false
-        AND (
-          (current_revision IS NULL AND $expected_graph_revision IS NULL)
-          OR current_revision = $expected_graph_revision
-        )
-      )
-WITH state, current_revision, in_progress, target_revision,
-     CASE
-       WHEN current_revision = $graph_revision AND in_progress = false THEN 'reused'
-       WHEN in_progress = true AND target_revision = $graph_revision THEN 'resume'
-       ELSE 'start'
-     END AS acquisition_status
-FOREACH (_ IN CASE WHEN acquisition_status = 'start' THEN [1] ELSE [] END |
-  SET state.in_progress = true,
-      state.target_revision = $graph_revision,
-      state.source_snapshot_ref = $source_snapshot_ref,
-      state.source_snapshot_digest = $source_snapshot_digest,
-      state.batch_digest = $batch_digest,
-      state.started_at = datetime(),
-      state.completed_at = null,
-      state.last_error = null,
-      state._tenant = $tenant
-)
-RETURN acquisition_status AS status, current_revision
+SET state._cas_lock = coalesce(state._cas_lock, 0) + 1,
+    state._tenant = $tenant
+RETURN state.current_revision AS current_revision
 """.strip()
 
-_FINALIZE_HYDRATION_CYPHER = """
+_FINALIZE_STATE_CYPHER = """
 MATCH (state:IdeaPortfolioHydrationState {state_id: $state_id})
-SET state._cas_lock = coalesce(state._cas_lock, 0) + 1
-WITH state
-WHERE state.in_progress = true AND state.target_revision = $graph_revision
 SET state.current_revision = $graph_revision,
-    state.in_progress = false,
-    state.target_revision = null,
+    state.source_snapshot_ref = $source_snapshot_ref,
+    state.source_snapshot_digest = $source_snapshot_digest,
+    state.batch_digest = $batch_digest,
     state.completed_at = datetime(),
-    state.last_error = null
+    state._tenant = $tenant
 RETURN state.current_revision AS graph_revision
-""".strip()
-
-_FAIL_HYDRATION_CYPHER = """
-MATCH (state:IdeaPortfolioHydrationState {state_id: $state_id})
-WHERE state.in_progress = true AND state.target_revision = $graph_revision
-SET state.last_error = $error,
-    state.last_error_at = datetime()
-RETURN state.target_revision AS graph_revision
 """.strip()
 
 
 class IdeaPortfolioHydrator:
-    """Apply one revision-chained IdeaOS corpus delta to the idea-portfolio graph."""
+    """Atomically apply one revision-chained IdeaOS corpus delta to CEG."""
 
-    def __init__(self, graph_writer: GraphWriter, *, tenant: str = DOMAIN_ID) -> None:
+    def __init__(self, graph_writer: GraphWriter) -> None:
         self.graph_writer = graph_writer
-        self.tenant = tenant
 
     async def apply(self, envelope: IdeaPortfolioHydrationEnvelope | dict[str, Any]) -> dict[str, Any]:
         plan = compile_hydration_plan(envelope)
-        acquired = await self.graph_writer.execute_write(
-            cypher=_ACQUIRE_HYDRATION_CYPHER,
-            parameters={
-                "state_id": _STATE_ID,
-                "tenant": self.tenant,
-                "graph_revision": plan.graph_revision,
-                "expected_graph_revision": plan.envelope.expected_graph_revision,
-                "source_snapshot_ref": plan.envelope.source_snapshot_ref,
-                "source_snapshot_digest": plan.envelope.source_snapshot_digest,
-                "batch_digest": plan.batch_digest,
-            },
-            database=DOMAIN_ID,
-        )
-        records = _write_records(acquired)
-        if not records:
-            raise IdeaPortfolioHydrationError(
-                "hydration revision conflict or another revision is already in progress"
+
+        async def apply_transaction(tx: Any) -> dict[str, Any]:
+            state_result = await tx.run(
+                _LOCK_STATE_CYPHER,
+                {
+                    "state_id": _STATE_ID,
+                    "tenant": DOMAIN_ID,
+                },
             )
+            state_rows = await state_result.data()
+            current_revision = state_rows[0].get("current_revision") if state_rows else None
 
-        acquisition_status = records[0].get("status")
-        if acquisition_status == "reused":
-            return {
-                "schema": "ceg.idea-portfolio-hydration-receipt/v1",
-                "status": "reused",
-                "graph_revision": plan.graph_revision,
-                "batch_digest": plan.batch_digest,
-                "source_snapshot_ref": plan.envelope.source_snapshot_ref,
-                "source_snapshot_digest": plan.envelope.source_snapshot_digest,
-                "applied": [],
-                "tombstoned": [],
-            }
+            if current_revision == plan.graph_revision:
+                return self._receipt(plan, status="reused", applied=[], tombstoned=[])
 
-        applied: list[str] = []
-        tombstoned: list[str] = []
-        try:
+            if current_revision != plan.envelope.expected_graph_revision:
+                raise IdeaPortfolioHydrationError(
+                    "hydration revision conflict: expected parent does not match committed graph revision"
+                )
+
+            applied: list[str] = []
+            tombstoned: list[str] = []
             for record in plan.envelope.records:
                 if record.operation == "upsert":
-                    assert record.projection is not None
-                    command = compile_upsert_command(
-                        record.projection,
-                        graph_revision=plan.graph_revision,
-                        tenant=self.tenant,
-                    )
-                    await self.graph_writer.execute_write(
-                        cypher=command.cypher,
-                        parameters=command.parameters,
-                        database=DOMAIN_ID,
-                    )
-                    applied.append(record.projection.idea_id)
+                    projection = record.projection
+                    if projection is None:
+                        raise IdeaPortfolioHydrationError("validated upsert record lacks projection")
+                    command = compile_upsert_command(projection, graph_revision=plan.graph_revision)
+                    result = await tx.run(command.cypher, command.parameters)
+                    await result.consume()
+                    applied.append(projection.idea_id)
                 else:
                     command = compile_tombstone_command(
                         record.resolved_idea_id,
                         graph_revision=plan.graph_revision,
-                        tenant=self.tenant,
                     )
-                    await self.graph_writer.execute_write(
-                        cypher=command.cypher,
-                        parameters=command.parameters,
-                        database=DOMAIN_ID,
-                    )
+                    result = await tx.run(command.cypher, command.parameters)
+                    await result.consume()
                     tombstoned.append(record.resolved_idea_id)
-        except Exception as exc:
-            await self.graph_writer.execute_write(
-                cypher=_FAIL_HYDRATION_CYPHER,
-                parameters={
+
+            final_result = await tx.run(
+                _FINALIZE_STATE_CYPHER,
+                {
                     "state_id": _STATE_ID,
+                    "tenant": DOMAIN_ID,
                     "graph_revision": plan.graph_revision,
-                    "error": type(exc).__name__,
+                    "source_snapshot_ref": plan.envelope.source_snapshot_ref,
+                    "source_snapshot_digest": plan.envelope.source_snapshot_digest,
+                    "batch_digest": plan.batch_digest,
                 },
-                database=DOMAIN_ID,
             )
-            raise
+            await final_result.consume()
+            return self._receipt(
+                plan,
+                status="applied",
+                applied=applied,
+                tombstoned=tombstoned,
+            )
 
-        finalized = await self.graph_writer.execute_write(
-            cypher=_FINALIZE_HYDRATION_CYPHER,
-            parameters={"state_id": _STATE_ID, "graph_revision": plan.graph_revision},
-            database=DOMAIN_ID,
-        )
-        if not _write_records(finalized):
-            raise IdeaPortfolioHydrationError("hydration applied but graph revision finalization failed")
+        result = await self.graph_writer.execute_write(apply_transaction, database=DOMAIN_ID)
+        if not isinstance(result, dict):
+            raise IdeaPortfolioHydrationError("graph writer returned an invalid hydration receipt")
+        return result
 
+    @staticmethod
+    def _receipt(
+        plan: HydrationPlan,
+        *,
+        status: Literal["applied", "reused"],
+        applied: list[str],
+        tombstoned: list[str],
+    ) -> dict[str, Any]:
         return {
             "schema": "ceg.idea-portfolio-hydration-receipt/v1",
-            "status": "applied" if acquisition_status == "start" else "resumed",
+            "status": status,
             "graph_revision": plan.graph_revision,
+            "parent_graph_revision": plan.envelope.expected_graph_revision,
             "batch_digest": plan.batch_digest,
             "source_snapshot_ref": plan.envelope.source_snapshot_ref,
             "source_snapshot_digest": plan.envelope.source_snapshot_digest,
             "applied": applied,
             "tombstoned": tombstoned,
         }
-
-
-def _write_records(result: Any) -> list[dict[str, Any]]:
-    if isinstance(result, dict):
-        records = result.get("records", [])
-        return [dict(record) for record in records]
-    return []
 
 
 __all__ = [

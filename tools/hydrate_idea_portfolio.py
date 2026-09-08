@@ -51,7 +51,7 @@ def _dry_run(envelope: IdeaPortfolioHydrationEnvelope) -> dict[str, object]:
     }
 
 
-async def _apply(envelope: IdeaPortfolioHydrationEnvelope, *, tenant: str) -> dict[str, object]:
+async def _apply(envelope: IdeaPortfolioHydrationEnvelope) -> dict[str, object]:
     # Loading through the production loader proves the folder-shaped domain pack
     # is discoverable and validates against the current DomainSpec before writes.
     DomainPackLoader().load_domain(DOMAIN_ID)
@@ -59,8 +59,7 @@ async def _apply(envelope: IdeaPortfolioHydrationEnvelope, *, tenant: str) -> di
     driver = GraphDriver()
     await driver.connect()
     try:
-        hydrator = IdeaPortfolioHydrator(driver, tenant=tenant)
-        return await hydrator.apply(envelope)
+        return await IdeaPortfolioHydrator(driver).apply(envelope)
     finally:
         await driver.close()
 
@@ -69,15 +68,10 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Validate or apply an IdeaOS -> CEG portfolio hydration envelope")
     parser.add_argument("envelope", type=Path, help="Path to ceg.idea-portfolio-hydration/v1 JSON")
     parser.add_argument("--apply", action="store_true", help="Mutate the CEG idea-portfolio graph")
-    parser.add_argument(
-        "--tenant",
-        default=DOMAIN_ID,
-        help="Tenant provenance value stored on graph nodes (default: idea-portfolio)",
-    )
     args = parser.parse_args()
 
     envelope = _load_envelope(args.envelope)
-    result = asyncio.run(_apply(envelope, tenant=args.tenant)) if args.apply else _dry_run(envelope)
+    result = asyncio.run(_apply(envelope)) if args.apply else _dry_run(envelope)
     print(json.dumps(result, indent=2, sort_keys=True))
 
 
