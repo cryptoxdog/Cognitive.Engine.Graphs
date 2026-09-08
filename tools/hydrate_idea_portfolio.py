@@ -16,7 +16,8 @@ import json
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT))
 
 from engine.config.loader import DomainPackLoader
 from engine.graph.driver import GraphDriver
@@ -54,7 +55,7 @@ def _dry_run(envelope: IdeaPortfolioHydrationEnvelope) -> dict[str, object]:
 async def _apply(envelope: IdeaPortfolioHydrationEnvelope) -> dict[str, object]:
     # Loading through the production loader proves the folder-shaped domain pack
     # is discoverable and validates against the current DomainSpec before writes.
-    DomainPackLoader().load_domain(DOMAIN_ID)
+    DomainPackLoader(config_path=str(ROOT / "domains")).load_domain(DOMAIN_ID)
 
     driver = GraphDriver()
     await driver.connect()
