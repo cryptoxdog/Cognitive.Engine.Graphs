@@ -155,6 +155,9 @@ class Settings(BaseSettings):
     # Seam audit / PR remediation: paid-tier enrich_now Gate dispatch is opt-in.
     # Default off so deploy does not immediately spend EIE budget until enabled.
     auto_enrich_via_gate: bool = False
+    # IdeaOS portfolio graph is a new behavioral surface. Keep both corpus writes
+    # and portfolio-context reads dormant until explicitly activated by an operator.
+    idea_portfolio_enabled: bool = False
 
     @model_validator(mode="after")
     def _validate_production_secrets(self) -> "Settings":
